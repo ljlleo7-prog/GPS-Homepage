@@ -2,6 +2,7 @@
   "navbar": {
     "home": "Home",
     "news": "News",
+    "products": "Products",
     "about": "About Us",
     "contact": "Contact",
     "login": "Login",
@@ -104,6 +105,51 @@
       "send": "Send Message",
       "success": "Message sent successfully!",
       "error": "Failed to send message. Please try again."
+    }
+  },
+  "products": {
+    "title": "Hard-Core Mechanisms",
+    "subtitle": "Computerized simulations and boardgames focused on aviation and motorsports. No flashy UI—just pure functionality.",
+    "categories": {
+      "all": "All Mechanisms",
+      "aviation": "Aviation",
+      "motorsports": "Motorsports"
+    },
+    "access": {
+      "open": "Open Access",
+      "authorized": "Authorized Only"
+    },
+    "type": {
+      "simulation": "Simulation",
+      "boardgame": "Boardgame"
+    },
+    "mechanism_title": "Core Mechanism",
+    "no_items": "No products found in this category.",
+    "items": {
+      "flight_sim": {
+        "name": "Commercial Flight Dynamics",
+        "description": "High-fidelity computerized simulation of commercial aircraft aerodynamics and systems.",
+        "mechanism": "6-DOF rigid body physics, real-time fluid dynamics approximation, complex avionic state machines.",
+        "action": "View Simulation"
+      },
+      "race_strategy": {
+        "name": "DeltaDash 3.1 BETA",
+        "description": "Openwheel boardgame with delicate strategy management and memes.",
+        "mechanism": "Sophisticated strategy management, resource luck-press, and expansion compatibility.",
+        "action": "Play DeltaDash"
+      },
+      "telemetry": {
+        "name": "Telemetry Analyzer",
+        "description": "Tool for analyzing racing telemetry data to optimize lap times.",
+        "mechanism": "Data ingestion pipeline, suspension travel analysis, cornering G-force mapping, throttle/brake trace overlay.",
+        "action": "Access Tool"
+      },
+      "atc_sim": {
+        "name": "Terminal Control",
+        "description": "Air Traffic Control simulation for high-density terminal airspace.",
+        "mechanism": "Aircraft separation algorithms, wake turbulence modeling, RNAV approach pathing, conflict detection logic.",
+        "action": "Request Access"
+      }
     }
   }
 }

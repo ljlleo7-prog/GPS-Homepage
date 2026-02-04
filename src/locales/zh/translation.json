@@ -2,6 +2,7 @@
   "navbar": {
     "home": "首页",
     "news": "动态",
+    "products": "产品",
     "about": "关于我们",
     "contact": "联系我们",
     "login": "登录",
@@ -104,6 +105,51 @@
       "send": "发送消息",
       "success": "消息发送成功！",
       "error": "发送失败，请重试。"
+    }
+  },
+  "products": {
+    "title": "硬核机制",
+    "subtitle": "专注于航空和赛车机制的计算机模拟和桌面游戏。没有花哨的UI——只有纯粹的功能。",
+    "categories": {
+      "all": "所有机制",
+      "aviation": "航空",
+      "motorsports": "赛车运动"
+    },
+    "access": {
+      "open": "公开访问",
+      "authorized": "仅限授权"
+    },
+    "type": {
+      "simulation": "计算机模拟",
+      "boardgame": "桌面游戏"
+    },
+    "mechanism_title": "核心机制",
+    "no_items": "该分类下暂无产品。",
+    "items": {
+      "flight_sim": {
+        "name": "商业飞行气动",
+        "description": "商业飞机气动力学和系统的高保真计算机模拟。",
+        "mechanism": "六自由度刚体物理，实时流体动力学近似，复杂的航空电子状态机。",
+        "action": "查看模拟"
+      },
+      "race_strategy": {
+        "name": "DeltaDash 3.1 BETA",
+        "description": "拥有精细策略管理和梗文化的方程式赛车桌面游戏。",
+        "mechanism": "复杂的策略管理，运气博弈，以及扩展兼容性。",
+        "action": "游玩 DeltaDash"
+      },
+      "telemetry": {
+        "name": "遥测分析仪",
+        "description": "用于分析赛车遥测数据以优化圈速的工具。",
+        "mechanism": "数据摄取管道，悬挂行程分析，过弯G力映射，油门/刹车轨迹叠加。",
+        "action": "访问工具"
+      },
+      "atc_sim": {
+        "name": "终端管制",
+        "description": "高密度终端空域的空中交通管制模拟。",
+        "mechanism": "飞机间隔算法，尾流湍流建模，RNAV进近路径，冲突检测逻辑。",
+        "action": "申请访问"
+      }
     }
   }
 }
