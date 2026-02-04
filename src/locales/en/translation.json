@@ -1,0 +1,109 @@
+{
+  "navbar": {
+    "home": "Home",
+    "news": "News",
+    "about": "About Us",
+    "contact": "Contact",
+    "login": "Login",
+    "sign_out": "Sign Out"
+  },
+  "footer": {
+    "tagline": "Student developers building the future. Where passion meets code.",
+    "connect": "Connect",
+    "location": {
+      "remote": "Remote / On Campus",
+      "wifi": "Everywhere there is Wi-Fi"
+    },
+    "copyright": "All rights reserved."
+  },
+  "home": {
+    "hero": {
+      "tagline": "Student developers fueled by coffee, code, and curiosity. Building the future, one commit at a time.",
+      "explore_projects": "See Our Work",
+      "join_community": "Join Our Community"
+    },
+    "services": {
+      "title": "Our Passion",
+      "subtitle": "We are more than just coders. We are creators, learners, and friends exploring the digital frontier.",
+      "items": {
+        "web_projects": "Web Projects",
+        "web_projects_desc": "Building fun, experimental, and useful websites using modern frameworks like React and Vue.",
+        "mobile_experiments": "Mobile Experiments",
+        "mobile_experiments_desc": "Tinkering with native and cross-platform mobile apps to learn and solve real-world problems.",
+        "open_source": "Open Source",
+        "open_source_desc": "Contributing to and maintaining open source projects. We believe in sharing knowledge.",
+        "hackathons": "Hackathons",
+        "hackathons_desc": "Participating in hackathons to challenge ourselves, meet new people, and build cool stuff fast.",
+        "creative_coding": "Creative Coding",
+        "creative_coding_desc": "Exploring the intersection of art and code. Making things that look cool and inspire.",
+        "learning_together": "Learning Together",
+        "learning_together_desc": "Sharing resources, hosting workshops, and growing together as a community of developers."
+      }
+    }
+  },
+  "about": {
+    "story": {
+      "title": "Our Story",
+      "subtitle": "We are a collective of student developers, dreamers, and geeks united by a passion for technology and a drive to learn.",
+      "journey": "Our Journey"
+    },
+    "mission": {
+      "title": "Our Mission",
+      "content": "To explore the possibilities of code without limits. We strive to learn, build, and share our knowledge with the community, creating a space where passion meets practice.",
+      "quote": "Code is our canvas, and we are just getting started. Let's build something awesome together.",
+      "author": "The GPS Team"
+    },
+    "values": {
+      "title": "Core Values",
+      "items": {
+        "curiosity": "Curiosity driven learning",
+        "community": "Community over competition",
+        "opensource": "Open source everything",
+        "failfast": "Fail fast, learn faster"
+      }
+    },
+    "team": {
+      "title": "Meet the Geeks"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "System Access",
+      "subtitle": "Enter credentials to continue",
+      "email_label": "Email",
+      "email_placeholder": "Enter your email",
+      "password_label": "Password",
+      "password_placeholder": "••••••••",
+      "submit": "Authenticate",
+      "new_user": "New to the system?",
+      "register_link": "Initialize ID"
+    },
+    "register": {
+      "title": "Initialize ID",
+      "subtitle": "Create new credentials",
+      "username_label": "Username",
+      "username_placeholder": "Choose username",
+      "email_label": "Email",
+      "email_placeholder": "Enter your email",
+      "password_label": "Password",
+      "password_placeholder": "••••••••",
+      "submit": "Create Account",
+      "existing_user": "Already have an ID?",
+      "login_link": "Access System",
+      "error_username": "Username must be at least 3 characters long"
+    }
+  },
+  "contact": {
+    "title": "Contact Us",
+    "subtitle": "Have a project in mind or just want to say hi?",
+    "form": {
+      "name": "Name",
+      "email": "Email",
+      "subject": "Subject",
+      "message": "Message",
+      "send": "Send Message",
+      "success": "Message sent successfully!",
+      "error": "Failed to send message. Please try again."
+    }
+  }
+}

@@ -1,102 +1,188 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Phone, Mail, Clock } from 'lucide-react';
-import ContactForm from '../components/contact/ContactForm';
+import { MapPin, Phone, Mail, Send, Loader } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useTranslation } from 'react-i18next';
 
 const Contact = () => {
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Hero Section */}
-      <section className="py-20 bg-surface/30">
-        <div className="container mx-auto px-4 text-center">
-          <motion.h1
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-4xl md:text-6xl font-bold mb-6"
-          >
-            Get in <span className="text-primary">Touch</span>
-          </motion.h1>
-          <p className="text-xl text-text-secondary max-w-2xl mx-auto">
-            Have a project in mind? We'd love to hear from you. Let's build something amazing together.
-          </p>
-        </div>
-      </section>
+  const { t } = useTranslation();
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    subject: '',
+    message: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      const { error } = await supabase
+        .from('contact_messages')
+        .insert([formData]);
+
+      if (error) throw error;
+      setStatus('success');
+      setFormData({ name: '', email: '', subject: '', message: '' });
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      setStatus('error');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setStatus('idle'), 5000);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  return (
+    <div className="min-h-screen pt-20 bg-background">
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            {/* Contact Form */}
+          <div className="text-center mb-16">
+            <motion.h1
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-4xl md:text-5xl font-bold mb-6"
+            >
+              {t('contact.title')}
+            </motion.h1>
+            <p className="text-xl text-text-secondary">
+              {t('contact.subtitle')}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
+            {/* Contact Info */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-            >
-              <ContactForm />
-            </motion.div>
-
-            {/* Location Details */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
               className="space-y-8"
             >
-              <div className="bg-surface border border-white/5 rounded-xl p-8">
-                <h3 className="text-2xl font-bold mb-6 font-mono">Contact Info</h3>
-                <div className="space-y-6">
-                  <div className="flex items-start">
-                    <MapPin className="w-6 h-6 text-primary mr-4 mt-1" />
-                    <div>
-                      <h4 className="font-bold text-white mb-1">Visit Us</h4>
-                      <p className="text-text-secondary">
-                        123 Tech Avenue<br />
-                        Silicon Valley, CA 94025<br />
-                        United States
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <Phone className="w-6 h-6 text-primary mr-4 mt-1" />
-                    <div>
-                      <h4 className="font-bold text-white mb-1">Call Us</h4>
-                      <p className="text-text-secondary">+1 (555) 123-4567</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start">
-                    <Mail className="w-6 h-6 text-primary mr-4 mt-1" />
-                    <div>
-                      <h4 className="font-bold text-white mb-1">Email Us</h4>
-                      <p className="text-text-secondary">hello@gps.studio</p>
-                    </div>
-                  </div>
+              <div className="bg-surface p-8 rounded-lg border border-white/5 hover:border-primary/30 transition-colors">
+                <MapPin className="w-8 h-8 text-primary mb-4" />
+                <h3 className="text-xl font-bold mb-2">Visit Us</h3>
+                <p className="text-text-secondary">
+                  123 Tech Avenue<br />
+                  Silicon Valley, CA 94025
+                </p>
+              </div>
 
-                  <div className="flex items-start">
-                    <Clock className="w-6 h-6 text-primary mr-4 mt-1" />
-                    <div>
-                      <h4 className="font-bold text-white mb-1">Business Hours</h4>
-                      <p className="text-text-secondary">
-                        Monday - Friday: 9:00 AM - 6:00 PM<br />
-                        Saturday - Sunday: Closed
-                      </p>
-                    </div>
-                  </div>
+              <div className="bg-surface p-8 rounded-lg border border-white/5 hover:border-primary/30 transition-colors">
+                <Mail className="w-8 h-8 text-secondary mb-4" />
+                <h3 className="text-xl font-bold mb-2">Email Us</h3>
+                <p className="text-text-secondary">hello@gps.studio</p>
+                <p className="text-text-secondary">support@gps.studio</p>
+              </div>
+
+              <div className="bg-surface p-8 rounded-lg border border-white/5 hover:border-primary/30 transition-colors">
+                <Phone className="w-8 h-8 text-primary mb-4" />
+                <h3 className="text-xl font-bold mb-2">Call Us</h3>
+                <p className="text-text-secondary">+1 (555) 123-4567</p>
+                <p className="text-text-secondary">Mon-Fri, 9am-6pm PST</p>
+              </div>
+            </motion.div>
+
+            {/* Contact Form */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-surface p-8 rounded-lg border border-white/5"
+            >
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-text-secondary mb-2">
+                    {t('contact.form.name')}
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    className="w-full bg-background border border-white/10 rounded-md py-3 px-4 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+                  />
                 </div>
-              </div>
 
-              {/* Map Placeholder */}
-              <div className="bg-surface border border-white/5 rounded-xl overflow-hidden h-64 md:h-80 relative group">
-                <iframe 
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3168.628236556408!2d-122.08374688469227!3d37.42199997982517!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x808fba02425dad8f%3A0x6c296c66619367e0!2sGoogleplex!5e0!3m2!1sen!2sus!4v1616616428498!5m2!1sen!2sus" 
-                  width="100%" 
-                  height="100%" 
-                  style={{ border: 0, filter: 'invert(90%) hue-rotate(180deg)' }} 
-                  allowFullScreen={true} 
-                  loading="lazy"
-                  title="Google Maps"
-                ></iframe>
-                <div className="absolute inset-0 bg-primary/10 pointer-events-none group-hover:bg-transparent transition-colors duration-300" />
-              </div>
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-2">
+                    {t('contact.form.email')}
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    className="w-full bg-background border border-white/10 rounded-md py-3 px-4 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="subject" className="block text-sm font-medium text-text-secondary mb-2">
+                    {t('contact.form.subject')}
+                  </label>
+                  <input
+                    type="text"
+                    id="subject"
+                    name="subject"
+                    value={formData.subject}
+                    onChange={handleChange}
+                    required
+                    className="w-full bg-background border border-white/10 rounded-md py-3 px-4 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="message" className="block text-sm font-medium text-text-secondary mb-2">
+                    {t('contact.form.message')}
+                  </label>
+                  <textarea
+                    id="message"
+                    name="message"
+                    value={formData.message}
+                    onChange={handleChange}
+                    required
+                    rows={6}
+                    className="w-full bg-background border border-white/10 rounded-md py-3 px-4 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-primary text-background font-bold py-4 rounded-md hover:bg-primary/90 transition-colors flex items-center justify-center space-x-2"
+                >
+                  {loading ? (
+                    <Loader className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <span>{t('contact.form.send')}</span>
+                      <Send className="w-5 h-5" />
+                    </>
+                  )}
+                </button>
+
+                {status === 'success' && (
+                  <div className="p-4 bg-green-500/10 border border-green-500/50 text-green-500 rounded-md text-center">
+                    {t('contact.form.success')}
+                  </div>
+                )}
+                {status === 'error' && (
+                  <div className="p-4 bg-red-500/10 border border-red-500/50 text-red-500 rounded-md text-center">
+                    {t('contact.form.error')}
+                  </div>
+                )}
+              </form>
             </motion.div>
           </div>
         </div>

@@ -1,0 +1,109 @@
+{
+  "navbar": {
+    "home": "首页",
+    "news": "动态",
+    "about": "关于我们",
+    "contact": "联系我们",
+    "login": "登录",
+    "sign_out": "退出"
+  },
+  "footer": {
+    "tagline": "构建未来的学生开发者。激情与代码交汇之地。",
+    "connect": "联系方式",
+    "location": {
+      "remote": "远程 / 校园",
+      "wifi": "有 Wi-Fi 的任何地方"
+    },
+    "copyright": "版权所有。"
+  },
+  "home": {
+    "hero": {
+      "tagline": "由咖啡、代码和好奇心驱动的学生开发者。一次提交，构建未来。",
+      "explore_projects": "查看作品",
+      "join_community": "加入社区"
+    },
+    "services": {
+      "title": "我们的热情",
+      "subtitle": "我们不仅仅是程序员。我们是探索数字前沿的创造者、学习者和朋友。",
+      "items": {
+        "web_projects": "Web 项目",
+        "web_projects_desc": "使用 React 和 Vue 等现代框架构建有趣、实验性和有用的网站。",
+        "mobile_experiments": "移动端实验",
+        "mobile_experiments_desc": "通过原生和跨平台移动应用来学习并解决现实世界的问题。",
+        "open_source": "开源",
+        "open_source_desc": "贡献和维护开源项目。我们相信知识共享的力量。",
+        "hackathons": "黑客马拉松",
+        "hackathons_desc": "参加黑客马拉松挑战自我，结识新朋友，快速构建酷炫的东西。",
+        "creative_coding": "创意编程",
+        "creative_coding_desc": "探索艺术与代码的交汇点。创造看起来很酷并能激发灵感的东西。",
+        "learning_together": "共同学习",
+        "learning_together_desc": "分享资源，举办研讨会，作为一个开发者社区共同成长。"
+      }
+    }
+  },
+  "about": {
+    "story": {
+      "title": "我们的故事",
+      "subtitle": "我们是一群充满激情的学生开发者、梦想家和极客，因对技术的热爱和学习的动力而聚集在一起。",
+      "journey": "我们的旅程"
+    },
+    "mission": {
+      "title": "我们的使命",
+      "content": "无限探索代码的可能性。我们致力于学习、构建并与社区分享知识，创造一个激情与实践相结合的空间。",
+      "quote": "代码是我们的画布，我们才刚刚开始。让我们一起创造了不起的东西。",
+      "author": "GPS 团队"
+    },
+    "values": {
+      "title": "核心价值观",
+      "items": {
+        "curiosity": "好奇心驱动学习",
+        "community": "社区重于竞争",
+        "opensource": "拥抱开源",
+        "failfast": "快速试错，快速学习"
+      }
+    },
+    "team": {
+      "title": "遇见极客"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "系统访问",
+      "subtitle": "输入凭据以继续",
+      "email_label": "邮箱",
+      "email_placeholder": "输入您的邮箱",
+      "password_label": "密码",
+      "password_placeholder": "••••••••",
+      "submit": "验证",
+      "new_user": "新用户？",
+      "register_link": "初始化 ID"
+    },
+    "register": {
+      "title": "初始化 ID",
+      "subtitle": "创建新凭据",
+      "username_label": "用户名",
+      "username_placeholder": "选择用户名",
+      "email_label": "邮箱",
+      "email_placeholder": "输入您的邮箱",
+      "password_label": "密码",
+      "password_placeholder": "••••••••",
+      "submit": "创建账户",
+      "existing_user": "已有 ID？",
+      "login_link": "访问系统",
+      "error_username": "用户名至少需要 3 个字符"
+    }
+  },
+  "contact": {
+    "title": "联系我们",
+    "subtitle": "有项目想法或只是想打个招呼？",
+    "form": {
+      "name": "姓名",
+      "email": "邮箱",
+      "subject": "主题",
+      "message": "消息",
+      "send": "发送消息",
+      "success": "消息发送成功！",
+      "error": "发送失败，请重试。"
+    }
+  }
+}

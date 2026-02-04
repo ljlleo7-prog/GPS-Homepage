@@ -1,40 +1,43 @@
 import { motion } from 'framer-motion';
 import { Code, Smartphone, Database, Globe, Layers, Cpu } from 'lucide-react';
-
-const services = [
-  {
-    icon: <Code className="w-8 h-8" />,
-    title: 'Web Projects',
-    description: 'Building fun, experimental, and useful websites using modern frameworks like React and Vue.'
-  },
-  {
-    icon: <Smartphone className="w-8 h-8" />,
-    title: 'Mobile Experiments',
-    description: 'Tinkering with native and cross-platform mobile apps to learn and solve real-world problems.'
-  },
-  {
-    icon: <Database className="w-8 h-8" />,
-    title: 'Open Source',
-    description: 'Contributing to and maintaining open source projects. We believe in sharing knowledge.'
-  },
-  {
-    icon: <Globe className="w-8 h-8" />,
-    title: 'Hackathons',
-    description: 'Participating in hackathons to challenge ourselves, meet new people, and build cool stuff fast.'
-  },
-  {
-    icon: <Layers className="w-8 h-8" />,
-    title: 'Creative Coding',
-    description: 'Exploring the intersection of art and code. Making things that look cool and inspire.'
-  },
-  {
-    icon: <Cpu className="w-8 h-8" />,
-    title: 'Learning Together',
-    description: 'Sharing resources, hosting workshops, and growing together as a community of developers.'
-  }
-];
+import { useTranslation } from 'react-i18next';
 
 const Services = () => {
+  const { t } = useTranslation();
+
+  const services = [
+    {
+      icon: <Code className="w-8 h-8" />,
+      title: t('home.services.items.web_projects'),
+      description: t('home.services.items.web_projects_desc')
+    },
+    {
+      icon: <Smartphone className="w-8 h-8" />,
+      title: t('home.services.items.mobile_experiments'),
+      description: t('home.services.items.mobile_experiments_desc')
+    },
+    {
+      icon: <Database className="w-8 h-8" />,
+      title: t('home.services.items.open_source'),
+      description: t('home.services.items.open_source_desc')
+    },
+    {
+      icon: <Globe className="w-8 h-8" />,
+      title: t('home.services.items.hackathons'),
+      description: t('home.services.items.hackathons_desc')
+    },
+    {
+      icon: <Layers className="w-8 h-8" />,
+      title: t('home.services.items.creative_coding'),
+      description: t('home.services.items.creative_coding_desc')
+    },
+    {
+      icon: <Cpu className="w-8 h-8" />,
+      title: t('home.services.items.learning_together'),
+      description: t('home.services.items.learning_together_desc')
+    }
+  ];
+
   return (
     <section className="py-20 bg-surface relative overflow-hidden">
       {/* Background Elements */}
@@ -44,10 +47,10 @@ const Services = () => {
       <div className="container mx-auto px-4 relative z-10">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Our <span className="text-secondary">Passion</span>
+            {t('home.services.title')}
           </h2>
           <p className="text-text-secondary max-w-2xl mx-auto">
-            We are more than just coders. We are creators, learners, and friends exploring the digital frontier.
+            {t('home.services.subtitle')}
           </p>
         </div>
 

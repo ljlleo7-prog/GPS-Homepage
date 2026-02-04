@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, Terminal, User, LogOut } from 'lucide-react';
+import { Menu, X, Terminal, User, LogOut, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 const Navbar = () => {
+  const { t, i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
@@ -16,7 +18,6 @@ const Navbar = () => {
     if (user?.user_metadata?.username) {
       setUsername(user.user_metadata.username);
     } else if (user?.email) {
-      // Fallback to username from email (remove @domain)
       setUsername(user.email.split('@')[0]);
     }
   }, [user]);
@@ -39,11 +40,16 @@ const Navbar = () => {
     navigate('/');
   };
 
+  const toggleLanguage = () => {
+    const newLang = i18n.language === 'en' ? 'zh' : 'en';
+    i18n.changeLanguage(newLang);
+  };
+
   const navLinks = [
-    { name: 'Home', path: '/' },
-    { name: 'News', path: '/news' },
-    { name: 'About Us', path: '/about' },
-    { name: 'Contact', path: '/contact' },
+    { name: t('navbar.home'), path: '/' },
+    { name: t('navbar.news'), path: '/news' },
+    { name: t('navbar.about'), path: '/about' },
+    { name: t('navbar.contact'), path: '/contact' },
   ];
 
   return (
@@ -74,6 +80,15 @@ const Navbar = () => {
               </Link>
             ))}
 
+            <button
+              onClick={toggleLanguage}
+              className="text-text-secondary hover:text-primary transition-colors flex items-center space-x-1"
+              title="Switch Language"
+            >
+              <Globe className="w-5 h-5" />
+              <span className="font-mono text-sm uppercase">{i18n.language}</span>
+            </button>
+
             {user ? (
               <div className="flex items-center space-x-4 pl-8 border-l border-white/10">
                 <div className="flex items-center space-x-2 text-primary">
@@ -83,7 +98,7 @@ const Navbar = () => {
                 <button
                   onClick={handleSignOut}
                   className="text-text-secondary hover:text-red-400 transition-colors"
-                  title="Sign Out"
+                  title={t('navbar.sign_out')}
                 >
                   <LogOut className="w-5 h-5" />
                 </button>
@@ -93,12 +108,19 @@ const Navbar = () => {
                 to="/login"
                 className="px-4 py-2 bg-primary/10 border border-primary text-primary rounded-md font-mono text-sm hover:bg-primary hover:text-background transition-all duration-300"
               >
-                Login
+                {t('navbar.login')}
               </Link>
             )}
           </div>
 
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center space-x-4">
+            <button
+              onClick={toggleLanguage}
+              className="text-text-secondary hover:text-primary transition-colors flex items-center space-x-1"
+            >
+              <Globe className="w-5 h-5" />
+              <span className="font-mono text-sm uppercase">{i18n.language}</span>
+            </button>
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="text-text-primary hover:text-primary transition-colors"
@@ -143,7 +165,7 @@ const Navbar = () => {
                     className="w-full text-left px-3 py-2 text-text-secondary hover:text-red-400 font-mono flex items-center space-x-2"
                   >
                     <LogOut className="w-5 h-5" />
-                    <span>Sign Out</span>
+                    <span>{t('navbar.sign_out')}</span>
                   </button>
                 </>
               ) : (
@@ -151,7 +173,7 @@ const Navbar = () => {
                   to="/login"
                   className="block px-3 py-2 mt-4 text-center bg-primary/10 border border-primary text-primary rounded-md font-mono hover:bg-primary hover:text-background transition-all duration-300"
                 >
-                  Login
+                  {t('navbar.login')}
                 </Link>
               )}
             </div>

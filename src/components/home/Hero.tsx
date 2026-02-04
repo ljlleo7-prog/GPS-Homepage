@@ -1,8 +1,11 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Code, Cpu, Globe } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const Hero = () => {
+  const { t } = useTranslation();
+
   return (
     <section className="relative h-screen flex items-center justify-center overflow-hidden bg-background">
       {/* Animated Background */}
@@ -34,7 +37,7 @@ const Hero = () => {
           </h1>
           
           <p className="text-xl md:text-2xl text-text-secondary mb-10 max-w-2xl mx-auto font-light">
-            Student developers fueled by coffee, code, and curiosity. Building the future, one commit at a time.
+            {t('home.hero.tagline')}
           </p>
           
           <div className="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-6">
@@ -42,13 +45,13 @@ const Hero = () => {
               to="/news"
               className="px-8 py-3 bg-primary/10 border border-primary text-primary rounded-md font-mono hover:bg-primary hover:text-background transition-all duration-300 shadow-[0_0_15px_rgba(0,212,255,0.3)] hover:shadow-[0_0_25px_rgba(0,212,255,0.6)]"
             >
-              See Our Work
+              {t('home.hero.explore_projects')}
             </Link>
             <Link
               to="/contact"
               className="px-8 py-3 bg-secondary/10 border border-secondary text-secondary rounded-md font-mono hover:bg-secondary hover:text-background transition-all duration-300 shadow-[0_0_15px_rgba(57,255,20,0.3)] hover:shadow-[0_0_25px_rgba(57,255,20,0.6)] flex items-center justify-center"
             >
-              Join Our Community <ChevronRight className="ml-2 w-4 h-4" />
+              {t('home.hero.join_community')} <ChevronRight className="ml-2 w-4 h-4" />
             </Link>
           </div>
         </motion.div>

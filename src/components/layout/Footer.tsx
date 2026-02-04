@@ -1,7 +1,10 @@
 import { Terminal, Github, Twitter, Linkedin, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const Footer = () => {
+  const { t } = useTranslation();
+
   return (
     <footer className="bg-surface border-t border-white/5 py-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -14,8 +17,7 @@ const Footer = () => {
               </span>
             </Link>
             <p className="text-text-secondary max-w-sm mb-6">
-              Student developers building the future. 
-              Where passion meets code.
+              {t('footer.tagline')}
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-text-secondary hover:text-primary transition-colors">
@@ -38,39 +40,39 @@ const Footer = () => {
             <ul className="space-y-2">
               <li>
                 <Link to="/" className="text-text-secondary hover:text-primary transition-colors">
-                  Home
+                  {t('navbar.home')}
                 </Link>
               </li>
               <li>
                 <Link to="/news" className="text-text-secondary hover:text-primary transition-colors">
-                  News
+                  {t('navbar.news')}
                 </Link>
               </li>
               <li>
                 <Link to="/about" className="text-text-secondary hover:text-primary transition-colors">
-                  About Us
+                  {t('navbar.about')}
                 </Link>
               </li>
               <li>
                 <Link to="/contact" className="text-text-secondary hover:text-primary transition-colors">
-                  Contact
+                  {t('navbar.contact')}
                 </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h3 className="font-mono text-lg font-semibold text-white mb-4">Connect</h3>
+            <h3 className="font-mono text-lg font-semibold text-white mb-4">{t('footer.connect')}</h3>
             <ul className="space-y-2 text-text-secondary">
-              <li>Remote / On Campus</li>
-              <li>Everywhere there is Wi-Fi</li>
+              <li>{t('footer.location.remote')}</li>
+              <li>{t('footer.location.wifi')}</li>
               <li>hello@geeksproductionstudio.com</li>
             </ul>
           </div>
         </div>
 
         <div className="mt-12 pt-8 border-t border-white/5 text-center text-text-secondary text-sm font-mono">
-          <p>&copy; {new Date().getFullYear()} GeeksProductionStudio. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} GeeksProductionStudio. {t('footer.copyright')}</p>
         </div>
       </div>
     </footer>

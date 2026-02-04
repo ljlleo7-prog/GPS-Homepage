@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
-import { Terminal, Lock, User as UserIcon, Loader } from 'lucide-react';
+import { Terminal, Lock, User as UserIcon, Mail, Loader } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const Register = () => {
+  const { t } = useTranslation();
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,15 +20,12 @@ const Register = () => {
     setError(null);
 
     if (username.length < 3) {
-      setError('Username must be at least 3 characters long');
+      setError(t('auth.register.error_username'));
       setLoading(false);
       return;
     }
 
     try {
-      // Append domain to username to create a pseudo-email
-      const email = `${username}@gps.local`;
-
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -65,8 +65,8 @@ const Register = () => {
               <Terminal className="w-8 h-8 text-secondary" />
             </div>
           </div>
-          <h2 className="text-2xl font-bold font-mono text-white">Initialize ID</h2>
-          <p className="text-text-secondary mt-2">Create new credentials</p>
+          <h2 className="text-2xl font-bold font-mono text-white">{t('auth.register.title')}</h2>
+          <p className="text-text-secondary mt-2">{t('auth.register.subtitle')}</p>
         </div>
 
         {error && (
@@ -78,7 +78,7 @@ const Register = () => {
         <form onSubmit={handleRegister} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2 font-mono">
-              Username
+              {t('auth.register.username_label')}
             </label>
             <div className="relative">
               <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-text-secondary" />
@@ -87,7 +87,7 @@ const Register = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full bg-background border border-white/10 rounded-md py-2 pl-10 pr-4 text-white focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary transition-colors"
-                placeholder="Choose username"
+                placeholder={t('auth.register.username_placeholder')}
                 required
               />
             </div>
@@ -95,7 +95,24 @@ const Register = () => {
 
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2 font-mono">
-              Password
+              {t('auth.register.email_label')}
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-text-secondary" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-background border border-white/10 rounded-md py-2 pl-10 pr-4 text-white focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary transition-colors"
+                placeholder={t('auth.register.email_placeholder')}
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2 font-mono">
+              {t('auth.register.password_label')}
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-text-secondary" />
@@ -104,7 +121,7 @@ const Register = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-background border border-white/10 rounded-md py-2 pl-10 pr-4 text-white focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary transition-colors"
-                placeholder="••••••••"
+                placeholder={t('auth.register.password_placeholder')}
                 required
               />
             </div>
@@ -115,14 +132,14 @@ const Register = () => {
             disabled={loading}
             className="w-full bg-secondary/10 border border-secondary text-secondary rounded-md py-2 font-mono hover:bg-secondary hover:text-background transition-all duration-300 flex items-center justify-center"
           >
-            {loading ? <Loader className="w-5 h-5 animate-spin" /> : 'Create Account'}
+            {loading ? <Loader className="w-5 h-5 animate-spin" /> : t('auth.register.submit')}
           </button>
         </form>
 
         <div className="mt-6 text-center text-sm text-text-secondary">
-          Already have an ID?{' '}
+          {t('auth.register.existing_user')}{' '}
           <Link to="/login" className="text-primary hover:underline">
-            Access System
+            {t('auth.register.login_link')}
           </Link>
         </div>
       </motion.div>

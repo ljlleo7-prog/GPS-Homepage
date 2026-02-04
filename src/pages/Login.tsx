@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
-import { Terminal, Lock, User as UserIcon, Loader } from 'lucide-react';
+import { Terminal, Lock, Mail, Loader } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const Login = () => {
-  const [username, setUsername] = useState('');
+  const { t } = useTranslation();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,9 +19,6 @@ const Login = () => {
     setError(null);
 
     try {
-      // Append domain to username to create a pseudo-email
-      const email = `${username}@gps.local`;
-
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -52,8 +51,8 @@ const Login = () => {
               <Terminal className="w-8 h-8 text-primary" />
             </div>
           </div>
-          <h2 className="text-2xl font-bold font-mono text-white">System Access</h2>
-          <p className="text-text-secondary mt-2">Enter credentials to continue</p>
+          <h2 className="text-2xl font-bold font-mono text-white">{t('auth.login.title')}</h2>
+          <p className="text-text-secondary mt-2">{t('auth.login.subtitle')}</p>
         </div>
 
         {error && (
@@ -65,16 +64,16 @@ const Login = () => {
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2 font-mono">
-              Username
+              {t('auth.login.email_label')}
             </label>
             <div className="relative">
-              <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-text-secondary" />
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-text-secondary" />
               <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-background border border-white/10 rounded-md py-2 pl-10 pr-4 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
-                placeholder="Enter username"
+                placeholder={t('auth.login.email_placeholder')}
                 required
               />
             </div>
@@ -82,7 +81,7 @@ const Login = () => {
 
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2 font-mono">
-              Password
+              {t('auth.login.password_label')}
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-text-secondary" />
@@ -91,7 +90,7 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-background border border-white/10 rounded-md py-2 pl-10 pr-4 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
-                placeholder="••••••••"
+                placeholder={t('auth.login.password_placeholder')}
                 required
               />
             </div>
@@ -102,14 +101,14 @@ const Login = () => {
             disabled={loading}
             className="w-full bg-primary/10 border border-primary text-primary rounded-md py-2 font-mono hover:bg-primary hover:text-background transition-all duration-300 flex items-center justify-center"
           >
-            {loading ? <Loader className="w-5 h-5 animate-spin" /> : 'Authenticate'}
+            {loading ? <Loader className="w-5 h-5 animate-spin" /> : t('auth.login.submit')}
           </button>
         </form>
 
         <div className="mt-6 text-center text-sm text-text-secondary">
-          New to the system?{' '}
+          {t('auth.login.new_user')}{' '}
           <Link to="/register" className="text-secondary hover:underline">
-            Initialize ID
+            {t('auth.login.register_link')}
           </Link>
         </div>
       </motion.div>
