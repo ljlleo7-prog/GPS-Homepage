@@ -4,33 +4,33 @@ import { Code, Smartphone, Database, Globe, Layers, Cpu } from 'lucide-react';
 const services = [
   {
     icon: <Code className="w-8 h-8" />,
-    title: 'Web Development',
-    description: 'Building responsive, high-performance websites using modern frameworks like React and Vue.'
+    title: 'Web Projects',
+    description: 'Building fun, experimental, and useful websites using modern frameworks like React and Vue.'
   },
   {
     icon: <Smartphone className="w-8 h-8" />,
-    title: 'Mobile Apps',
-    description: 'Creating native and cross-platform mobile applications that deliver seamless user experiences.'
+    title: 'Mobile Experiments',
+    description: 'Tinkering with native and cross-platform mobile apps to learn and solve real-world problems.'
   },
   {
     icon: <Database className="w-8 h-8" />,
-    title: 'Backend Systems',
-    description: 'Designing robust, scalable backend architectures and APIs to power your digital products.'
+    title: 'Open Source',
+    description: 'Contributing to and maintaining open source projects. We believe in sharing knowledge.'
   },
   {
     icon: <Globe className="w-8 h-8" />,
-    title: 'Digital Strategy',
-    description: 'Developing comprehensive digital strategies to help your business grow and thrive online.'
+    title: 'Hackathons',
+    description: 'Participating in hackathons to challenge ourselves, meet new people, and build cool stuff fast.'
   },
   {
     icon: <Layers className="w-8 h-8" />,
-    title: 'UI/UX Design',
-    description: 'Crafting intuitive and visually stunning user interfaces that engage and delight users.'
+    title: 'Creative Coding',
+    description: 'Exploring the intersection of art and code. Making things that look cool and inspire.'
   },
   {
     icon: <Cpu className="w-8 h-8" />,
-    title: 'Tech Consulting',
-    description: 'Providing expert advice on technology choices, architecture, and best practices.'
+    title: 'Learning Together',
+    description: 'Sharing resources, hosting workshops, and growing together as a community of developers.'
   }
 ];
 
@@ -44,10 +44,10 @@ const Services = () => {
       <div className="container mx-auto px-4 relative z-10">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Our <span className="text-secondary">Services</span>
+            Our <span className="text-secondary">Passion</span>
           </h2>
           <p className="text-text-secondary max-w-2xl mx-auto">
-            We offer a comprehensive range of digital services to help you build, launch, and scale your products.
+            We are more than just coders. We are creators, learners, and friends exploring the digital frontier.
           </p>
         </div>
 

@@ -14,8 +14,8 @@ const Footer = () => {
               </span>
             </Link>
             <p className="text-text-secondary max-w-sm mb-6">
-              Crafting sophisticated digital experiences for the future. 
-              Where technology meets creativity.
+              Student developers building the future. 
+              Where passion meets code.
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-text-secondary hover:text-primary transition-colors">
@@ -60,12 +60,11 @@ const Footer = () => {
           </div>
 
           <div>
-            <h3 className="font-mono text-lg font-semibold text-white mb-4">Contact</h3>
+            <h3 className="font-mono text-lg font-semibold text-white mb-4">Connect</h3>
             <ul className="space-y-2 text-text-secondary">
-              <li>123 Tech Avenue</li>
-              <li>Silicon Valley, CA 94025</li>
-              <li>+1 (555) 123-4567</li>
-              <li>hello@gps.studio</li>
+              <li>Remote / On Campus</li>
+              <li>Everywhere there is Wi-Fi</li>
+              <li>hello@geeksproductionstudio.com</li>
             </ul>
           </div>
         </div>
