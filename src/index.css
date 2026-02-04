@@ -1,0 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-text-primary font-sans antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-mono;
+  }
+}
+
+@layer utilities {
+  .text-shadow-neon-blue {
+    text-shadow: 0 0 5px #00d4ff, 0 0 10px #00d4ff;
+  }
+  
+  .text-shadow-neon-green {
+    text-shadow: 0 0 5px #39ff14, 0 0 10px #39ff14;
+  }
+}
