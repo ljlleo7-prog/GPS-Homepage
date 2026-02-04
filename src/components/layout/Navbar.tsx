@@ -1,12 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Terminal } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, Terminal, User, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../context/AuthContext';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const [username, setUsername] = useState<string>('');
+
+  useEffect(() => {
+    if (user?.user_metadata?.username) {
+      setUsername(user.user_metadata.username);
+    } else if (user?.email) {
+      // Fallback to username from email (remove @domain)
+      setUsername(user.email.split('@')[0]);
+    }
+  }, [user]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -20,6 +33,11 @@ const Navbar = () => {
   useEffect(() => {
     setIsOpen(false);
   }, [location]);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   const navLinks = [
     { name: 'Home', path: '/' },
@@ -43,7 +61,7 @@ const Navbar = () => {
             </span>
           </Link>
 
-          <div className="hidden md:flex space-x-8">
+          <div className="hidden md:flex items-center space-x-8">
             {navLinks.map((link) => (
               <Link
                 key={link.path}
@@ -55,6 +73,29 @@ const Navbar = () => {
                 {link.name}
               </Link>
             ))}
+
+            {user ? (
+              <div className="flex items-center space-x-4 pl-8 border-l border-white/10">
+                <div className="flex items-center space-x-2 text-primary">
+                  <User className="w-5 h-5" />
+                  <span className="font-mono text-sm">{username}</span>
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  className="text-text-secondary hover:text-red-400 transition-colors"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="px-4 py-2 bg-primary/10 border border-primary text-primary rounded-md font-mono text-sm hover:bg-primary hover:text-background transition-all duration-300"
+              >
+                Login
+              </Link>
+            )}
           </div>
 
           <div className="md:hidden">
@@ -90,6 +131,29 @@ const Navbar = () => {
                   {link.name}
                 </Link>
               ))}
+              
+              {user ? (
+                <>
+                  <div className="px-3 py-2 text-primary font-mono flex items-center space-x-2 border-t border-white/10 mt-2 pt-4">
+                    <User className="w-5 h-5" />
+                    <span>{username}</span>
+                  </div>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full text-left px-3 py-2 text-text-secondary hover:text-red-400 font-mono flex items-center space-x-2"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <span>Sign Out</span>
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  className="block px-3 py-2 mt-4 text-center bg-primary/10 border border-primary text-primary rounded-md font-mono hover:bg-primary hover:text-background transition-all duration-300"
+                >
+                  Login
+                </Link>
+              )}
             </div>
           </motion.div>
         )}
