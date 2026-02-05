@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useEconomy } from '../context/EconomyContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Plus, Award, X, Star, User } from 'lucide-react';
+import { MessageSquare, Plus, Award, X, Star, User, Heart, MessageCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface ForumPost {
@@ -17,6 +17,22 @@ interface ForumPost {
   profiles: {
     username: string;
     avatar_url: string | null;
+    developer_status: string;
+  };
+  likes_count: number;
+  comments_count: number;
+  user_has_liked: boolean;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+  profiles: {
+    username: string;
+    avatar_url: string | null;
+    developer_status: string;
   };
 }
 
@@ -36,12 +52,19 @@ const Forum = () => {
 
   // Reward State
   const [selectedPost, setSelectedPost] = useState<ForumPost | null>(null);
-  const [rewardAmount, setRewardAmount] = useState('');
+  const [rewardAmount, setRewardAmount] = useState('10');
   const [rewarding, setRewarding] = useState(false);
+
+  // Comments State
+  const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   useEffect(() => {
     fetchPosts();
-  }, []);
+  }, [user]);
 
   const fetchPosts = async () => {
     setLoading(true);
@@ -50,17 +73,101 @@ const Forum = () => {
         .from('forum_posts')
         .select(`
           *,
-          profiles (username, avatar_url)
+          profiles (username, avatar_url, developer_status),
+          forum_likes (user_id),
+          forum_comments (id)
         `)
-        .order('is_featured', { ascending: false }) // Featured first
+        .order('is_featured', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPosts(data || []);
+
+      const formattedPosts = data?.map((post: any) => ({
+        ...post,
+        likes_count: post.forum_likes?.length || 0,
+        comments_count: post.forum_comments?.length || 0,
+        user_has_liked: user ? post.forum_likes?.some((like: any) => like.user_id === user.id) : false
+      })) || [];
+
+      setPosts(formattedPosts);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchComments = async (postId: string) => {
+    setLoadingComments(true);
+    try {
+      const { data, error } = await supabase
+        .from('forum_comments')
+        .select(`
+          *,
+          profiles (username, avatar_url, developer_status)
+        `)
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+      
+      if (error) throw error;
+      setComments(data || []);
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const handleToggleLike = async (post: ForumPost) => {
+    if (!user) return;
+    
+    // Optimistic update
+    const isLiked = post.user_has_liked;
+    setPosts(posts.map(p => p.id === post.id ? {
+      ...p,
+      user_has_liked: !isLiked,
+      likes_count: isLiked ? p.likes_count - 1 : p.likes_count + 1
+    } : p));
+
+    try {
+      if (isLiked) {
+        await supabase.from('forum_likes').delete().eq('post_id', post.id).eq('user_id', user.id);
+      } else {
+        await supabase.from('forum_likes').insert({ post_id: post.id, user_id: user.id });
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      fetchPosts(); // Revert on error
+    }
+  };
+
+  const handleExpandComments = (postId: string) => {
+    if (expandedPostId === postId) {
+      setExpandedPostId(null);
+    } else {
+      setExpandedPostId(postId);
+      fetchComments(postId);
+    }
+  };
+
+  const handleSubmitComment = async (postId: string) => {
+    if (!user || !newComment.trim()) return;
+    setSubmittingComment(true);
+    try {
+      const { error } = await supabase.from('forum_comments').insert({
+        post_id: postId,
+        user_id: user.id,
+        content: newComment
+      });
+      if (error) throw error;
+      setNewComment('');
+      fetchComments(postId);
+      // Update comment count locally
+      setPosts(posts.map(p => p.id === postId ? { ...p, comments_count: p.comments_count + 1 } : p));
+    } catch (error) {
+      console.error('Error commenting:', error);
+    } finally {
+      setSubmittingComment(false);
     }
   };
 
@@ -100,22 +207,22 @@ const Forum = () => {
     
     setRewarding(true);
     try {
-      const { data, error } = await supabase.rpc('reward_forum_post', {
+      const { data, error } = await supabase.rpc('acknowledge_forum_post', {
         p_post_id: selectedPost.id,
         p_amount: parseFloat(rewardAmount)
       });
 
       if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
 
-      alert('Post rewarded successfully!');
+      alert('Post acknowledged successfully!');
       setSelectedPost(null);
-      setRewardAmount('');
+      setRewardAmount('10');
       fetchPosts();
-      refreshEconomy(); // Update local wallet/ledger if needed (though rewarding comes from system, this might not change admin's wallet unless admin is paying, but the RPC mints tokens. Actually RPC transfers from... wait, my RPC minted tokens or transferred? 
-      // My RPC: UPDATE wallets SET token_balance = token_balance + amount. It mints. It doesn't deduct from admin.
-    } catch (error) {
+      refreshEconomy(); 
+    } catch (error: any) {
       console.error('Error rewarding post:', error);
-      alert('Failed to reward post');
+      alert('Failed to reward post: ' + (error.message || 'Unknown error'));
     } finally {
       setRewarding(false);
     }
@@ -179,7 +286,7 @@ const Forum = () => {
                     <div className="flex items-center text-sm text-text-secondary space-x-4">
                       <div className="flex items-center">
                         <User className="w-4 h-4 mr-1" />
-                        <span>{post.profiles?.username || 'Unknown'}</span>
+                        <span className={post.profiles?.developer_status === 'APPROVED' ? 'text-cyan-400' : ''}>{post.profiles?.username || 'Unknown'}</span>
                       </div>
                       <span>{new Date(post.created_at).toLocaleDateString()}</span>
                     </div>
@@ -195,18 +302,107 @@ const Forum = () => {
 
                 <p className="text-text-secondary mb-6 whitespace-pre-wrap">{post.content}</p>
 
-                {/* Admin Actions */}
-                {developerStatus === 'APPROVED' && (
-                  <div className="flex justify-end pt-4 border-t border-white/5">
+                {/* Actions Bar */}
+                <div className="flex items-center space-x-6 border-t border-white/5 pt-4">
+                  <button
+                    onClick={() => handleToggleLike(post)}
+                    className={`flex items-center space-x-2 transition-colors ${
+                      post.user_has_liked ? 'text-red-500' : 'text-text-secondary hover:text-red-500'
+                    }`}
+                  >
+                    <Heart className={`w-5 h-5 ${post.user_has_liked ? 'fill-current' : ''}`} />
+                    <span className="font-mono text-sm">{post.likes_count}</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleExpandComments(post.id)}
+                    className="flex items-center space-x-2 text-text-secondary hover:text-primary transition-colors"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    <span className="font-mono text-sm">{post.comments_count} Comments</span>
+                  </button>
+
+                  {/* Admin Actions */}
+                  {developerStatus === 'APPROVED' && (
                     <button
                       onClick={() => setSelectedPost(post)}
-                      className="text-sm font-mono text-primary hover:text-secondary transition-colors flex items-center"
+                      className="text-sm font-mono text-cyan-400 hover:text-cyan-300 transition-colors flex items-center ml-auto"
                     >
                       <Award className="w-4 h-4 mr-1" />
-                      {t('forum.reward_action')}
+                      Acknowledge
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
+
+                {/* Comments Section */}
+                <AnimatePresence>
+                  {expandedPostId === post.id && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-4 pt-4 border-t border-white/5 bg-black/20 -mx-6 px-6 pb-4">
+                        <h4 className="font-mono text-sm text-text-secondary mb-4">Comments</h4>
+                        
+                        {loadingComments ? (
+                          <div className="text-center py-4">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto"></div>
+                          </div>
+                        ) : comments.length === 0 ? (
+                          <p className="text-sm text-text-secondary italic mb-4">No comments yet.</p>
+                        ) : (
+                          <div className="space-y-4 mb-6">
+                            {comments.map((comment) => (
+                              <div key={comment.id} className="flex space-x-3">
+                                <div className="flex-shrink-0">
+                                  <div className="w-8 h-8 rounded-full bg-surface border border-white/10 flex items-center justify-center">
+                                    <span className="font-mono text-xs text-primary">{comment.profiles?.username?.[0] || '?'}</span>
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className={`font-bold text-sm ${comment.profiles?.developer_status === 'APPROVED' ? 'text-cyan-400' : 'text-white'}`}>
+                                      {comment.profiles?.username || 'Unknown'}
+                                    </span>
+                                    <span className="text-xs text-text-secondary">
+                                      {new Date(comment.created_at).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-text-secondary mt-1">{comment.content}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Add Comment */}
+                        {user ? (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={newComment}
+                              onChange={(e) => setNewComment(e.target.value)}
+                              placeholder="Write a comment..."
+                              className="flex-1 bg-surface border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-primary transition-colors"
+                              onKeyDown={(e) => e.key === 'Enter' && handleSubmitComment(post.id)}
+                            />
+                            <button
+                              onClick={() => handleSubmitComment(post.id)}
+                              disabled={submittingComment || !newComment.trim()}
+                              className="bg-primary/20 text-primary hover:bg-primary hover:text-white px-3 py-2 rounded transition-colors disabled:opacity-50"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-text-secondary text-center">Log in to comment</p>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             ))
           )}
@@ -293,14 +489,30 @@ const Forum = () => {
                 </p>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-mono text-text-secondary mb-2">{t('forum.reward_amount')}</label>
-                  <input
-                    type="number"
-                    value={rewardAmount}
-                    onChange={(e) => setRewardAmount(e.target.value)}
-                    className="w-full bg-background border border-white/10 rounded px-4 py-2 text-white focus:outline-none focus:border-secondary transition-colors"
-                    placeholder="100"
-                  />
+                  <label className="block text-sm font-mono text-text-secondary mb-2">Reward Amount (Tokens)</label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="1"
+                      max="1000"
+                      step="1"
+                      value={rewardAmount}
+                      onChange={(e) => setRewardAmount(e.target.value)}
+                      className="flex-1 h-2 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      max="1000"
+                      value={rewardAmount}
+                      onChange={(e) => setRewardAmount(e.target.value)}
+                      className="w-20 bg-background border border-white/10 rounded px-2 py-1 text-white text-center focus:outline-none focus:border-secondary transition-colors"
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-text-secondary mt-2 font-mono">
+                    <span>1 Token</span>
+                    <span>1000 Tokens</span>
+                  </div>
                 </div>
 
                 <div className="flex justify-end space-x-4">

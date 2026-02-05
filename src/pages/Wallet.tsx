@@ -1,14 +1,41 @@
 import { useEconomy } from '../context/EconomyContext';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Gift, Lock, Shield, UserCheck, Activity, Star } from 'lucide-react';
-import { useState } from 'react';
+import { Gift, Lock, Shield, UserCheck, Activity, Star, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 const Wallet = () => {
-  const { wallet, ledger, loading, developerStatus, claimDailyBonus, requestDeveloperAccess } = useEconomy();
+  const { wallet, ledger, loading, developerStatus, claimDailyBonus, requestDeveloperAccess, approveDeveloperAccess } = useEconomy();
   const { t } = useTranslation();
   const [claiming, setClaiming] = useState(false);
   const [requesting, setRequesting] = useState(false);
+  const [pendingDevs, setPendingDevs] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (developerStatus === 'APPROVED') {
+      fetchPendingDevs();
+    }
+  }, [developerStatus]);
+
+  const fetchPendingDevs = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('developer_status', 'PENDING');
+    if (data) setPendingDevs(data);
+  };
+
+  const handleApprove = async (userId: string) => {
+    if (!confirm('Approve this user as developer?')) return;
+    const result = await approveDeveloperAccess(userId);
+    if (result.success) {
+      alert('User approved successfully');
+      fetchPendingDevs();
+    } else {
+      alert(result.message || 'Failed to approve');
+    }
+  };
 
   if (loading) {
     return (
@@ -202,6 +229,44 @@ const Wallet = () => {
             </div>
           </div>
         </motion.div>
+
+        {/* Admin Section for Developers */}
+        {developerStatus === 'APPROVED' && pendingDevs.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-12 bg-surface border border-cyan-500/30 rounded-lg p-6"
+          >
+            <h3 className="text-lg font-bold text-cyan-400 mb-4 flex items-center gap-2">
+              <Shield size={20} />
+              Admin: Pending Developer Requests
+            </h3>
+            <div className="space-y-3">
+              {pendingDevs.map((dev) => (
+                <div key={dev.id} className="flex items-center justify-between p-4 bg-white/5 rounded border border-white/10">
+                  <div>
+                    <div className="font-bold text-white flex items-center gap-2">
+                      {dev.username || 'Unknown User'}
+                      <span className="text-xs text-text-secondary font-mono bg-white/10 px-2 py-0.5 rounded">
+                        {dev.id.slice(0, 8)}...
+                      </span>
+                    </div>
+                    <div className="text-xs text-text-secondary mt-1">
+                      Full Name: {dev.full_name || 'N/A'}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleApprove(dev.id)}
+                    className="flex items-center gap-2 bg-green-500/20 text-green-400 border border-green-500/50 px-4 py-2 rounded hover:bg-green-500 hover:text-white transition-all font-mono text-sm"
+                  >
+                    <CheckCircle size={16} />
+                    Approve
+                  </button>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* Ledger History */}
         <motion.div

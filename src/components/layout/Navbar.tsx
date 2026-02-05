@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Terminal, User, LogOut, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { useEconomy } from '../../context/EconomyContext';
 import { useTranslation } from 'react-i18next';
 
 const Navbar = () => {
@@ -12,6 +13,7 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { developerStatus } = useEconomy();
   const [username, setUsername] = useState<string>('');
 
   useEffect(() => {
@@ -97,7 +99,7 @@ const Navbar = () => {
               <div className="flex items-center space-x-4 pl-8 border-l border-white/10">
                 <Link to="/wallet" className="flex items-center space-x-2 text-primary hover:text-secondary transition-colors">
                   <User className="w-5 h-5" />
-                  <span className="font-mono text-sm">{username}</span>
+                  <span className={`font-mono text-sm ${developerStatus === 'APPROVED' ? 'text-cyan-400' : ''}`}>{username}</span>
                 </Link>
                 <button
                   onClick={handleSignOut}
@@ -160,7 +162,7 @@ const Navbar = () => {
               
               {user ? (
                 <>
-                  <div className="px-3 py-2 text-primary font-mono flex items-center space-x-2 border-t border-white/10 mt-2 pt-4">
+                  <div className={`px-3 py-2 font-mono flex items-center space-x-2 border-t border-white/10 mt-2 pt-4 ${developerStatus === 'APPROVED' ? 'text-cyan-400' : 'text-primary'}`}>
                     <User className="w-5 h-5" />
                     <span>{username}</span>
                   </div>

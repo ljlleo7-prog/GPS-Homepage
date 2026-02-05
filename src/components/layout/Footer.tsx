@@ -72,7 +72,9 @@ const Footer = () => {
         </div>
 
         <div className="mt-12 pt-8 border-t border-white/5 text-center text-text-secondary text-sm font-mono">
-          <p className="mb-2 text-xs opacity-70">{t('footer.disclaimer')}</p>
+          <div className="mb-4 p-4 border border-yellow-500/30 bg-yellow-500/10 rounded text-yellow-200/90 text-sm font-bold">
+             {t('footer.disclaimer')}
+          </div>
           <p>&copy; {new Date().getFullYear()} GeeksProductionStudio. {t('footer.copyright')}</p>
         </div>
       </div>

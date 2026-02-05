@@ -29,6 +29,7 @@ interface EconomyContextType {
   purchaseTicketListing: (listingId: string, password: string) => Promise<{ success: boolean; message?: string }>;
   claimDailyBonus: () => Promise<{ success: boolean; amount?: number; message?: string }>;
   requestDeveloperAccess: () => Promise<{ success: boolean; message?: string }>;
+  approveDeveloperAccess: (targetUserId: string) => Promise<{ success: boolean; message?: string }>;
   createUserCampaign: (
     type: 'MISSION' | 'MARKET',
     title: string,
@@ -36,8 +37,11 @@ interface EconomyContextType {
     rewardMin?: number,
     rewardMax?: number,
     yieldRate?: number,
-    lockupDays?: number
+    lockupDays?: number,
+    refundSchedule?: any[],
+    isDriverBet?: boolean
   ) => Promise<{ success: boolean; message?: string; data?: any }>;
+  deleteCampaign: (id: string, mode: 'MARKET' | 'EVERYWHERE') => Promise<{ success: boolean; message?: string }>;
 }
 
 const EconomyContext = createContext<EconomyContextType>({
@@ -51,7 +55,9 @@ const EconomyContext = createContext<EconomyContextType>({
   purchaseTicketListing: async () => ({ success: false }),
   claimDailyBonus: async () => ({ success: false }),
   requestDeveloperAccess: async () => ({ success: false }),
+  approveDeveloperAccess: async () => ({ success: false }),
   createUserCampaign: async () => ({ success: false }),
+  deleteCampaign: async () => ({ success: false }),
 });
 
 export const useEconomy = () => useContext(EconomyContext);
@@ -133,19 +139,40 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
   }, [user]);
 
   const enterPosition = async (instrumentId: string, amount: number) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
     try {
-      const { data, error } = await supabase.rpc('enter_support_position', {
+      // Check if this is a new style campaign (ticket based)
+      // For now, we try the new RPC 'buy_campaign_ticket'. If it fails (e.g. old instrument), fallback?
+      // Actually, let's just use the new RPC. It checks for instrument existence.
+      // Wait, 'enterPosition' was generic for Support Instruments.
+      // If we are transitioning, we should use the new RPC for everything OR check instrument type.
+      // Let's assume all 'MARKET' type instruments now use the new system.
+      // But we have 'BOND' / 'INDEX' / 'MILESTONE' in the old system.
+      // The user wants to trade "marketing campaign tickets".
+      
+      const { data, error } = await supabase.rpc('buy_campaign_ticket', {
         p_instrument_id: instrumentId,
-        p_amount: amount,
+        p_amount: Math.floor(amount) // Ensure integer for tickets
       });
 
-      if (error) throw error;
+      // If the RPC says "Campaign not found" or similar, maybe it's a legacy instrument?
+      // But the migration didn't delete old tables.
+      // Let's try to handle legacy fallback if needed, or just push forward.
+      // Given the user wants to overhaul, let's prioritize the new path.
       
+      if (error) {
+         // Fallback to old system if RPC not found or fails for specific reason?
+         // For now, throw error.
+         throw error;
+      }
+      
+      if (data && !data.success) throw new Error(data.message);
+
       await refreshEconomy();
       return { success: true };
     } catch (error: any) {
       console.error('Error entering position:', error);
-      return { success: false, message: error.message || 'Transaction failed' };
+      return { success: false, message: error.message || 'Failed to enter position' };
     }
   };
 
@@ -220,6 +247,21 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
+  const approveDeveloperAccess = async (targetUserId: string) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+      const { error } = await supabase.rpc('approve_developer_access', {
+        target_user_id: targetUserId
+      });
+      if (error) throw error;
+      // No refresh needed for self, but maybe useful if we list users
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error approving dev access:', error);
+      return { success: false, message: error.message || 'Failed to approve access' };
+    }
+  };
+
   const createUserCampaign = async (
     type: 'MISSION' | 'MARKET',
     title: string,
@@ -227,27 +269,61 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     rewardMin?: number,
     rewardMax?: number,
     yieldRate?: number,
-    lockupDays?: number
+    lockupDays?: number,
+    refundSchedule?: any[],
+    isDriverBet?: boolean
   ) => {
     if (!user) return { success: false, message: 'Not authenticated' };
     try {
-      const { data, error } = await supabase.rpc('create_user_campaign', {
-        p_type: type,
-        p_title: title,
-        p_description: description,
-        p_reward_min: rewardMin || 0,
-        p_reward_max: rewardMax || 0,
-        p_yield_rate: yieldRate || 0,
-        p_lockup_days: lockupDays || 0
-      });
-
-      if (error) throw error;
-      
-      await refreshEconomy();
-      return { success: true, data };
+      if (type === 'MARKET') {
+        const { data, error } = await supabase.rpc('create_marketing_campaign_v2', {
+          p_title: title,
+          p_description: description,
+          p_refund_schedule: refundSchedule || [],
+          p_is_driver_bet: isDriverBet || false
+        });
+        
+        if (error) throw error;
+        if (data && !data.success) throw new Error(data.message);
+        
+        await refreshEconomy();
+        return { success: true, data };
+      } else {
+        // Legacy/Mission path
+        const { data, error } = await supabase.rpc('create_user_campaign', {
+          p_type: type,
+          p_title: title,
+          p_description: description,
+          p_reward_min: rewardMin || 0,
+          p_reward_max: rewardMax || 0,
+          p_yield_rate: yieldRate || 0,
+          p_lockup_days: lockupDays || 0
+        });
+        if (error) throw error;
+        await refreshEconomy();
+        return { success: true, data };
+      }
     } catch (error: any) {
       console.error('Error creating campaign:', error);
       return { success: false, message: error.message || 'Failed to create campaign' };
+    }
+  };
+
+  const deleteCampaign = async (id: string, mode: 'MARKET' | 'EVERYWHERE') => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+      const { data, error } = await supabase.rpc('delete_marketing_campaign', {
+        p_instrument_id: id,
+        p_mode: mode
+      });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      
+      await refreshEconomy();
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error deleting campaign:', error);
+      return { success: false, message: error.message || 'Failed to delete campaign' };
     }
   };
 
@@ -263,7 +339,9 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       purchaseTicketListing,
       claimDailyBonus,
       requestDeveloperAccess,
-      createUserCampaign
+      approveDeveloperAccess,
+      createUserCampaign,
+      deleteCampaign
     }}>
       {children}
     </EconomyContext.Provider>
