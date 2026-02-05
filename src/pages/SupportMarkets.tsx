@@ -23,6 +23,7 @@ const SupportMarkets = () => {
   const { user } = useAuth();
   const { wallet, enterPosition, createUserCampaign } = useEconomy();
   const [instruments, setInstruments] = useState<Instrument[]>([]);
+  const [userPositions, setUserPositions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState<{[key: string]: string}>({});
   const [activeView, setActiveView] = useState<'instruments' | 'tickets'>('instruments');
@@ -37,7 +38,20 @@ const SupportMarkets = () => {
 
   useEffect(() => {
     fetchInstruments();
-  }, []);
+    if (user) fetchPositions();
+  }, [user]);
+
+  const fetchPositions = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('support_positions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'ACTIVE');
+    
+    if (error) console.error('Error fetching positions:', error);
+    else setUserPositions(data || []);
+  };
 
   const fetchInstruments = async () => {
     const { data, error } = await supabase
@@ -64,6 +78,7 @@ const SupportMarkets = () => {
     if (result.success) {
       alert('Support position entered successfully!');
       setAmount({...amount, [instrumentId]: ''});
+      fetchPositions(); // Refresh positions
     } else {
       alert('Failed: ' + result.message);
     }
@@ -164,8 +179,23 @@ const SupportMarkets = () => {
 
         {activeView === 'instruments' ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {instruments.map((instrument) => (
-              <motion.div key={instrument.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-surface border border-white/10 rounded-lg p-6 flex flex-col">
+            {instruments.map((instrument) => {
+              const userPosition = userPositions.find(p => p.instrument_id === instrument.id);
+              const isInvested = !!userPosition;
+              
+              return (
+              <motion.div 
+                key={instrument.id} 
+                initial={{ opacity: 0, y: 20 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                className={`bg-surface border rounded-lg p-6 flex flex-col relative overflow-hidden ${isInvested ? 'border-primary shadow-[0_0_15px_rgba(59,130,246,0.3)]' : 'border-white/10'}`}
+              >
+                {isInvested && (
+                  <div className="absolute top-0 right-0 bg-primary text-background text-xs font-bold px-3 py-1 rounded-bl-lg z-10">
+                    INVESTED
+                  </div>
+                )}
+                
                 <div className="flex justify-between items-start mb-4">
                   <h3 className="text-lg font-bold text-white font-mono">{instrument.title}</h3>
                   <span className={`text-xs px-2 py-1 rounded font-mono border ${getRiskColor(instrument.risk_level)}`}>
@@ -185,6 +215,13 @@ const SupportMarkets = () => {
                   </div>
                 </div>
 
+                {isInvested && (
+                  <div className="mb-4 bg-primary/10 border border-primary/30 rounded p-3">
+                    <div className="text-primary text-xs mb-1">Your Position</div>
+                    <div className="text-white font-mono font-bold">{userPosition.amount_invested} Tokens</div>
+                  </div>
+                )}
+
                 <div className="flex space-x-2">
                   <input
                     type="number"
@@ -201,7 +238,7 @@ const SupportMarkets = () => {
                   </button>
                 </div>
               </motion.div>
-            ))}
+            )})}
           </div>
         ) : (
           <TicketMarket />

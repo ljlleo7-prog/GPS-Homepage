@@ -74,11 +74,26 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
 
     try {
       // Fetch Wallet
-      const { data: walletData, error: walletError } = await supabase
+      let { data: walletData, error: walletError } = await supabase
         .from('wallets')
         .select('*')
         .eq('user_id', user.id)
         .single();
+
+      // If wallet doesn't exist, try to create it
+      if (walletError && walletError.code === 'PGRST116') {
+        const { error: createError } = await supabase.rpc('ensure_wallet_exists');
+        if (!createError) {
+          // Retry fetch
+          const retry = await supabase
+            .from('wallets')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+          walletData = retry.data;
+          walletError = retry.error;
+        }
+      }
 
       if (walletError) throw walletError;
       setWallet(walletData);
