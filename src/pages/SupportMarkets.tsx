@@ -25,12 +25,20 @@ interface Instrument {
   refund_schedule?: RefundItem[];
   is_driver_bet?: boolean;
   deletion_status?: 'NONE' | 'DELISTED_MARKET' | 'DELETED_EVERYWHERE';
+  side_a_name?: string;
+  side_b_name?: string;
+  ticket_price?: number;
+  ticket_limit?: number;
+  official_end_date?: string;
+  open_date?: string;
+  winning_side?: 'A' | 'B';
+  resolution_status?: string;
 }
 
 const SupportMarkets = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { wallet, enterPosition, createUserCampaign, deleteCampaign } = useEconomy();
+  const { wallet, enterPosition, createUserCampaign, createDriverBet, buyDriverBetTicket, resolveDriverBet, deleteCampaign } = useEconomy();
   const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [userPositions, setUserPositions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,9 +50,20 @@ const SupportMarkets = () => {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [isDriverBet, setIsDriverBet] = useState(false);
+  
+  // Standard Campaign State
   const [refundSchedule, setRefundSchedule] = useState<RefundItem[]>([]);
   const [tempRefundDate, setTempRefundDate] = useState('');
   const [tempRefundAmount, setTempRefundAmount] = useState('');
+
+  // Driver Bet State
+  const [sideA, setSideA] = useState('');
+  const [sideB, setSideB] = useState('');
+  const [ticketPrice, setTicketPrice] = useState('');
+  const [ticketLimit, setTicketLimit] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [openDate, setOpenDate] = useState('');
+
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -129,32 +148,90 @@ const SupportMarkets = () => {
 
   const handleCreateCampaign = async () => {
     if (!newTitle || !newDesc) return;
-    if (refundSchedule.length === 0) {
-        alert("Please add at least one refund schedule item.");
-        return;
-    }
+    
     setCreating(true);
-    const result = await createUserCampaign(
-      'MARKET',
-      newTitle,
-      newDesc,
-      0, 0, 0, 0, // Legacy params
-      refundSchedule,
-      isDriverBet
-    );
 
-    if (result.success) {
-      alert('Campaign created!');
-      setShowCreateModal(false);
-      setNewTitle('');
-      setNewDesc('');
-      setIsDriverBet(false);
-      setRefundSchedule([]);
-      fetchInstruments();
+    if (isDriverBet) {
+        if (!sideA || !sideB || !ticketPrice || !ticketLimit || !endDate || !openDate) {
+            alert("Please fill in all Driver Bet fields.");
+            setCreating(false);
+            return;
+        }
+
+        const result = await createDriverBet(
+            newTitle,
+            newDesc,
+            sideA,
+            sideB,
+            parseFloat(ticketPrice),
+            parseInt(ticketLimit),
+            new Date(endDate).toISOString(),
+            new Date(openDate).toISOString()
+        );
+
+        if (result.success) {
+            alert('Driver Bet created!');
+            setShowCreateModal(false);
+            setNewTitle(''); setNewDesc(''); setIsDriverBet(false);
+            setSideA(''); setSideB(''); setTicketPrice(''); setTicketLimit(''); setEndDate(''); setOpenDate('');
+            fetchInstruments();
+        } else {
+            alert(result.message);
+        }
     } else {
-      alert(result.message);
+        if (refundSchedule.length === 0) {
+            alert("Please add at least one refund schedule item.");
+            setCreating(false);
+            return;
+        }
+        const result = await createUserCampaign(
+          'MARKET',
+          newTitle,
+          newDesc,
+          0, 0, 0, 0, // Legacy params
+          refundSchedule,
+          false
+        );
+
+        if (result.success) {
+          alert('Campaign created!');
+          setShowCreateModal(false);
+          setNewTitle('');
+          setNewDesc('');
+          setIsDriverBet(false);
+          setRefundSchedule([]);
+          fetchInstruments();
+        } else {
+          alert(result.message);
+        }
     }
     setCreating(false);
+  };
+
+  const handleResolve = async (instrumentId: string, side: 'A' | 'B') => {
+      if (!confirm(`Are you sure you want to declare Side ${side} as the winner? This will execute payouts and cannot be undone.`)) return;
+      const result = await resolveDriverBet(instrumentId, side);
+      if (result.success) {
+          alert('Bet resolved successfully!');
+          fetchInstruments();
+      } else {
+          alert('Resolution failed: ' + result.message);
+      }
+  };
+
+  const handleBuyDriverBet = async (instrument: Instrument, side: 'A' | 'B', qty: number) => {
+      if (!qty || qty <= 0 || !Number.isInteger(qty)) {
+          alert('Please enter a valid integer quantity');
+          return;
+      }
+      const result = await buyDriverBetTicket(instrument.id, side, qty);
+      if (result.success) {
+          alert(`Bought ${qty} tickets for Side ${side}!`);
+          setAmount({...amount, [`${instrument.id}_${side}`]: ''});
+          fetchPositions();
+      } else {
+          alert('Purchase failed: ' + result.message);
+      }
   };
 
   const handleDelete = async (id: string, mode: 'MARKET' | 'EVERYWHERE') => {
@@ -265,49 +342,134 @@ const SupportMarkets = () => {
                 
                 <div className="flex justify-between items-start mb-4">
                   <h3 className="text-lg font-bold text-white font-mono">{instrument.title}</h3>
-                  <span className={`text-xs px-2 py-1 rounded font-mono border ${getRiskColor(instrument.risk_level)}`}>
-                    {instrument.risk_level} RISK
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={`text-xs px-2 py-1 rounded font-mono border ${getRiskColor(instrument.risk_level)}`}>
+                        {instrument.risk_level} RISK
+                    </span>
+                    {instrument.is_driver_bet && <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">DRIVER BET</span>}
+                  </div>
                 </div>
                 <p className="text-text-secondary text-sm mb-6 flex-grow">{instrument.description}</p>
                 
-                {/* Refund Schedule Display */}
-                {instrument.refund_schedule && instrument.refund_schedule.length > 0 ? (
-                    <div className="mb-4 bg-background/50 p-3 rounded">
-                        <div className="text-text-secondary text-xs mb-2">Refund Schedule (per ticket):</div>
-                        <div className="space-y-1 max-h-24 overflow-y-auto">
-                            {instrument.refund_schedule.map((item, idx) => (
-                                <div key={idx} className="flex justify-between text-xs font-mono">
-                                    <span className="text-white">{item.date}</span>
-                                    <span className="text-green-400">{item.amount} Tokens</span>
-                                </div>
-                            ))}
+                {instrument.is_driver_bet ? (
+                    <div className="mb-4 bg-background/50 p-3 rounded space-y-3">
+                        <div className="flex justify-between items-center bg-white/5 p-2 rounded">
+                            <div className="text-center w-1/2 border-r border-white/10 pr-2">
+                                <div className="text-xs text-text-secondary">Side A</div>
+                                <div className="font-bold text-white">{instrument.side_a_name}</div>
+                            </div>
+                            <div className="text-center w-1/2 pl-2">
+                                <div className="text-xs text-text-secondary">Side B</div>
+                                <div className="font-bold text-white">{instrument.side_b_name}</div>
+                            </div>
                         </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                            <div className="bg-white/5 p-2 rounded">
+                                <div className="text-text-secondary">Price</div>
+                                <div className="text-white">{instrument.ticket_price} Tkn</div>
+                            </div>
+                            <div className="bg-white/5 p-2 rounded">
+                                <div className="text-text-secondary">Limit</div>
+                                <div className="text-white">{instrument.ticket_limit}</div>
+                            </div>
+                            <div className="bg-white/5 p-2 rounded">
+                                <div className="text-text-secondary">Sales End</div>
+                                <div className="text-white">{instrument.official_end_date ? new Date(instrument.official_end_date).toLocaleDateString() : '-'}</div>
+                            </div>
+                            <div className="bg-white/5 p-2 rounded">
+                                <div className="text-text-secondary">Result</div>
+                                <div className="text-white">{instrument.open_date ? new Date(instrument.open_date).toLocaleDateString() : '-'}</div>
+                            </div>
+                        </div>
+
+                        {!isDelisted && instrument.resolution_status !== 'RESOLVED' && (
+                            <div className="space-y-2 pt-2">
+                                <div className="flex gap-2">
+                                    <input 
+                                        type="number" 
+                                        placeholder={`Qty ${instrument.side_a_name}`}
+                                        className="w-16 bg-background border border-white/10 rounded px-2 py-1 text-white text-xs"
+                                        value={amount[`${instrument.id}_A`] || ''}
+                                        onChange={e => setAmount({...amount, [`${instrument.id}_A`]: e.target.value})}
+                                    />
+                                    <button 
+                                        onClick={() => handleBuyDriverBet(instrument, 'A', parseInt(amount[`${instrument.id}_A`]))}
+                                        className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30"
+                                    >
+                                        Buy {instrument.side_a_name}
+                                    </button>
+                                </div>
+                                <div className="flex gap-2">
+                                    <input 
+                                        type="number" 
+                                        placeholder={`Qty ${instrument.side_b_name}`}
+                                        className="w-16 bg-background border border-white/10 rounded px-2 py-1 text-white text-xs"
+                                        value={amount[`${instrument.id}_B`] || ''}
+                                        onChange={e => setAmount({...amount, [`${instrument.id}_B`]: e.target.value})}
+                                    />
+                                    <button 
+                                        onClick={() => handleBuyDriverBet(instrument, 'B', parseInt(amount[`${instrument.id}_B`]))}
+                                        className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30"
+                                    >
+                                        Buy {instrument.side_b_name}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Resolution Controls for Creator/Dev */}
+                        {(wallet?.reputation_balance! > 70 || user?.id === instrument.creator_id) && instrument.resolution_status !== 'RESOLVED' && (
+                            <div className="pt-2 border-t border-white/10">
+                                <div className="text-xs text-text-secondary mb-1">Declare Result (Creator/Dev)</div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => handleResolve(instrument.id, 'A')} className="flex-1 bg-green-500/20 text-green-400 text-xs py-1 rounded hover:bg-green-500/30">
+                                        {instrument.side_a_name} Wins
+                                    </button>
+                                    <button onClick={() => handleResolve(instrument.id, 'B')} className="flex-1 bg-green-500/20 text-green-400 text-xs py-1 rounded hover:bg-green-500/30">
+                                        {instrument.side_b_name} Wins
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {instrument.resolution_status === 'RESOLVED' && (
+                            <div className="bg-green-500/20 text-green-400 text-center py-2 rounded font-bold text-sm border border-green-500/30">
+                                RESOLVED: {instrument.winning_side === 'A' ? instrument.side_a_name : instrument.side_b_name} WON
+                            </div>
+                        )}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
-                    <div className="bg-background/50 p-2 rounded">
-                        <div className="text-text-secondary text-xs">{t('economy.market.instrument.yield')}</div>
-                        <div className="text-green-400 font-mono">+{instrument.yield_rate}%</div>
-                    </div>
-                    <div className="bg-background/50 p-2 rounded">
-                        <div className="text-text-secondary text-xs">{t('economy.market.instrument.lockup')}</div>
-                        <div className="text-white font-mono">{instrument.lockup_period_days} {t('economy.market.instrument.days')}</div>
-                    </div>
-                    </div>
-                )}
-
-                {isInvested && (
-                  <div className="mb-4 bg-primary/10 border border-primary/30 rounded p-3">
-                    <div className="text-primary text-xs mb-1">Your Tickets</div>
-                    <div className="text-white font-mono font-bold">{userTicket.balance} Tickets</div>
-                  </div>
-                )}
-                
-                {/* Action Area */}
-                <div className="mt-auto space-y-3">
+                    /* Standard Campaign Display */
+                    <>
+                    {instrument.refund_schedule && instrument.refund_schedule.length > 0 ? (
+                        <div className="mb-4 bg-background/50 p-3 rounded">
+                            <div className="text-text-secondary text-xs mb-2">Refund Schedule (per ticket):</div>
+                            <div className="space-y-1 max-h-24 overflow-y-auto">
+                                {instrument.refund_schedule.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between text-xs font-mono">
+                                        <span className="text-white">{item.date}</span>
+                                        <span className="text-green-400">{item.amount} Tokens</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+                        <div className="bg-background/50 p-2 rounded">
+                            <div className="text-text-secondary text-xs">{t('economy.market.instrument.yield')}</div>
+                            <div className="text-green-400 font-mono">+{instrument.yield_rate}%</div>
+                        </div>
+                        <div className="bg-background/50 p-2 rounded">
+                            <div className="text-text-secondary text-xs">{t('economy.market.instrument.lockup')}</div>
+                            <div className="text-white font-mono">{instrument.lockup_period_days} {t('economy.market.instrument.days')}</div>
+                        </div>
+                        </div>
+                    )}
+                    
+                    {/* Standard Buy Action */}
                     {!isDelisted && (
-                        <div className="flex space-x-2">
+                        <div className="flex space-x-2 mt-auto">
                         <input
                             type="number"
                             placeholder="Qty"
@@ -323,27 +485,35 @@ const SupportMarkets = () => {
                         </button>
                         </div>
                     )}
+                    </>
+                )}
 
-                    {/* Creator Controls */}
-                    {isCreator && (
-                        <div className="flex space-x-2 pt-2 border-t border-white/10">
-                            <button
-                                onClick={() => handleDelete(instrument.id, 'MARKET')}
-                                className="flex-1 flex items-center justify-center gap-1 bg-yellow-500/20 text-yellow-500 text-xs py-1 rounded hover:bg-yellow-500/30"
-                                title="Delist from Market (Trading continues)"
-                            >
-                                <XCircle size={12} /> Delist
-                            </button>
-                            <button
-                                onClick={() => handleDelete(instrument.id, 'EVERYWHERE')}
-                                className="flex-1 flex items-center justify-center gap-1 bg-red-500/20 text-red-500 text-xs py-1 rounded hover:bg-red-500/30"
-                                title="Delete Everywhere (Refunds users)"
-                            >
-                                <Trash2 size={12} /> Delete
-                            </button>
-                        </div>
-                    )}
-                </div>
+                {isInvested && (
+                  <div className="mb-4 bg-primary/10 border border-primary/30 rounded p-3 mt-4">
+                    <div className="text-primary text-xs mb-1">Your Tickets</div>
+                    <div className="text-white font-mono font-bold">{userTicket.balance} Tickets</div>
+                  </div>
+                )}
+                
+                {/* Creator Controls */}
+                {isCreator && (
+                    <div className="flex space-x-2 pt-2 border-t border-white/10 mt-4">
+                        <button
+                            onClick={() => handleDelete(instrument.id, 'MARKET')}
+                            className="flex-1 flex items-center justify-center gap-1 bg-yellow-500/20 text-yellow-500 text-xs py-1 rounded hover:bg-yellow-500/30"
+                            title="Delist from Market (Trading continues)"
+                        >
+                            <XCircle size={12} /> Delist
+                        </button>
+                        <button
+                            onClick={() => handleDelete(instrument.id, 'EVERYWHERE')}
+                            className="flex-1 flex items-center justify-center gap-1 bg-red-500/20 text-red-500 text-xs py-1 rounded hover:bg-red-500/30"
+                            title="Delete Everywhere (Refunds users)"
+                        >
+                            <Trash2 size={12} /> Delete
+                        </button>
+                    </div>
+                )}
               </motion.div>
             )})}
           </div>
@@ -395,44 +565,79 @@ const SupportMarkets = () => {
                     <label htmlFor="driverBet" className="text-sm text-white">Is this a Driver Bet? (High Risk)</label>
                 </div>
 
-                {/* Refund Schedule Builder */}
-                <div className="border border-white/10 rounded p-3">
-                    <label className="block text-xs text-text-secondary mb-2">Refund Schedule (Per Ticket)</label>
-                    
-                    <div className="flex gap-2 mb-2">
-                        <input 
-                            type="date" 
-                            className="bg-background border border-white/10 rounded px-2 py-1 text-white text-xs flex-1"
-                            value={tempRefundDate}
-                            onChange={e => setTempRefundDate(e.target.value)}
-                        />
-                        <input 
-                            type="number" 
-                            placeholder="Amt"
-                            className="bg-background border border-white/10 rounded px-2 py-1 text-white text-xs w-16"
-                            value={tempRefundAmount}
-                            onChange={e => setTempRefundAmount(e.target.value)}
-                        />
-                        <button 
-                            onClick={handleAddRefundItem}
-                            className="bg-primary/20 text-primary px-2 rounded hover:bg-primary/30"
-                        >
-                            <Plus size={14} />
-                        </button>
-                    </div>
-
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                        {refundSchedule.map((item, idx) => (
-                            <div key={idx} className="flex justify-between items-center bg-background/50 px-2 py-1 rounded text-xs">
-                                <span className="text-white">{item.date}: {item.amount} Tkn</span>
-                                <button onClick={() => handleRemoveRefundItem(idx)} className="text-red-400 hover:text-red-300">
-                                    <XCircle size={12} />
-                                </button>
+                {isDriverBet ? (
+                    <div className="space-y-4 border border-white/10 rounded p-3">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs text-text-secondary mb-1">Side A Name</label>
+                                <input type="text" className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white text-xs" value={sideA} onChange={e => setSideA(e.target.value)} />
                             </div>
-                        ))}
-                        {refundSchedule.length === 0 && <div className="text-text-secondary text-xs italic">No refund items added</div>}
+                            <div>
+                                <label className="block text-xs text-text-secondary mb-1">Side B Name</label>
+                                <input type="text" className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white text-xs" value={sideB} onChange={e => setSideB(e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs text-text-secondary mb-1">Ticket Price (0.1-100)</label>
+                                <input type="number" className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white text-xs" value={ticketPrice} onChange={e => setTicketPrice(e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-text-secondary mb-1">Ticket Limit (Total)</label>
+                                <input type="number" className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white text-xs" value={ticketLimit} onChange={e => setTicketLimit(e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs text-text-secondary mb-1">Official Sales End</label>
+                                <input type="datetime-local" className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white text-xs" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-text-secondary mb-1">Open Date (Results)</label>
+                                <input type="datetime-local" className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white text-xs" value={openDate} onChange={e => setOpenDate(e.target.value)} />
+                            </div>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    /* Refund Schedule Builder */
+                    <div className="border border-white/10 rounded p-3">
+                        <label className="block text-xs text-text-secondary mb-2">Refund Schedule (Per Ticket)</label>
+                        
+                        <div className="flex gap-2 mb-2">
+                            <input 
+                                type="date" 
+                                className="bg-background border border-white/10 rounded px-2 py-1 text-white text-xs flex-1"
+                                value={tempRefundDate}
+                                onChange={e => setTempRefundDate(e.target.value)}
+                            />
+                            <input 
+                                type="number" 
+                                placeholder="Amt"
+                                className="bg-background border border-white/10 rounded px-2 py-1 text-white text-xs w-16"
+                                value={tempRefundAmount}
+                                onChange={e => setTempRefundAmount(e.target.value)}
+                            />
+                            <button 
+                                onClick={handleAddRefundItem}
+                                className="bg-primary/20 text-primary px-2 rounded hover:bg-primary/30"
+                            >
+                                <Plus size={14} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                            {refundSchedule.map((item, idx) => (
+                                <div key={idx} className="flex justify-between items-center bg-background/50 px-2 py-1 rounded text-xs">
+                                    <span className="text-white">{item.date}: {item.amount} Tkn</span>
+                                    <button onClick={() => handleRemoveRefundItem(idx)} className="text-red-400 hover:text-red-300">
+                                        <XCircle size={12} />
+                                    </button>
+                                </div>
+                            ))}
+                            {refundSchedule.length === 0 && <div className="text-text-secondary text-xs italic">No refund items added</div>}
+                        </div>
+                    </div>
+                )}
 
               </div>
               <div className="flex space-x-3">

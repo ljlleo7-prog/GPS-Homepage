@@ -41,6 +41,25 @@ interface EconomyContextType {
     refundSchedule?: any[],
     isDriverBet?: boolean
   ) => Promise<{ success: boolean; message?: string; data?: any }>;
+  createDriverBet: (
+    title: string,
+    description: string,
+    sideA: string,
+    sideB: string,
+    ticketPrice: number,
+    ticketLimit: number,
+    endDate: string,
+    openDate: string
+  ) => Promise<{ success: boolean; message?: string; data?: any }>;
+  buyDriverBetTicket: (
+    instrumentId: string,
+    side: 'A' | 'B',
+    quantity: number
+  ) => Promise<{ success: boolean; message?: string }>;
+  resolveDriverBet: (
+    instrumentId: string,
+    winningSide: 'A' | 'B'
+  ) => Promise<{ success: boolean; message?: string }>;
   deleteCampaign: (id: string, mode: 'MARKET' | 'EVERYWHERE') => Promise<{ success: boolean; message?: string }>;
 }
 
@@ -57,6 +76,9 @@ const EconomyContext = createContext<EconomyContextType>({
   requestDeveloperAccess: async () => ({ success: false }),
   approveDeveloperAccess: async () => ({ success: false }),
   createUserCampaign: async () => ({ success: false }),
+  createDriverBet: async () => ({ success: false }),
+  buyDriverBetTicket: async () => ({ success: false }),
+  resolveDriverBet: async () => ({ success: false }),
   deleteCampaign: async () => ({ success: false }),
 });
 
@@ -309,6 +331,79 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
+  const createDriverBet = async (
+    title: string,
+    description: string,
+    sideA: string,
+    sideB: string,
+    ticketPrice: number,
+    ticketLimit: number,
+    endDate: string,
+    openDate: string
+  ) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+      const { data, error } = await supabase.rpc('create_driver_bet', {
+        p_title: title,
+        p_description: description,
+        p_side_a_name: sideA,
+        p_side_b_name: sideB,
+        p_ticket_price: ticketPrice,
+        p_ticket_limit: ticketLimit,
+        p_official_end_date: endDate,
+        p_open_date: openDate
+      });
+
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+
+      await refreshEconomy();
+      return { success: true, data };
+    } catch (error: any) {
+      console.error('Error creating driver bet:', error);
+      return { success: false, message: error.message || 'Failed to create driver bet' };
+    }
+  };
+
+  const buyDriverBetTicket = async (instrumentId: string, side: 'A' | 'B', quantity: number) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+        const { data, error } = await supabase.rpc('buy_driver_bet_ticket', {
+            p_instrument_id: instrumentId,
+            p_side: side,
+            p_quantity: quantity
+        });
+
+        if (error) throw error;
+        if (data && !data.success) throw new Error(data.message);
+
+        await refreshEconomy();
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error buying driver bet ticket:', error);
+        return { success: false, message: error.message || 'Failed to buy ticket' };
+    }
+  };
+
+  const resolveDriverBet = async (instrumentId: string, winningSide: 'A' | 'B') => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+        const { data, error } = await supabase.rpc('resolve_driver_bet', {
+            p_instrument_id: instrumentId,
+            p_winning_side: winningSide
+        });
+
+        if (error) throw error;
+        if (data && !data.success) throw new Error(data.message);
+
+        await refreshEconomy();
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error resolving driver bet:', error);
+        return { success: false, message: error.message || 'Failed to resolve bet' };
+    }
+  };
+
   const deleteCampaign = async (id: string, mode: 'MARKET' | 'EVERYWHERE') => {
     if (!user) return { success: false, message: 'Not authenticated' };
     try {
@@ -341,6 +436,9 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       requestDeveloperAccess,
       approveDeveloperAccess,
       createUserCampaign,
+      createDriverBet,
+      buyDriverBetTicket,
+      resolveDriverBet,
       deleteCampaign
     }}>
       {children}
