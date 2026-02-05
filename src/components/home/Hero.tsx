@@ -48,7 +48,7 @@ const Hero = () => {
               {t('home.hero.explore_projects')}
             </Link>
             <Link
-              to="/contact"
+              to="/community"
               className="px-8 py-3 bg-secondary/10 border border-secondary text-secondary rounded-md font-mono hover:bg-secondary hover:text-background transition-all duration-300 shadow-[0_0_15px_rgba(57,255,20,0.3)] hover:shadow-[0_0_25px_rgba(57,255,20,0.6)] flex items-center justify-center"
             >
               {t('home.hero.join_community')} <ChevronRight className="ml-2 w-4 h-4" />

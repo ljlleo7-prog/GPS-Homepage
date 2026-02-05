@@ -4,6 +4,7 @@
     "news": "News",
     "products": "Products",
     "about": "About Us",
+    "community": "Community",
     "contact": "Contact",
     "login": "Login",
     "sign_out": "Sign Out"
@@ -17,6 +18,21 @@
     },
     "copyright": "All rights reserved.",
     "disclaimer": "Disclaimer: Many of the information on this website, including contact details, are AI-generated and may not be accurate or functional at this time."
+  },
+  "forum": {
+    "title": "Community Forum",
+    "subtitle": "Share your ideas, projects, and feedback.",
+    "create_post": "Create Post",
+    "low_rep_error": "You need at least 50 Reputation to post.",
+    "title_label": "Title",
+    "content_label": "Content",
+    "submit": "Post",
+    "cancel": "Cancel",
+    "featured": "Featured",
+    "rewarded": "Rewarded",
+    "reward_action": "Reward Post",
+    "reward_amount": "Amount",
+    "confirm_reward": "Confirm Reward"
   },
   "home": {
     "hero": {

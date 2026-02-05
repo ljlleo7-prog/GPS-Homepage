@@ -4,6 +4,7 @@
     "news": "动态",
     "products": "产品",
     "about": "关于我们",
+    "community": "社区",
     "contact": "联系我们",
     "login": "登录",
     "sign_out": "退出"
@@ -17,6 +18,21 @@
     },
     "copyright": "版权所有。",
     "disclaimer": "免责声明：本网站上的许多信息（包括联系方式）均由人工智能生成，目前可能不准确或无法使用。"
+  },
+  "forum": {
+    "title": "社区论坛",
+    "subtitle": "分享您的想法、项目和反馈。",
+    "create_post": "发布帖子",
+    "low_rep_error": "您需要至少 50 声望才能发帖。",
+    "title_label": "标题",
+    "content_label": "内容",
+    "submit": "发布",
+    "cancel": "取消",
+    "featured": "精选",
+    "rewarded": "已奖励",
+    "reward_action": "奖励帖子",
+    "reward_amount": "金额",
+    "confirm_reward": "确认奖励"
   },
   "home": {
     "hero": {

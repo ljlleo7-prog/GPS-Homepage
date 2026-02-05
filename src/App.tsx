@@ -11,6 +11,7 @@ import Products from './pages/Products';
 import Wallet from './pages/Wallet';
 import Missions from './pages/Missions';
 import SupportMarkets from './pages/SupportMarkets';
+import Forum from './pages/Forum';
 import { AuthProvider } from './context/AuthContext';
 import { EconomyProvider } from './context/EconomyContext';
 
@@ -29,6 +30,7 @@ function App() {
               <Route path="wallet" element={<Wallet />} />
               <Route path="missions" element={<Missions />} />
               <Route path="markets" element={<SupportMarkets />} />
+              <Route path="community" element={<Forum />} />
               <Route path="contact" element={<Contact />} />
               <Route path="login" element={<Login />} />
               <Route path="register" element={<Register />} />
