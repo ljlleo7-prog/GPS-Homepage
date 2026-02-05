@@ -49,6 +49,8 @@ const Navbar = () => {
     { name: t('navbar.home'), path: '/' },
     { name: t('navbar.news'), path: '/news' },
     { name: t('navbar.products'), path: '/products' },
+    { name: 'Missions', path: '/missions' },
+    { name: 'Markets', path: '/markets' },
     { name: t('navbar.about'), path: '/about' },
     { name: t('navbar.contact'), path: '/contact' },
   ];
@@ -92,10 +94,10 @@ const Navbar = () => {
 
             {user ? (
               <div className="flex items-center space-x-4 pl-8 border-l border-white/10">
-                <div className="flex items-center space-x-2 text-primary">
+                <Link to="/wallet" className="flex items-center space-x-2 text-primary hover:text-secondary transition-colors">
                   <User className="w-5 h-5" />
                   <span className="font-mono text-sm">{username}</span>
-                </div>
+                </Link>
                 <button
                   onClick={handleSignOut}
                   className="text-text-secondary hover:text-red-400 transition-colors"
