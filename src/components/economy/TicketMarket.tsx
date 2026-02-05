@@ -244,6 +244,7 @@ export const TicketMarket = () => {
                 <label className="block text-xs text-text-secondary mb-1">{t('economy.market.ticket.price')}</label>
                 <input
                   type="number"
+                  step="0.01"
                   className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
                   value={sellPrice}
                   onChange={(e) => setSellPrice(e.target.value)}

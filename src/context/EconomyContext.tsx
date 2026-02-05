@@ -44,8 +44,7 @@ interface EconomyContextType {
   createDriverBet: (
     title: string,
     description: string,
-    sideA: string,
-    sideB: string,
+    sideA: string, // Event Name
     ticketPrice: number,
     ticketLimit: number,
     endDate: string,
@@ -58,7 +57,8 @@ interface EconomyContextType {
   ) => Promise<{ success: boolean; message?: string }>;
   resolveDriverBet: (
     instrumentId: string,
-    winningSide: 'A' | 'B'
+    winningSide: 'A' | 'B',
+    proofUrl: string
   ) => Promise<{ success: boolean; message?: string }>;
   deleteCampaign: (id: string, mode: 'MARKET' | 'EVERYWHERE') => Promise<{ success: boolean; message?: string }>;
 }
@@ -199,18 +199,24 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
   };
 
   const createTicketListing = async (ticketId: string, quantity: number, price: number, password: string) => {
-    if (!user) return { success: false, message: 'Not authenticated' };
+    if (!user || !user.email) return { success: false, message: 'Not authenticated' };
+    
+    // Verify password
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: password
+    });
+    if (authError) return { success: false, message: 'Incorrect password' };
+
     try {
-      const { data, error } = await supabase.functions.invoke('economy-ops', {
-        body: {
-          action: 'create_ticket_listing',
-          payload: { user_id: user.id, password, ticket_type_id: ticketId, quantity, price }
-        }
+      const { data, error } = await supabase.rpc('create_ticket_listing', {
+        p_ticket_type_id: ticketId,
+        p_quantity: quantity,
+        p_price: price
       });
 
       if (error) throw error;
-      // The function might return error in body if not throwing
-      if (data && data.error) throw new Error(data.error);
+      if (data && !data.success) throw new Error(data.message);
 
       await refreshEconomy();
       return { success: true };
@@ -221,17 +227,22 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
   };
 
   const purchaseTicketListing = async (listingId: string, password: string) => {
-    if (!user) return { success: false, message: 'Not authenticated' };
+    if (!user || !user.email) return { success: false, message: 'Not authenticated' };
+
+    // Verify password
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: password
+    });
+    if (authError) return { success: false, message: 'Incorrect password' };
+
     try {
-      const { data, error } = await supabase.functions.invoke('economy-ops', {
-        body: {
-          action: 'purchase_ticket_listing',
-          payload: { user_id: user.id, password, listing_id: listingId }
-        }
+      const { data, error } = await supabase.rpc('purchase_ticket_listing', {
+        p_listing_id: listingId
       });
 
       if (error) throw error;
-      if (data && data.error) throw new Error(data.error);
+      if (data && !data.success) throw new Error(data.message);
 
       await refreshEconomy();
       return { success: true };
@@ -335,7 +346,6 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     title: string,
     description: string,
     sideA: string,
-    sideB: string,
     ticketPrice: number,
     ticketLimit: number,
     endDate: string,
@@ -347,7 +357,6 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
         p_title: title,
         p_description: description,
         p_side_a_name: sideA,
-        p_side_b_name: sideB,
         p_ticket_price: ticketPrice,
         p_ticket_limit: ticketLimit,
         p_official_end_date: endDate,
@@ -385,12 +394,13 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
-  const resolveDriverBet = async (instrumentId: string, winningSide: 'A' | 'B') => {
+  const resolveDriverBet = async (instrumentId: string, winningSide: 'A' | 'B', proofUrl: string) => {
     if (!user) return { success: false, message: 'Not authenticated' };
     try {
         const { data, error } = await supabase.rpc('resolve_driver_bet', {
             p_instrument_id: instrumentId,
-            p_winning_side: winningSide
+            p_winning_side: winningSide,
+            p_proof_url: proofUrl
         });
 
         if (error) throw error;

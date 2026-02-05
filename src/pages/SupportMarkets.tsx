@@ -152,7 +152,7 @@ const SupportMarkets = () => {
     setCreating(true);
 
     if (isDriverBet) {
-        if (!sideA || !sideB || !ticketPrice || !ticketLimit || !endDate || !openDate) {
+        if (!sideA || !ticketPrice || !ticketLimit || !endDate || !openDate) {
             alert("Please fill in all Driver Bet fields.");
             setCreating(false);
             return;
@@ -162,7 +162,6 @@ const SupportMarkets = () => {
             newTitle,
             newDesc,
             sideA,
-            sideB,
             parseFloat(ticketPrice),
             parseInt(ticketLimit),
             new Date(endDate).toISOString(),
@@ -209,14 +208,25 @@ const SupportMarkets = () => {
   };
 
   const handleResolve = async (instrumentId: string, side: 'A' | 'B') => {
+      // 1. Ask for Proof URL
+      const proofUrl = prompt("Please enter the verification URL (e.g. F1 Official Website):");
+      if (!proofUrl || !proofUrl.trim()) return;
+
       if (!confirm(`Are you sure you want to declare Side ${side} as the winner? This will execute payouts and cannot be undone.`)) return;
-      const result = await resolveDriverBet(instrumentId, side);
+      
+      const result = await resolveDriverBet(instrumentId, side, proofUrl);
       if (result.success) {
           alert('Bet resolved successfully!');
           fetchInstruments();
       } else {
           alert('Resolution failed: ' + result.message);
       }
+  };
+
+  const isReleaseDatePassed = (dateStr?: string) => {
+    if (!dateStr) return false;
+    // Note: Stored as UTC. new Date(dateStr) works if dateStr is ISO.
+    return new Date() >= new Date(dateStr);
   };
 
   const handleBuyDriverBet = async (instrument: Instrument, side: 'A' | 'B', qty: number) => {
@@ -422,11 +432,24 @@ const SupportMarkets = () => {
                         {(wallet?.reputation_balance! > 70 || user?.id === instrument.creator_id) && instrument.resolution_status !== 'RESOLVED' && (
                             <div className="pt-2 border-t border-white/10">
                                 <div className="text-xs text-text-secondary mb-1">Declare Result (Creator/Dev)</div>
+                                {!isReleaseDatePassed(instrument.open_date) && (
+                                    <div className="text-xs text-yellow-500 mb-1">
+                                        Release Date: {instrument.open_date ? new Date(instrument.open_date).toLocaleString() : 'N/A'}
+                                    </div>
+                                )}
                                 <div className="flex gap-2">
-                                    <button onClick={() => handleResolve(instrument.id, 'A')} className="flex-1 bg-green-500/20 text-green-400 text-xs py-1 rounded hover:bg-green-500/30">
+                                    <button 
+                                        onClick={() => handleResolve(instrument.id, 'A')} 
+                                        disabled={!isReleaseDatePassed(instrument.open_date)}
+                                        className={`flex-1 text-xs py-1 rounded transition-colors ${!isReleaseDatePassed(instrument.open_date) ? 'bg-white/5 text-white/30 cursor-not-allowed' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'}`}
+                                    >
                                         {instrument.side_a_name} Wins
                                     </button>
-                                    <button onClick={() => handleResolve(instrument.id, 'B')} className="flex-1 bg-green-500/20 text-green-400 text-xs py-1 rounded hover:bg-green-500/30">
+                                    <button 
+                                        onClick={() => handleResolve(instrument.id, 'B')} 
+                                        disabled={!isReleaseDatePassed(instrument.open_date)}
+                                        className={`flex-1 text-xs py-1 rounded transition-colors ${!isReleaseDatePassed(instrument.open_date) ? 'bg-white/5 text-white/30 cursor-not-allowed' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'}`}
+                                    >
                                         {instrument.side_b_name} Wins
                                     </button>
                                 </div>
@@ -569,33 +592,73 @@ const SupportMarkets = () => {
                     <div className="space-y-4 border border-white/10 rounded p-3">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs text-text-secondary mb-1">Side A Name</label>
-                                <input type="text" className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white text-xs" value={sideA} onChange={e => setSideA(e.target.value)} />
+                                <label className="block text-sm text-text-secondary mb-1">Event (e.g. Piastri Wins)</label>
+                                <input
+                                    type="text"
+                                    className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                    placeholder="Event will happen"
+                                    value={sideA}
+                                    onChange={(e) => setSideA(e.target.value)}
+                                />
                             </div>
                             <div>
-                                <label className="block text-xs text-text-secondary mb-1">Side B Name</label>
-                                <input type="text" className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white text-xs" value={sideB} onChange={e => setSideB(e.target.value)} />
+                                <label className="block text-sm text-text-secondary mb-1">Side B (Auto-generated)</label>
+                                <input
+                                    type="text"
+                                    className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white/50 cursor-not-allowed"
+                                    placeholder="Event will NOT happen"
+                                    value={sideA ? `${sideA} will NOT happen` : ''}
+                                    disabled
+                                />
                             </div>
                         </div>
+
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs text-text-secondary mb-1">Ticket Price (0.1-100)</label>
-                                <input type="number" className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white text-xs" value={ticketPrice} onChange={e => setTicketPrice(e.target.value)} />
+                                <label className="block text-sm text-text-secondary mb-1">Ticket Price (Tokens)</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0.1"
+                                    max="100"
+                                    className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                    value={ticketPrice}
+                                    onChange={(e) => setTicketPrice(e.target.value)}
+                                />
                             </div>
                             <div>
-                                <label className="block text-xs text-text-secondary mb-1">Ticket Limit (Total)</label>
-                                <input type="number" className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white text-xs" value={ticketLimit} onChange={e => setTicketLimit(e.target.value)} />
+                                <label className="block text-sm text-text-secondary mb-1">Ticket Limit (Total)</label>
+                                <input
+                                    type="number"
+                                    className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                    value={ticketLimit}
+                                    onChange={(e) => setTicketLimit(e.target.value)}
+                                />
                             </div>
                         </div>
+
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs text-text-secondary mb-1">Official Sales End</label>
-                                <input type="datetime-local" className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white text-xs" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                                <label className="block text-sm text-text-secondary mb-1">Official Sales End (Local Time)</label>
+                                <input
+                                    type="datetime-local"
+                                    className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                />
                             </div>
                             <div>
-                                <label className="block text-xs text-text-secondary mb-1">Open Date (Results)</label>
-                                <input type="datetime-local" className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white text-xs" value={openDate} onChange={e => setOpenDate(e.target.value)} />
+                                <label className="block text-sm text-text-secondary mb-1">Result Release (Local Time)</label>
+                                <input
+                                    type="datetime-local"
+                                    className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                    value={openDate}
+                                    onChange={(e) => setOpenDate(e.target.value)}
+                                />
                             </div>
+                        </div>
+                        <div className="text-xs text-text-secondary">
+                           * Times are in your local timezone (e.g. Beijing Time). They will be stored as UTC.
                         </div>
                     </div>
                 ) : (
