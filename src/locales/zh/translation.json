@@ -15,7 +15,8 @@
       "remote": "远程 / 校园",
       "wifi": "有 Wi-Fi 的任何地方"
     },
-    "copyright": "版权所有。"
+    "copyright": "版权所有。",
+    "disclaimer": "免责声明：本网站上的许多信息（包括联系方式）均由人工智能生成，目前可能不准确或无法使用。"
   },
   "home": {
     "hero": {
@@ -149,6 +150,107 @@
         "description": "高密度终端空域的空中交通管制模拟。",
         "mechanism": "飞机间隔算法，尾流湍流建模，RNAV进近路径，冲突检测逻辑。",
         "action": "申请访问"
+      }
+    }
+  },
+  "economy": {
+    "missions": {
+      "title": "社区任务",
+      "subtitle": "完成任务以赚取代币和声望。",
+      "submit_placeholder": "输入您的提交内容（反馈、链接或描述）...",
+      "submit_btn": "提交任务",
+      "submitting": "提交中...",
+      "login_to_submit": "登录后提交",
+      "success_msg": "任务提交成功！等待审核。",
+      "error_msg": "提交任务出错：",
+      "loading": "加载任务中...",
+      "variable_reward": "浮动奖励（基于市场）",
+      "variable_reward_range": "奖励范围：{{min}} - {{max}} 代币",
+      "current_reward": "当前：{{amount}} 代币",
+      "your_submissions": "您的提交",
+      "low_rep": "声望过低。您需要 > 30 声望才能提交任务。",
+      "create_btn": "发布任务 (需 >70 声望)",
+      "create_modal": {
+        "title": "发布社区任务",
+        "name_label": "任务标题",
+        "desc_label": "描述",
+        "min_label": "最小奖励 (代币)",
+        "max_label": "最大奖励 (代币)",
+        "submit": "发布任务",
+        "cancel": "取消"
+      },
+      "high_rep_only": "需 >70 声望",
+      "status": {
+        "pending": "审核中",
+        "approved": "已批准",
+        "rejected": "已拒绝"
+      }
+    },
+    "market": {
+      "title": "支持市场",
+      "subtitle": "展示您对项目里程碑和贡献者的支持。",
+      "disclaimer": "非真实金融工具。仅用于社区互动。",
+      "tabs": {
+        "instruments": "金融工具",
+        "tickets": "任务票据"
+      },
+      "instrument": {
+        "support_btn": "支持",
+        "amount_placeholder": "金额",
+        "yield": "收益率",
+        "lockup": "锁定期",
+        "days": "天",
+        "low_rep": "声望过低。您需要 > 50 声望才能支持项目。"
+      },
+      "campaign": {
+        "create_btn": "创建活动 (需 >70 声望)",
+        "modal_title": "创建市场活动",
+        "title_label": "活动标题",
+        "desc_label": "描述",
+        "yield_label": "收益率 (%)",
+        "lockup_label": "锁定期 (天)",
+        "submit": "创建活动"
+      },
+      "ticket": {
+        "market_tab": "交易市场",
+        "holdings_tab": "我的持仓",
+        "buy": "购买",
+        "sell": "出售",
+        "price": "价格",
+        "qty": "数量",
+        "total": "总价",
+        "seller": "卖家",
+        "no_listings": "暂无活跃挂单。",
+        "no_holdings": "您尚未拥有任何任务票据。",
+        "create_listing": "创建挂单",
+        "confirm_password": "确认密码",
+        "processing": "处理中...",
+        "low_rep": "声望过低。您需要 > 50 声望才能交易。",
+        "create_type_btn": "发起活动",
+        "create_type_title": "发起新活动",
+        "create_type_desc": "创建新的预测市场票据。"
+      }
+    },
+    "wallet": {
+      "daily_bonus": {
+        "title": "每日登录奖励",
+        "claim": "领取奖励",
+        "claimed": "今日已领",
+        "next": "明天再来！",
+        "desc": "奖励金额随声望等级提升。"
+      },
+      "developer": {
+        "title": "开发者计划",
+        "request": "申请开发者身份",
+        "pending": "申请审核中",
+        "approved": "开发者账户已激活",
+        "desc": "开发者获得 80 声望并可批准社区内容。"
+      },
+      "tiers": {
+        "title": "声望特权",
+        "level1": "LVL 1 (>30 声望): 参与社区任务",
+        "level2": "LVL 2 (>50 声望): 参与票据市场交易",
+        "level3": "LVL 3 (>70 声望): 发起活动与任务"
       }
     }
   }

@@ -6,6 +6,7 @@ interface Wallet {
   id: string;
   token_balance: number;
   reputation_balance: number;
+  last_daily_bonus: string | null;
 }
 
 interface LedgerEntry {
@@ -21,20 +22,36 @@ interface EconomyContextType {
   wallet: Wallet | null;
   ledger: LedgerEntry[];
   loading: boolean;
+  developerStatus: 'NONE' | 'PENDING' | 'APPROVED';
   refreshEconomy: () => Promise<void>;
   enterPosition: (instrumentId: string, amount: number) => Promise<{ success: boolean; message?: string }>;
   createTicketListing: (ticketId: string, quantity: number, price: number, password: string) => Promise<{ success: boolean; message?: string }>;
   purchaseTicketListing: (listingId: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  claimDailyBonus: () => Promise<{ success: boolean; amount?: number; message?: string }>;
+  requestDeveloperAccess: () => Promise<{ success: boolean; message?: string }>;
+  createUserCampaign: (
+    type: 'MISSION' | 'MARKET',
+    title: string,
+    description: string,
+    rewardMin?: number,
+    rewardMax?: number,
+    yieldRate?: number,
+    lockupDays?: number
+  ) => Promise<{ success: boolean; message?: string; data?: any }>;
 }
 
 const EconomyContext = createContext<EconomyContextType>({
   wallet: null,
   ledger: [],
   loading: true,
+  developerStatus: 'NONE',
   refreshEconomy: async () => {},
   enterPosition: async () => ({ success: false }),
   createTicketListing: async () => ({ success: false }),
   purchaseTicketListing: async () => ({ success: false }),
+  claimDailyBonus: async () => ({ success: false }),
+  requestDeveloperAccess: async () => ({ success: false }),
+  createUserCampaign: async () => ({ success: false }),
 });
 
 export const useEconomy = () => useContext(EconomyContext);
@@ -43,12 +60,14 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
   const { user } = useAuth();
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [developerStatus, setDeveloperStatus] = useState<'NONE' | 'PENDING' | 'APPROVED'>('NONE');
   const [loading, setLoading] = useState(true);
 
   const refreshEconomy = async () => {
     if (!user) {
       setWallet(null);
       setLedger([]);
+      setDeveloperStatus('NONE');
       setLoading(false);
       return;
     }
@@ -63,6 +82,17 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
 
       if (walletError) throw walletError;
       setWallet(walletData);
+
+      // Fetch Profile for Developer Status
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('developer_status')
+        .eq('id', user.id)
+        .single();
+      
+      if (!profileError && profileData) {
+        setDeveloperStatus(profileData.developer_status as any || 'NONE');
+      }
 
       // Fetch Ledger
       if (walletData) {
@@ -147,8 +177,79 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
+  const claimDailyBonus = async () => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+      const { data, error } = await supabase.rpc('claim_daily_bonus');
+
+      if (error) throw error;
+      
+      await refreshEconomy();
+      return { success: true, amount: data };
+    } catch (error: any) {
+      console.error('Error claiming bonus:', error);
+      return { success: false, message: error.message || 'Failed to claim bonus' };
+    }
+  };
+
+  const requestDeveloperAccess = async () => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+      const { error } = await supabase.rpc('request_developer_access');
+      if (error) throw error;
+      await refreshEconomy();
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error requesting dev access:', error);
+      return { success: false, message: error.message || 'Failed to request access' };
+    }
+  };
+
+  const createUserCampaign = async (
+    type: 'MISSION' | 'MARKET',
+    title: string,
+    description: string,
+    rewardMin?: number,
+    rewardMax?: number,
+    yieldRate?: number,
+    lockupDays?: number
+  ) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+      const { data, error } = await supabase.rpc('create_user_campaign', {
+        p_type: type,
+        p_title: title,
+        p_description: description,
+        p_reward_min: rewardMin || 0,
+        p_reward_max: rewardMax || 0,
+        p_yield_rate: yieldRate || 0,
+        p_lockup_days: lockupDays || 0
+      });
+
+      if (error) throw error;
+      
+      await refreshEconomy();
+      return { success: true, data };
+    } catch (error: any) {
+      console.error('Error creating campaign:', error);
+      return { success: false, message: error.message || 'Failed to create campaign' };
+    }
+  };
+
   return (
-    <EconomyContext.Provider value={{ wallet, ledger, loading, refreshEconomy, enterPosition, createTicketListing, purchaseTicketListing }}>
+    <EconomyContext.Provider value={{ 
+      wallet, 
+      ledger, 
+      loading, 
+      developerStatus,
+      refreshEconomy, 
+      enterPosition, 
+      createTicketListing, 
+      purchaseTicketListing,
+      claimDailyBonus,
+      requestDeveloperAccess,
+      createUserCampaign
+    }}>
       {children}
     </EconomyContext.Provider>
   );

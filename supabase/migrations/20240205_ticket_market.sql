@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS public.ticket_types (
   title TEXT NOT NULL,
   description TEXT,
   total_supply INTEGER, -- Optional cap
-  created_by UUID REFERENCES public.profiles(id),
+  creator_id UUID REFERENCES public.profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

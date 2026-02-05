@@ -51,8 +51,8 @@ CREATE TABLE IF NOT EXISTS public.missions (
   reward_tokens NUMERIC(20, 2) DEFAULT 0,
   reward_rep INTEGER DEFAULT 0,
   type TEXT CHECK (type IN ('FEEDBACK', 'PLAYTEST', 'IDEA')),
-  status TEXT DEFAULT 'ACTIVE',
-  created_by UUID REFERENCES public.profiles(id),
+  status TEXT DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'ARCHIVED')),
+  creator_id UUID REFERENCES public.profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -4,6 +4,7 @@ import { useEconomy } from '../../context/EconomyContext';
 import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
 import { Tag, DollarSign, Lock, RefreshCw, ShoppingCart, PlusCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface TicketType {
   id: string;
@@ -29,8 +30,9 @@ interface UserTicketBalance {
 }
 
 export const TicketMarket = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
-  const { createTicketListing, purchaseTicketListing, refreshEconomy } = useEconomy();
+  const { wallet, createTicketListing, purchaseTicketListing, refreshEconomy } = useEconomy();
   const [activeTab, setActiveTab] = useState<'market' | 'holdings'>('market');
   
   const [listings, setListings] = useState<TicketListing[]>([]);
@@ -72,9 +74,6 @@ export const TicketMarket = () => {
           .gt('balance', 0);
         setHoldings(holdingsData || []);
       }
-
-      // Fetch Ticket Types (for general info if needed, or creating listing context)
-      // (Implicitly fetched via holdings for selling)
     } catch (error) {
       console.error(error);
     } finally {
@@ -83,6 +82,12 @@ export const TicketMarket = () => {
   };
 
   const handleBuy = async () => {
+    // Rep Gating > 50
+    if (!wallet || wallet.reputation_balance <= 50) {
+      alert(t('economy.market.ticket.low_rep'));
+      return;
+    }
+
     if (!selectedListing || !password) return;
     setProcessing(true);
     const result = await purchaseTicketListing(selectedListing.id, password);
@@ -99,170 +104,121 @@ export const TicketMarket = () => {
   };
 
   const handleSell = async () => {
+    // Rep Gating > 50
+    if (!wallet || wallet.reputation_balance <= 50) {
+      alert(t('economy.market.ticket.low_rep'));
+      return;
+    }
+
     if (!sellTicketId || !sellQty || !sellPrice || !password) return;
     setProcessing(true);
-    const result = await createTicketListing(
-      sellTicketId, 
-      parseInt(sellQty), 
-      parseFloat(sellPrice), 
-      password
-    );
+    const result = await createTicketListing(sellTicketId, parseInt(sellQty), parseFloat(sellPrice), password);
     setProcessing(false);
 
     if (result.success) {
       alert('Listing created!');
       setModalOpen(null);
       setPassword('');
-      setSellQty('');
-      setSellPrice('');
       fetchData();
     } else {
       alert('Error: ' + result.message);
     }
   };
 
-  if (loading && !listings.length) return <div className="text-white">Loading Market...</div>;
+  if (loading) return <div className="text-center py-8">{t('economy.missions.loading')}</div>;
 
   return (
-    <div className="space-y-6">
-      {/* Tabs */}
-      <div className="flex space-x-4 border-b border-white/10 pb-2">
+    <div>
+      <div className="flex space-x-4 mb-6">
         <button
           onClick={() => setActiveTab('market')}
-          className={`px-4 py-2 font-mono text-sm ${activeTab === 'market' ? 'text-primary border-b-2 border-primary' : 'text-text-secondary'}`}
+          className={`px-4 py-2 rounded font-mono text-sm ${activeTab === 'market' ? 'bg-primary text-background' : 'bg-surface text-text-secondary hover:text-white'}`}
         >
-          Active Listings
+          {t('economy.market.ticket.market_tab')}
         </button>
         <button
           onClick={() => setActiveTab('holdings')}
-          className={`px-4 py-2 font-mono text-sm ${activeTab === 'holdings' ? 'text-primary border-b-2 border-primary' : 'text-text-secondary'}`}
+          className={`px-4 py-2 rounded font-mono text-sm ${activeTab === 'holdings' ? 'bg-primary text-background' : 'bg-surface text-text-secondary hover:text-white'}`}
         >
-          My Holdings & Sell
-        </button>
-        <button onClick={fetchData} className="ml-auto text-text-secondary hover:text-white">
-          <RefreshCw className="w-4 h-4" />
+          {t('economy.market.ticket.holdings_tab')}
         </button>
       </div>
 
-      {/* Market Tab */}
-      {activeTab === 'market' && (
+      {activeTab === 'market' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {listings.length === 0 && <div className="text-text-secondary col-span-3">No active listings.</div>}
-          {listings.map(listing => (
-            <motion.div
-              key={listing.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-surface border border-white/10 rounded-lg p-4 flex flex-col"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="text-lg font-bold text-white font-mono">{listing.ticket_types.title}</h3>
-                <span className="text-xs text-text-secondary font-mono">by {listing.profiles?.username || 'Unknown'}</span>
-              </div>
-              
-              <div className="flex justify-between items-center bg-background/50 p-2 rounded mb-4">
-                <div className="text-center">
-                  <div className="text-xs text-text-secondary">QTY</div>
-                  <div className="text-lg font-bold text-white">{listing.quantity}</div>
+          {listings.length === 0 ? (
+            <div className="col-span-full text-center text-text-secondary py-8">{t('economy.market.ticket.no_listings')}</div>
+          ) : (
+            listings.map((listing) => (
+              <motion.div key={listing.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-surface border border-white/10 rounded-lg p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="text-white font-bold">{listing.ticket_types.title}</h4>
+                  <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">
+                    {listing.quantity} {t('economy.market.ticket.qty')}
+                  </span>
                 </div>
-                <div className="text-center">
-                  <div className="text-xs text-text-secondary">PRICE/UNIT</div>
-                  <div className="text-lg font-bold text-primary">{listing.price_per_unit} T</div>
+                <div className="text-sm text-text-secondary mb-4">
+                  <div>{t('economy.market.ticket.seller')}: {listing.profiles.username}</div>
+                  <div>{t('economy.market.ticket.price')}: {listing.price_per_unit} / unit</div>
+                  <div className="font-bold text-white mt-1">{t('economy.market.ticket.total')}: {listing.price_per_unit * listing.quantity} Tokens</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-xs text-text-secondary">TOTAL</div>
-                  <div className="text-lg font-bold text-white">{(listing.quantity * listing.price_per_unit).toFixed(0)} T</div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  setSelectedListing(listing);
-                  setModalOpen('buy');
-                }}
-                className="mt-auto w-full py-2 bg-primary/20 hover:bg-primary/30 text-primary rounded font-mono font-bold flex items-center justify-center transition-colors"
-              >
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                BUY NOW
-              </button>
-            </motion.div>
-          ))}
+                {user && user.id !== listing.seller_id && (
+                  <button
+                    onClick={() => { setSelectedListing(listing); setModalOpen('buy'); }}
+                    className="w-full bg-green-500/20 text-green-400 border border-green-500/50 py-2 rounded hover:bg-green-500/30 transition-colors"
+                  >
+                    {t('economy.market.ticket.buy')}
+                  </button>
+                )}
+              </motion.div>
+            ))
+          )}
         </div>
-      )}
-
-      {/* Holdings Tab */}
-      {activeTab === 'holdings' && (
+      ) : (
         <div className="space-y-4">
-          {holdings.length === 0 && <div className="text-text-secondary">You don't own any mission tickets yet.</div>}
-          {holdings.map(holding => (
-            <div key={holding.id} className="bg-surface border border-white/10 rounded-lg p-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-white font-mono">{holding.ticket_types.title}</h3>
-                <p className="text-sm text-text-secondary">{holding.ticket_types.description}</p>
-                <div className="mt-1 text-primary font-mono">Balance: {holding.balance} units</div>
+          {holdings.length === 0 ? (
+             <div className="text-center text-text-secondary py-8">{t('economy.market.ticket.no_holdings')}</div>
+          ) : (
+            holdings.map((holding) => (
+              <div key={holding.id} className="bg-surface border border-white/10 rounded-lg p-4 flex justify-between items-center">
+                <div>
+                  <h4 className="text-white font-bold">{holding.ticket_types.title}</h4>
+                  <p className="text-sm text-text-secondary">{holding.ticket_types.description}</p>
+                  <div className="mt-2 text-primary font-mono">{holding.balance} units</div>
+                </div>
+                <button
+                  onClick={() => { setSellTicketId(holding.ticket_type_id); setModalOpen('sell'); }}
+                  className="bg-blue-500/20 text-blue-400 border border-blue-500/50 px-4 py-2 rounded hover:bg-blue-500/30 transition-colors"
+                >
+                  {t('economy.market.ticket.sell')}
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  setSellTicketId(holding.ticket_type_id);
-                  setModalOpen('sell');
-                }}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded font-mono flex items-center"
-              >
-                <PlusCircle className="w-4 h-4 mr-2" />
-                SELL
-              </button>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       )}
 
       {/* Buy Modal */}
       {modalOpen === 'buy' && selectedListing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-surface border border-white/20 rounded-xl p-6 max-w-md w-full shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-4 font-mono">Confirm Purchase</h3>
-            <div className="space-y-4 mb-6">
-              <div className="p-4 bg-background rounded border border-white/10">
-                <div className="flex justify-between mb-2">
-                  <span className="text-text-secondary">Item:</span>
-                  <span className="text-white font-bold">{selectedListing.ticket_types.title}</span>
-                </div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-text-secondary">Quantity:</span>
-                  <span className="text-white">{selectedListing.quantity}</span>
-                </div>
-                <div className="flex justify-between border-t border-white/10 pt-2 mt-2">
-                  <span className="text-text-secondary">Total Cost:</span>
-                  <span className="text-primary font-bold">{(selectedListing.quantity * selectedListing.price_per_unit).toFixed(2)} Tokens</span>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-xs text-text-secondary mb-1">Confirm Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="w-full bg-background border border-white/20 rounded p-2 text-white"
-                  placeholder="Enter your password to confirm"
-                />
-              </div>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-surface border border-white/20 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-white mb-4">{t('economy.market.ticket.buy')} {selectedListing.ticket_types.title}</h3>
+            <p className="text-text-secondary mb-4">
+              {t('economy.market.ticket.qty')}: {selectedListing.quantity} x {selectedListing.price_per_unit} = <span className="text-white font-bold">{selectedListing.quantity * selectedListing.price_per_unit} Tokens</span>
+            </p>
+            <div className="mb-4">
+              <label className="block text-xs text-text-secondary mb-1">{t('economy.market.ticket.confirm_password')}</label>
+              <input
+                type="password"
+                className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
-            
             <div className="flex space-x-3">
-              <button
-                onClick={() => setModalOpen(null)}
-                className="flex-1 py-2 bg-white/10 text-white rounded hover:bg-white/20 transition-colors"
-                disabled={processing}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleBuy}
-                disabled={processing || !password}
-                className="flex-1 py-2 bg-primary text-background font-bold rounded hover:bg-primary/90 transition-colors flex justify-center items-center"
-              >
-                {processing ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Confirm Buy'}
+              <button onClick={() => setModalOpen(null)} className="flex-1 bg-white/10 text-white py-2 rounded hover:bg-white/20">Cancel</button>
+              <button onClick={handleBuy} disabled={processing} className="flex-1 bg-primary text-background font-bold py-2 rounded hover:bg-primary/90">
+                {processing ? t('economy.market.ticket.processing') : t('economy.market.ticket.buy')}
               </button>
             </div>
           </div>
@@ -271,57 +227,42 @@ export const TicketMarket = () => {
 
       {/* Sell Modal */}
       {modalOpen === 'sell' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-surface border border-white/20 rounded-xl p-6 max-w-md w-full shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-4 font-mono">Create Listing</h3>
-            <div className="space-y-4 mb-6">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-surface border border-white/20 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-white mb-4">{t('economy.market.ticket.create_listing')}</h3>
+            <div className="space-y-4 mb-4">
               <div>
-                <label className="block text-xs text-text-secondary mb-1">Quantity to Sell</label>
+                <label className="block text-xs text-text-secondary mb-1">{t('economy.market.ticket.qty')}</label>
                 <input
                   type="number"
+                  className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
                   value={sellQty}
-                  onChange={e => setSellQty(e.target.value)}
-                  className="w-full bg-background border border-white/20 rounded p-2 text-white"
-                  placeholder="Amount"
+                  onChange={(e) => setSellQty(e.target.value)}
                 />
               </div>
               <div>
-                <label className="block text-xs text-text-secondary mb-1">Price per Unit (Tokens)</label>
+                <label className="block text-xs text-text-secondary mb-1">{t('economy.market.ticket.price')}</label>
                 <input
                   type="number"
+                  className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
                   value={sellPrice}
-                  onChange={e => setSellPrice(e.target.value)}
-                  className="w-full bg-background border border-white/20 rounded p-2 text-white"
-                  placeholder="Price"
+                  onChange={(e) => setSellPrice(e.target.value)}
                 />
               </div>
-              
               <div>
-                <label className="block text-xs text-text-secondary mb-1">Confirm Password</label>
+                <label className="block text-xs text-text-secondary mb-1">{t('economy.market.ticket.confirm_password')}</label>
                 <input
                   type="password"
+                  className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="w-full bg-background border border-white/20 rounded p-2 text-white"
-                  placeholder="Enter your password to confirm"
+                  onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
             </div>
-            
             <div className="flex space-x-3">
-              <button
-                onClick={() => setModalOpen(null)}
-                className="flex-1 py-2 bg-white/10 text-white rounded hover:bg-white/20 transition-colors"
-                disabled={processing}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSell}
-                disabled={processing || !password || !sellQty || !sellPrice}
-                className="flex-1 py-2 bg-primary text-background font-bold rounded hover:bg-primary/90 transition-colors flex justify-center items-center"
-              >
-                {processing ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Create Listing'}
+              <button onClick={() => setModalOpen(null)} className="flex-1 bg-white/10 text-white py-2 rounded hover:bg-white/20">Cancel</button>
+              <button onClick={handleSell} disabled={processing} className="flex-1 bg-primary text-background font-bold py-2 rounded hover:bg-primary/90">
+                {processing ? t('economy.market.ticket.processing') : 'List for Sale'}
               </button>
             </div>
           </div>

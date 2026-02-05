@@ -15,7 +15,8 @@
       "remote": "Remote / On Campus",
       "wifi": "Everywhere there is Wi-Fi"
     },
-    "copyright": "All rights reserved."
+    "copyright": "All rights reserved.",
+    "disclaimer": "Disclaimer: Many of the information on this website, including contact details, are AI-generated and may not be accurate or functional at this time."
   },
   "home": {
     "hero": {
@@ -149,6 +150,103 @@
         "description": "Air Traffic Control simulation for high-density terminal airspace.",
         "mechanism": "Aircraft separation algorithms, wake turbulence modeling, RNAV approach pathing, conflict detection logic.",
         "action": "Request Access"
+      }
+    }
+  },
+  "economy": {
+    "missions": {
+      "title": "Missions",
+      "subtitle": "Complete tasks to earn Tokens and Reputation",
+      "submit_btn": "Submit Work",
+      "submitting": "Submitting...",
+      "success_msg": "Submission received! Admin will review shortly.",
+      "error_msg": "Error submitting: ",
+      "loading": "Loading Mission Data...",
+      "login_to_submit": "Log in to view submission details",
+      "your_submissions": "Your Submissions",
+      "submit_placeholder": "Enter your proof of work or results here...",
+      "variable_reward": "Variable Reward (Market Based)",
+      "variable_reward_range": "Reward Range: {{min}} - {{max}} Tokens",
+      "current_reward": "Current: {{amount}} Tokens",
+      "status": {
+        "pending": "Under Review",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "low_rep": "Reputation too low. You need > 30 Rep to submit missions.",
+      "create_btn": "Launch Mission (Rep > 70)",
+      "create_modal": {
+        "title": "Launch Community Mission",
+        "name_label": "Mission Title",
+        "desc_label": "Description",
+        "min_label": "Min Reward (Tokens)",
+        "max_label": "Max Reward (Tokens)",
+        "submit": "Launch Mission",
+        "cancel": "Cancel"
+      }
+    },
+    "market": {
+      "title": "Support Markets",
+      "subtitle": "Trade outcomes and support ecosystem growth",
+      "disclaimer": "Experimental Economy. No real money involved.",
+      "tabs": {
+        "instruments": "Instruments",
+        "tickets": "Ticket Market"
+      },
+      "instrument": {
+        "yield": "Est. Yield",
+        "lockup": "Lockup",
+        "days": "Days",
+        "amount_placeholder": "Amount to Support",
+        "support_btn": "Support",
+        "low_rep": "Reputation too low. You need > 50 Rep to support instruments."
+      },
+      "campaign": {
+        "create_btn": "Create Campaign (Rep > 70)",
+        "modal_title": "Create Market Campaign",
+        "title_label": "Campaign Title",
+        "desc_label": "Description",
+        "yield_label": "Yield Rate (%)",
+        "lockup_label": "Lockup (Days)",
+        "submit": "Create Campaign"
+      },
+      "ticket": {
+        "market_tab": "Market Listings",
+        "holdings_tab": "My Holdings",
+        "no_listings": "No active listings found.",
+        "no_holdings": "You don't own any tickets.",
+        "qty": "Qty",
+        "seller": "Seller",
+        "price": "Price",
+        "total": "Total",
+        "buy": "Buy",
+        "sell": "Sell",
+        "create_listing": "Create Listing",
+        "confirm_password": "Confirm Password",
+        "processing": "Processing...",
+        "low_rep": "Reputation too low. You need > 50 Rep to trade."
+      }
+    },
+    "wallet": {
+      "daily_bonus": {
+        "title": "Daily Login Bonus",
+        "claim": "Claim Bonus",
+        "claimed": "Claimed Today",
+        "next": "Come back tomorrow for more!",
+        "desc": "Bonus amount increases with your Reputation."
+      },
+      "developer": {
+        "title": "Developer Program",
+        "request": "Request Developer Status",
+        "pending": "Request Pending",
+        "approved": "Developer Account Active",
+        "desc": "Developers get 80 Reputation and can approve community content."
+      },
+      "tiers": {
+        "title": "Reputation Privileges",
+        "level1": "LVL 1 (>30 Rep): Access Community Missions",
+        "level2": "LVL 2 (>50 Rep): Trade in Ticket Market",
+        "level3": "LVL 3 (>70 Rep): Launch Campaigns & Missions"
       }
     }
   }

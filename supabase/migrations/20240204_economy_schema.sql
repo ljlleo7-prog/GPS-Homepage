@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS public.missions (
   reward_rep INTEGER DEFAULT 0,
   type TEXT CHECK (type IN ('FEEDBACK', 'PLAYTEST', 'IDEA')),
   status TEXT DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'ARCHIVED')),
-  created_by UUID REFERENCES public.profiles(id),
+  creator_id UUID REFERENCES public.profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
