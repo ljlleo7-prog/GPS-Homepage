@@ -168,6 +168,12 @@
         "description": "Air Traffic Control simulation for high-density terminal airspace.",
         "mechanism": "Aircraft separation algorithms, wake turbulence modeling, RNAV approach pathing, conflict detection logic.",
         "action": "Request Access"
+      },
+      "skyline_tragedy": {
+        "name": "Skyline Tragedy",
+        "description": "6-DOF simulation with comprehensive flight initialization and parameter configuration.",
+        "mechanism": "6-DOF physics, SSO integration, difficulty scaling, NPC crew intelligence.",
+        "action": "Launch Simulation"
       }
     }
   },

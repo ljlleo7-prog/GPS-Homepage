@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, Terminal, User, LogOut, Globe } from 'lucide-react';
+import { Menu, X, Terminal, User, LogOut, Globe, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useEconomy } from '../../context/EconomyContext';
@@ -67,7 +67,11 @@ const Navbar = () => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           <Link to="/" className="flex items-center space-x-2 group">
-            <Terminal className="h-8 w-8 text-primary group-hover:text-secondary transition-colors duration-300" />
+            <img 
+              src="/GPS-logo.jpg" 
+              alt="GPS Logo" 
+              className="h-10 w-10 rounded-full object-cover border border-primary/20 group-hover:border-primary transition-colors duration-300" 
+            />
             <span className="font-mono text-xl font-bold tracking-wider group-hover:text-shadow-neon-blue transition-all duration-300">
               GPS
             </span>
@@ -97,6 +101,11 @@ const Navbar = () => {
 
             {user ? (
               <div className="flex items-center space-x-4 pl-8 border-l border-white/10">
+                {developerStatus === 'APPROVED' && (
+                  <Link to="/developer-inbox" className="text-cyan-400 hover:text-cyan-300 transition-colors" title="Developer Inbox">
+                    <Shield className="w-5 h-5" />
+                  </Link>
+                )}
                 <Link to="/wallet" className="flex items-center space-x-2 text-primary hover:text-secondary transition-colors">
                   <User className="w-5 h-5" />
                   <span className={`font-mono text-sm ${developerStatus === 'APPROVED' ? 'text-cyan-400' : ''}`}>{username}</span>
@@ -162,6 +171,15 @@ const Navbar = () => {
               
               {user ? (
                 <>
+                  {developerStatus === 'APPROVED' && (
+                    <Link
+                      to="/developer-inbox"
+                      className="px-3 py-2 font-mono flex items-center space-x-2 text-cyan-400 hover:text-cyan-300"
+                    >
+                      <Shield className="w-5 h-5" />
+                      <span>Developer Inbox</span>
+                    </Link>
+                  )}
                   <div className={`px-3 py-2 font-mono flex items-center space-x-2 border-t border-white/10 mt-2 pt-4 ${developerStatus === 'APPROVED' ? 'text-cyan-400' : 'text-primary'}`}>
                     <User className="w-5 h-5" />
                     <span>{username}</span>

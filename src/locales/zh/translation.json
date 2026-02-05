@@ -168,6 +168,12 @@
         "description": "高密度终端空域的空中交通管制模拟。",
         "mechanism": "飞机间隔算法，尾流湍流建模，RNAV进近路径，冲突检测逻辑。",
         "action": "申请访问"
+      },
+      "skyline_tragedy": {
+        "name": "Skyline Tragedy",
+        "description": "具有全面飞行初始化和参数配置的六自由度模拟。",
+        "mechanism": "六自由度物理，SSO集成，难度分级，NPC机组智能。",
+        "action": "启动模拟"
       }
     }
   },

@@ -13,7 +13,11 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2">
             <Link to="/" className="flex items-center space-x-2 group mb-4">
-              <Terminal className="h-6 w-6 text-primary group-hover:text-secondary transition-colors duration-300" />
+              <img 
+                src="/GPS-logo.jpg" 
+                alt="GPS Logo" 
+                className="h-8 w-8 rounded-full object-cover border border-primary/20 group-hover:border-primary transition-colors duration-300" 
+              />
               <span className="font-mono text-lg font-bold tracking-wider">
                 GeeksProductionStudio
               </span>

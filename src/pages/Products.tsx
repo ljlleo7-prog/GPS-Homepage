@@ -23,6 +23,18 @@ const Products = () => {
       icon: <Plane className="w-8 h-8" />
     },
     {
+      id: 'sim-aviation-003',
+      name: t('products.items.skyline_tragedy.name'),
+      category: 'aviation',
+      type: 'computerized-simulation',
+      access: 'open',
+      description: t('products.items.skyline_tragedy.description'),
+      mechanism: t('products.items.skyline_tragedy.mechanism'),
+      action: t('products.items.skyline_tragedy.action'),
+      icon: <Plane className="w-8 h-8" />,
+      url: 'https://skylinetragedy.geeksproductionstudio.com/'
+    },
+    {
       id: 'boardgame-motorsports-001',
       name: t('products.items.race_strategy.name'),
       category: 'motorsports',
