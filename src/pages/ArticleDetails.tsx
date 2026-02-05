@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calendar, User, ArrowLeft, Tag } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import CommentSection from '../components/news/CommentSection';
 
 interface Article {
   id: string;
@@ -113,6 +114,8 @@ const ArticleDetails = () => {
               </p>
             ))}
           </div>
+
+          <CommentSection newsId={article.id} />
         </motion.div>
       </div>
     </article>

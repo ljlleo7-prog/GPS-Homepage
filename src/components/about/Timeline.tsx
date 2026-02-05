@@ -1,34 +1,32 @@
 import { motion } from 'framer-motion';
-
-const milestones = [
-  {
-    year: '2020',
-    title: 'Inception',
-    description: 'GeeksProductionStudio was founded by a group of passionate developers with a vision to redefine digital experiences.'
-  },
-  {
-    year: '2021',
-    title: 'First Major Project',
-    description: 'Launched our flagship project "CyberCore", receiving critical acclaim for its innovative use of WebGL.'
-  },
-  {
-    year: '2022',
-    title: 'Global Expansion',
-    description: 'Expanded our team and opened new offices in London and Tokyo to serve our growing international client base.'
-  },
-  {
-    year: '2023',
-    title: 'AI Integration',
-    description: 'Established a dedicated AI research division to integrate machine learning into our production workflows.'
-  },
-  {
-    year: '2024',
-    title: 'Future Horizons',
-    description: 'Continuing to push the boundaries of technology with new ventures in VR/AR and blockchain.'
-  }
-];
+import { useTranslation } from 'react-i18next';
 
 const Timeline = () => {
+  const { t } = useTranslation();
+
+  const milestones = [
+    {
+      year: t('about.timeline.milestone1.year'),
+      title: t('about.timeline.milestone1.title'),
+      description: t('about.timeline.milestone1.desc')
+    },
+    {
+      year: t('about.timeline.milestone2.year'),
+      title: t('about.timeline.milestone2.title'),
+      description: t('about.timeline.milestone2.desc')
+    },
+    {
+      year: t('about.timeline.milestone3.year'),
+      title: t('about.timeline.milestone3.title'),
+      description: t('about.timeline.milestone3.desc')
+    },
+    {
+      year: t('about.timeline.milestone4.year'),
+      title: t('about.timeline.milestone4.title'),
+      description: t('about.timeline.milestone4.desc')
+    }
+  ];
+
   return (
     <div className="relative border-l border-white/10 ml-4 md:ml-10 space-y-12 py-8">
       {milestones.map((item, index) => (

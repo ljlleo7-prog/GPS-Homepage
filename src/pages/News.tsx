@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search } from 'lucide-react';
+import { Search, PlusCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import ArticleCard from '../components/news/ArticleCard';
+import PostNewsModal from '../components/news/PostNewsModal';
+import { useEconomy } from '../context/EconomyContext';
 
 interface Article {
   id: string;
@@ -17,10 +19,12 @@ interface Article {
 const categories = ['All', 'Company News', 'Technology', 'Projects'];
 
 const News = () => {
+  const { developerStatus } = useEconomy();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
 
   useEffect(() => {
     fetchArticles();
@@ -83,17 +87,35 @@ const News = () => {
             ))}
           </div>
 
-          <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search articles..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-surface border border-white/10 rounded-full pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-primary transition-colors"
-            />
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            {developerStatus === 'APPROVED' && (
+              <button
+                onClick={() => setIsPostModalOpen(true)}
+                className="flex items-center px-4 py-2 bg-secondary/10 border border-secondary text-secondary rounded-full font-mono text-sm hover:bg-secondary hover:text-background transition-all duration-300"
+              >
+                <PlusCircle className="w-4 h-4 mr-2" />
+                Post News
+              </button>
+            )}
+
+            <div className="relative w-full md:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search articles..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-surface border border-white/10 rounded-full pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-primary transition-colors"
+              />
+            </div>
           </div>
         </div>
+
+        <PostNewsModal 
+          isOpen={isPostModalOpen} 
+          onClose={() => setIsPostModalOpen(false)} 
+          onSuccess={fetchArticles} 
+        />
 
         {/* Articles Grid */}
         {loading ? (

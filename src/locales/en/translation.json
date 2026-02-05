@@ -44,7 +44,7 @@
     },
     "services": {
       "title": "Our Passion",
-      "subtitle": "We are more than just coders. We are creators, learners, and friends exploring the digital frontier.",
+      "subtitle": "Started as individuals at school, we grew into a team of creators exploring both board games and computerized simulations.",
       "items": {
         "web_projects": "Web Projects",
         "web_projects_desc": "Building fun, experimental, and useful websites using modern frameworks like React and Vue.",
@@ -64,12 +64,34 @@
   "about": {
     "story": {
       "title": "Our Story",
-      "subtitle": "We are a collective of student developers, dreamers, and geeks united by a passion for technology and a drive to learn.",
+      "subtitle": "Established in 2025, we are a team of students bridging the gap between board games and computerized simulations. What started as individual passion projects converged when we met at school, uniting under a shared vision.",
       "journey": "Our Journey"
+    },
+    "timeline": {
+      "milestone1": {
+        "year": "Jan 2025",
+        "title": "The Spark",
+        "desc": "Started as individuals working on personal projects. School brought us together."
+      },
+      "milestone2": {
+        "year": "Mar 2025",
+        "title": "Board Game Origins",
+        "desc": "Formed the team and began developing board games after class."
+      },
+      "milestone3": {
+        "year": "Oct 2025",
+        "title": "Digital Shift",
+        "desc": "Ventured into computerized simulation and webapps, embracing 'vibe-coding' with Trae."
+      },
+      "milestone4": {
+        "year": "Feb 2026",
+        "title": "Official Launch",
+        "desc": "Setting up our backend server and launching the official website. Expanding from our Bilibili community to the world."
+      }
     },
     "mission": {
       "title": "Our Mission",
-      "content": "To explore the possibilities of code without limits. We strive to learn, build, and share our knowledge with the community, creating a space where passion meets practice.",
+      "content": "We are F1 fans, aviation enthusiasts, and creative minds. While some of us code, others design, bringing a diverse set of skills to the table. Based in China but open to the world, we are growing our community beyond our 1000+ Bilibili fans.",
       "quote": "Code is our canvas, and we are just getting started. Let's build something awesome together.",
       "author": "The GPS Team"
     },
