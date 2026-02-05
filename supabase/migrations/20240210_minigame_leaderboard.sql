@@ -1,4 +1,3 @@
-
 -- 1. Create a view or function to get the monthly leaderboard
 -- We need to join minigame_scores with profiles to get usernames
 -- And aggregate by user_id to find the BEST score (MIN score_ms)
@@ -48,7 +47,7 @@ END;
 $$;
 
 -- 2. Function to calculate the Dynamic Prize Pool
--- Logic: Base Pool (e.g., 1000) + (Total Plays in Month * 5 Tokens)
+-- Logic: Base Pool (e.g., 500) + (Total Plays in Month * 2 Tokens)
 -- This ensures "activity = reward"
 CREATE OR REPLACE FUNCTION get_monthly_prize_pool(
     p_year INTEGER DEFAULT EXTRACT(YEAR FROM NOW())::INTEGER,
@@ -60,7 +59,7 @@ SECURITY DEFINER
 AS $$
 DECLARE
     v_total_plays INTEGER;
-    v_base_pool INTEGER := 1000;
+    v_base_pool INTEGER := 500;
     v_token_per_play INTEGER := 2; -- 2 tokens added per game played
     v_total_pool INTEGER;
 BEGIN

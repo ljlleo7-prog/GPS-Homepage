@@ -67,8 +67,10 @@ const DeveloperInbox = () => {
   const fetchInbox = async () => {
     setLoading(true);
     try {
+      console.log('Fetching developer inbox...');
       const { data: result, error } = await supabase.rpc('get_developer_inbox');
       if (error) throw error;
+      console.log('Inbox result:', result);
       if (result && result.success) {
         setData({
           pending_devs: result.pending_devs,
@@ -97,12 +99,13 @@ const DeveloperInbox = () => {
   const handleDeclineDev = async (id: string) => {
     if (!confirm('Decline this developer request?')) return;
     try {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ developer_status: 'NONE' }) // Reset to NONE or add REJECTED if needed
-            .eq('id', id);
+        const { data, error } = await supabase.rpc('decline_developer_access', {
+            target_user_id: id
+        });
         
         if (error) throw error;
+        if (data && !data.success) throw new Error(data.message);
+        
         fetchInbox();
     } catch (error: any) {
         alert(error.message || 'Failed to decline');

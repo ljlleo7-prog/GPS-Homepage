@@ -126,7 +126,12 @@ const News = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredArticles.length > 0 ? (
               filteredArticles.map((article, index) => (
-                <ArticleCard key={article.id} article={article} index={index} />
+                <ArticleCard 
+                  key={article.id} 
+                  article={article} 
+                  index={index} 
+                  onDelete={fetchArticles}
+                />
               ))
             ) : (
               <div className="col-span-full text-center py-20 text-text-secondary">

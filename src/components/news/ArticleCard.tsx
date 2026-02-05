@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Calendar, User } from 'lucide-react';
+import { Calendar, User, Trash2 } from 'lucide-react';
+import { useEconomy } from '../../context/EconomyContext';
+import { supabase } from '../../lib/supabase';
 
 interface Article {
   id: string;
@@ -15,9 +17,30 @@ interface Article {
 interface ArticleCardProps {
   article: Article;
   index: number;
+  onDelete?: () => void;
 }
 
-const ArticleCard = ({ article, index }: ArticleCardProps) => {
+const ArticleCard = ({ article, index, onDelete }: ArticleCardProps) => {
+  const { developerStatus } = useEconomy();
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigation
+    if (!confirm('Are you sure you want to delete this article?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('news_articles')
+        .delete()
+        .eq('id', article.id);
+        
+      if (error) throw error;
+      if (onDelete) onDelete();
+    } catch (err) {
+      console.error('Error deleting article:', err);
+      alert('Failed to delete article');
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -36,6 +59,17 @@ const ArticleCard = ({ article, index }: ArticleCardProps) => {
             {article.category}
           </span>
         </div>
+        {developerStatus === 'APPROVED' && (
+          <div className="absolute top-4 right-4">
+            <button
+              onClick={handleDelete}
+              className="p-2 bg-red-500/80 backdrop-blur-sm text-white rounded-full hover:bg-red-600 transition-colors shadow-lg z-20"
+              title="Delete Article"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
       <div className="p-6">
         <div className="flex items-center space-x-4 text-xs text-text-secondary mb-3 font-mono">
