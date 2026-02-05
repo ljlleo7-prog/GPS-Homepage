@@ -3,9 +3,11 @@ import { motion } from 'framer-motion';
 import { MapPin, Phone, Mail, Send, Loader } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useTranslation } from 'react-i18next';
+import { useSiteContent } from '../hooks/useSiteContent';
 
 const Contact = () => {
   const { t } = useTranslation();
+  const { content } = useSiteContent();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -69,23 +71,23 @@ const Contact = () => {
                 <MapPin className="w-8 h-8 text-primary mb-4" />
                 <h3 className="text-xl font-bold mb-2">Visit Us</h3>
                 <p className="text-text-secondary">
-                  123 Tech Avenue<br />
-                  Silicon Valley, CA 94025
+                  {content.contact_address_line1}<br />
+                  {content.contact_address_line2}
                 </p>
               </div>
 
               <div className="bg-surface p-8 rounded-lg border border-white/5 hover:border-primary/30 transition-colors">
                 <Mail className="w-8 h-8 text-secondary mb-4" />
                 <h3 className="text-xl font-bold mb-2">Email Us</h3>
-                <p className="text-text-secondary">hello@gps.studio</p>
-                <p className="text-text-secondary">support@gps.studio</p>
+                <p className="text-text-secondary">{content.contact_email_primary}</p>
+                <p className="text-text-secondary">{content.contact_email_support}</p>
               </div>
 
               <div className="bg-surface p-8 rounded-lg border border-white/5 hover:border-primary/30 transition-colors">
                 <Phone className="w-8 h-8 text-primary mb-4" />
                 <h3 className="text-xl font-bold mb-2">Call Us</h3>
-                <p className="text-text-secondary">+1 (555) 123-4567</p>
-                <p className="text-text-secondary">Mon-Fri, 9am-6pm PST</p>
+                <p className="text-text-secondary">{content.contact_phone_main}</p>
+                <p className="text-text-secondary">{content.contact_hours}</p>
               </div>
             </motion.div>
 

@@ -1,9 +1,11 @@
 import { Terminal, Github, Twitter, Linkedin, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useSiteContent } from '../../hooks/useSiteContent';
 
 const Footer = () => {
   const { t } = useTranslation();
+  const { content } = useSiteContent();
 
   return (
     <footer className="bg-surface border-t border-white/5 py-12">
@@ -20,16 +22,16 @@ const Footer = () => {
               {t('footer.tagline')}
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="text-text-secondary hover:text-primary transition-colors">
+              <a href={content.social_github} target="_blank" rel="noopener noreferrer" className="text-text-secondary hover:text-primary transition-colors">
                 <Github className="h-5 w-5" />
               </a>
-              <a href="#" className="text-text-secondary hover:text-primary transition-colors">
+              <a href={content.social_twitter} target="_blank" rel="noopener noreferrer" className="text-text-secondary hover:text-primary transition-colors">
                 <Twitter className="h-5 w-5" />
               </a>
-              <a href="#" className="text-text-secondary hover:text-primary transition-colors">
+              <a href={content.social_linkedin} target="_blank" rel="noopener noreferrer" className="text-text-secondary hover:text-primary transition-colors">
                 <Linkedin className="h-5 w-5" />
               </a>
-              <a href="mailto:hello@gps.studio" className="text-text-secondary hover:text-primary transition-colors">
+              <a href={`mailto:${content.contact_email_primary}`} className="text-text-secondary hover:text-primary transition-colors">
                 <Mail className="h-5 w-5" />
               </a>
             </div>
@@ -66,7 +68,7 @@ const Footer = () => {
             <ul className="space-y-2 text-text-secondary">
               <li>{t('footer.location.remote')}</li>
               <li>{t('footer.location.wifi')}</li>
-              <li>hello@geeksproductionstudio.com</li>
+              <li>{content.contact_email_full}</li>
             </ul>
           </div>
         </div>
