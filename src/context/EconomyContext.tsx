@@ -61,6 +61,9 @@ interface EconomyContextType {
     proofUrl: string
   ) => Promise<{ success: boolean; message?: string }>;
   deleteCampaign: (id: string, mode: 'MARKET' | 'EVERYWHERE') => Promise<{ success: boolean; message?: string }>;
+  playReactionGame: (scoreMs: number) => Promise<{ success: boolean; reward?: number; message?: string }>;
+  getMonthlyLeaderboard: () => Promise<{ success: boolean; data?: any[] }>;
+  getMonthlyPool: () => Promise<{ success: boolean; data?: any }>;
 }
 
 const EconomyContext = createContext<EconomyContextType>({
@@ -80,6 +83,9 @@ const EconomyContext = createContext<EconomyContextType>({
   buyDriverBetTicket: async () => ({ success: false }),
   resolveDriverBet: async () => ({ success: false }),
   deleteCampaign: async () => ({ success: false }),
+  playReactionGame: async () => ({ success: false }),
+  getMonthlyLeaderboard: async () => ({ success: false }),
+  getMonthlyPool: async () => ({ success: false }),
 });
 
 export const useEconomy = () => useContext(EconomyContext);
@@ -432,6 +438,46 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
+  const playReactionGame = async (scoreMs: number) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+      const { data, error } = await supabase.rpc('play_reaction_game', {
+        p_score_ms: scoreMs
+      });
+
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+
+      await refreshEconomy();
+      return { success: true, reward: data.reward, message: data.message };
+    } catch (error: any) {
+      console.error('Error playing reaction game:', error);
+      return { success: false, message: error.message || 'Failed to submit score' };
+    }
+  };
+
+  const getMonthlyLeaderboard = async () => {
+    try {
+        const { data, error } = await supabase.rpc('get_monthly_leaderboard');
+        if (error) throw error;
+        return { success: true, data };
+    } catch (error: any) {
+        console.error('Error fetching leaderboard:', error);
+        return { success: false, message: error.message };
+    }
+  };
+
+  const getMonthlyPool = async () => {
+    try {
+        const { data, error } = await supabase.rpc('get_monthly_prize_pool');
+        if (error) throw error;
+        return { success: true, data };
+    } catch (error: any) {
+        console.error('Error fetching pool:', error);
+        return { success: false, message: error.message };
+    }
+  };
+
   return (
     <EconomyContext.Provider value={{ 
       wallet, 
@@ -449,7 +495,10 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       createDriverBet,
       buyDriverBetTicket,
       resolveDriverBet,
-      deleteCampaign
+      deleteCampaign,
+      playReactionGame,
+      getMonthlyLeaderboard,
+      getMonthlyPool
     }}>
       {children}
     </EconomyContext.Provider>

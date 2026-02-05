@@ -21,6 +21,7 @@ export default {
           primary: "#ffffff",
           secondary: "#b3b3b3",
         },
+        'f1-red': '#FF1801',
       },
       fontFamily: {
         mono: ["Fira Code", "JetBrains Mono", "monospace"],

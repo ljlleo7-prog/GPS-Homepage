@@ -53,6 +53,7 @@ const Navbar = () => {
     { name: t('navbar.products'), path: '/products' },
     { name: t('navbar.missions'), path: '/missions' },
     { name: t('navbar.markets'), path: '/markets' },
+    { name: t('navbar.minigame'), path: '/minigame' },
     { name: t('navbar.community'), path: '/community' },
     { name: t('navbar.about'), path: '/about' },
     { name: t('navbar.contact'), path: '/contact' },
