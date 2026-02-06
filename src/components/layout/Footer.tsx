@@ -15,7 +15,7 @@ const Footer = () => {
             <Link to="/" className="flex items-center space-x-2 group mb-4">
               <img 
                 src="/GPS-logo.jpg" 
-                alt="GPS Logo" 
+                alt={t('common.logo_alt')} 
                 className="h-8 w-8 rounded-full object-cover border border-primary/20 group-hover:border-primary transition-colors duration-300" 
               />
               <span className="font-mono text-lg font-bold tracking-wider">
@@ -42,7 +42,7 @@ const Footer = () => {
           </div>
 
           <div>
-            <h3 className="font-mono text-lg font-semibold text-white mb-4">Navigation</h3>
+            <h3 className="font-mono text-lg font-semibold text-white mb-4">{t('footer.navigation')}</h3>
             <ul className="space-y-2">
               <li>
                 <Link to="/" className="text-text-secondary hover:text-primary transition-colors">

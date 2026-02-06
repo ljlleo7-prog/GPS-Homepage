@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Gamepad2, Send } from 'lucide-react';
 import { useEconomy } from '../../context/EconomyContext';
 
+import { useTranslation } from 'react-i18next';
+
 interface TestPlayerRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -11,6 +13,7 @@ interface TestPlayerRequestModalProps {
 const PROGRAMS = ['Skyline Tragedy', 'DeltaDash'];
 
 const TestPlayerRequestModal = ({ isOpen, onClose }: TestPlayerRequestModalProps) => {
+  const { t } = useTranslation();
   const { requestTestPlayerAccess } = useEconomy();
   const [identifiableName, setIdentifiableName] = useState('');
   const [program, setProgram] = useState(PROGRAMS[0]);
@@ -24,16 +27,16 @@ const TestPlayerRequestModal = ({ isOpen, onClose }: TestPlayerRequestModalProps
     try {
       const result = await requestTestPlayerAccess(identifiableName, program, progress);
       if (result.success) {
-        alert('Request submitted successfully!');
+        alert(t('developer.test_request.alerts.success'));
         onClose();
         setIdentifiableName('');
         setProgress('');
       } else {
-        alert(result.message || 'Failed to submit request');
+        alert(result.message || t('developer.test_request.alerts.failed'));
       }
     } catch (error) {
       console.error(error);
-      alert('An unexpected error occurred');
+      alert(t('developer.test_request.alerts.error'));
     } finally {
       setLoading(false);
     }
@@ -53,7 +56,7 @@ const TestPlayerRequestModal = ({ isOpen, onClose }: TestPlayerRequestModalProps
           <div className="p-6 border-b border-white/10 flex justify-between items-center">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <Gamepad2 className="text-primary" />
-              Request Test Player Access
+              {t('developer.test_request.title')}
             </h2>
             <button onClick={onClose} className="text-text-secondary hover:text-white transition-colors">
               <X size={20} />
@@ -62,23 +65,23 @@ const TestPlayerRequestModal = ({ isOpen, onClose }: TestPlayerRequestModalProps
 
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
             <div className="bg-blue-500/10 border border-blue-500/20 rounded p-3 text-xs text-blue-200 mb-4">
-              Approved testers receive +20 Reputation and free access to the selected program.
+              {t('developer.test_request.info')}
             </div>
 
             <div>
-              <label className="block text-sm font-mono text-text-secondary mb-1">Identifiable Name</label>
+              <label className="block text-sm font-mono text-text-secondary mb-1">{t('developer.test_request.labels.identifiable_name')}</label>
               <input
                 type="text"
                 required
                 value={identifiableName}
                 onChange={(e) => setIdentifiableName(e.target.value)}
-                placeholder="e.g. WeChat Nickname"
+                placeholder={t('developer.test_request.placeholders.identifiable_name')}
                 className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary focus:outline-none transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-mono text-text-secondary mb-1">Test Program</label>
+              <label className="block text-sm font-mono text-text-secondary mb-1">{t('developer.test_request.labels.program')}</label>
               <select
                 value={program}
                 onChange={(e) => setProgram(e.target.value)}
@@ -91,12 +94,12 @@ const TestPlayerRequestModal = ({ isOpen, onClose }: TestPlayerRequestModalProps
             </div>
 
             <div>
-              <label className="block text-sm font-mono text-text-secondary mb-1">Current Progress</label>
+              <label className="block text-sm font-mono text-text-secondary mb-1">{t('developer.test_request.labels.progress')}</label>
               <textarea
                 required
                 value={progress}
                 onChange={(e) => setProgress(e.target.value)}
-                placeholder="Briefly describe your current progress or why you want to test..."
+                placeholder={t('developer.test_request.placeholders.progress')}
                 rows={3}
                 className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-white focus:border-primary focus:outline-none transition-colors resize-none"
               />
@@ -113,7 +116,7 @@ const TestPlayerRequestModal = ({ isOpen, onClose }: TestPlayerRequestModalProps
                 ) : (
                   <>
                     <Send size={16} />
-                    Submit Request
+                    {t('developer.test_request.submit')}
                   </>
                 )}
               </button>

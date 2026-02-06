@@ -69,11 +69,19 @@ const SupportMarkets = () => {
   const [creating, setCreating] = useState(false);
   const [viewingHolders, setViewingHolders] = useState<{id: string, side: 'A' | 'B' | 'General'} | null>(null);
   const [holdersList, setHoldersList] = useState<{username: string, balance: number}[]>([]);
+  const [driverBetStats, setDriverBetStats] = useState<{[key: string]: {side_a_sold: number, side_b_sold: number}}>({});
 
   useEffect(() => {
     fetchInstruments();
+    fetchDriverBetStats();
     if (user) fetchPositions();
   }, [user, activeView]);
+
+  const fetchDriverBetStats = async () => {
+    const { data, error } = await supabase.rpc('get_driver_bet_stats');
+    if (error) console.error('Error fetching bet stats:', error);
+    else setDriverBetStats(data || {});
+  };
 
   const fetchPositions = async () => {
     if (!user) return;
@@ -114,25 +122,25 @@ const SupportMarkets = () => {
   const handleSupport = async (instrument: Instrument) => {
     // Rep Gating > 50
     if (!wallet || wallet.reputation_balance <= 50) {
-      alert(t('economy.market.instrument.low_rep'));
+      alert(t('economy.market.alerts.low_rep'));
       return;
     }
 
     const val = parseFloat(amount[instrument.id]);
-    if (isNaN(val) || val <= 0) return alert('Invalid amount');
+    if (isNaN(val) || val <= 0) return alert(t('economy.market.alerts.invalid_amount'));
     
     // For tickets, amount must be integer
     if (instrument.ticket_type_id && !Number.isInteger(val)) {
-        return alert('Ticket quantity must be an integer');
+        return alert(t('economy.market.alerts.ticket_integer'));
     }
 
     const result = await enterPosition(instrument.id, val);
     if (result.success) {
-      alert('Tickets purchased successfully!');
+      alert(t('economy.market.alerts.purchase_success'));
       setAmount({...amount, [instrument.id]: ''});
       fetchPositions(); 
     } else {
-      alert('Failed: ' + result.message);
+      alert(t('economy.market.alerts.purchase_failed', { message: result.message }));
     }
   };
 
@@ -157,7 +165,7 @@ const SupportMarkets = () => {
 
     if (isDriverBet) {
         if (!sideA || !ticketPrice || !ticketLimit || !endDate || !openDate) {
-            alert("Please fill in all Driver Bet fields.");
+            alert(t('economy.market.alerts.fill_driver_bet'));
             setCreating(false);
             return;
         }
@@ -174,7 +182,7 @@ const SupportMarkets = () => {
         );
 
         if (result.success) {
-            alert('Driver Bet created!');
+            alert(t('economy.market.alerts.driver_bet_created'));
             setShowCreateModal(false);
             setNewTitle(''); setNewDesc(''); setIsDriverBet(false);
             setSideA(''); setSideB(''); setTicketPrice(''); setTicketLimit(''); setEndDate(''); setOpenDate('');
@@ -184,7 +192,7 @@ const SupportMarkets = () => {
         }
     } else {
         if (refundSchedule.length === 0) {
-            alert("Please add at least one refund schedule item.");
+            alert(t('economy.market.alerts.add_refund_schedule'));
             setCreating(false);
             return;
         }
@@ -198,7 +206,7 @@ const SupportMarkets = () => {
         );
 
         if (result.success) {
-          alert('Campaign created!');
+          alert(t('economy.market.alerts.campaign_created'));
           setShowCreateModal(false);
           setNewTitle('');
           setNewDesc('');
@@ -214,17 +222,17 @@ const SupportMarkets = () => {
 
   const handleResolve = async (instrumentId: string, side: 'A' | 'B') => {
       // 1. Ask for Proof URL
-      const proofUrl = prompt("Please enter the verification URL (e.g. F1 Official Website):");
+      const proofUrl = prompt(t('economy.market.alerts.verify_url_prompt'));
       if (!proofUrl || !proofUrl.trim()) return;
 
-      if (!confirm(`Are you sure you want to declare Side ${side} as the winner? This will execute payouts and cannot be undone.`)) return;
+      if (!confirm(t('economy.market.alerts.resolve_confirm', { side }))) return;
       
       const result = await resolveDriverBet(instrumentId, side, proofUrl);
       if (result.success) {
-          alert('Bet resolved successfully!');
+          alert(t('economy.market.alerts.resolve_success'));
           fetchInstruments();
       } else {
-          alert('Resolution failed: ' + result.message);
+          alert(t('economy.market.alerts.resolve_failed', { message: result.message }));
       }
   };
 
@@ -236,28 +244,29 @@ const SupportMarkets = () => {
 
   const handleBuyDriverBet = async (instrument: Instrument, side: 'A' | 'B', qty: number) => {
       if (!qty || qty <= 0 || !Number.isInteger(qty)) {
-          alert('Please enter a valid integer quantity');
+          alert(t('economy.market.alerts.buy_integer'));
           return;
       }
       const result = await buyDriverBetTicket(instrument.id, side, qty);
       if (result.success) {
-          alert(`Bought ${qty} tickets for Side ${side}!`);
+          alert(t('economy.market.alerts.buy_success', { qty, side }));
           setAmount({...amount, [`${instrument.id}_${side}`]: ''});
           fetchPositions();
       } else {
-          alert('Purchase failed: ' + result.message);
+          alert(t('economy.market.alerts.buy_failed', { message: result.message }));
       }
   };
 
   const handleDelete = async (id: string, mode: 'MARKET' | 'EVERYWHERE') => {
-      if (!confirm(`Are you sure you want to delete this campaign ${mode === 'MARKET' ? 'from the market' : 'everywhere'}? This action cannot be undone.`)) return;
+      const modeText = mode === 'MARKET' ? t('economy.market.alerts.delete_mode_market') : t('economy.market.alerts.delete_mode_everywhere');
+      if (!confirm(t('economy.market.alerts.delete_confirm', { mode: modeText }))) return;
       
       const result = await deleteCampaign(id, mode);
       if (result.success) {
-          alert('Campaign deleted successfully.');
+          alert(t('economy.market.alerts.delete_success'));
           fetchInstruments();
       } else {
-          alert('Failed to delete: ' + result.message);
+          alert(t('economy.market.alerts.delete_failed', { message: result.message }));
       }
   };
 
@@ -316,11 +325,7 @@ const SupportMarkets = () => {
                 {t('economy.market.disclaimer')}
                 </span>
                 <span className="text-xs text-red-400/80 max-w-lg text-center">
-                    DISCLAIMER: Gambling can be addictive. Please play responsibly. 
-                    Virtual markets carry high risks similar to real-world stocks. 
-                    Never bet more than you can afford to lose.
-                    <br/>
-                    免责声明：博彩可能成瘾，请理性参与。虚拟市场存在与现实股市类似的高风险，请勿投入超出承受能力的资金。
+                    {t('economy.market.alerts.disclaimer_full')}
                 </span>
             </div>
           </p>
@@ -388,12 +393,12 @@ const SupportMarkets = () => {
               >
                 {isInvested && (
                   <div className="absolute top-0 right-0 bg-primary text-background text-xs font-bold px-3 py-1 rounded-bl-lg z-10">
-                    INVESTED
+                    {t('economy.market.labels.invested')}
                   </div>
                 )}
                 {isDelisted && (
                    <div className="absolute top-0 left-0 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-br-lg z-10">
-                     DELISTED
+                     {t('economy.market.labels.delisted')}
                    </div>
                 )}
                 
@@ -401,9 +406,9 @@ const SupportMarkets = () => {
                   <h3 className="text-lg font-bold text-white font-mono">{instrument.title}</h3>
                   <div className="flex flex-col items-end gap-1">
                     <span className={`text-xs px-2 py-1 rounded font-mono border ${getRiskColor(instrument.risk_level)}`}>
-                        {instrument.risk_level} RISK
+                        {t('economy.market.labels.risk', { level: instrument.risk_level })}
                     </span>
-                    {instrument.is_driver_bet && <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">DRIVER BET</span>}
+                    {instrument.is_driver_bet && <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">{t('economy.market.labels.driver_bet')}</span>}
                   </div>
                 </div>
                 <p className="text-text-secondary text-sm mb-6 flex-grow">{instrument.description}</p>
@@ -412,28 +417,38 @@ const SupportMarkets = () => {
                     <div className="mb-4 bg-background/50 p-3 rounded space-y-3">
                         <div className="flex justify-between items-start bg-white/5 p-2 rounded">
                             <div className="text-center w-1/2 border-r border-white/10 pr-2 flex flex-col items-center">
-                                <div className="text-xs text-text-secondary">Side A</div>
+                                <div className="text-xs text-text-secondary">{t('economy.market.labels.side_a')}</div>
                                 <div className="font-bold text-white text-sm"><BilingualText text={instrument.side_a_name} /></div>
-                                {userTicketA && <div className="text-xs text-green-400 mt-1 font-mono">Owned: {userTicketA.balance}</div>}
+                                {(isCreator || isInvested) && driverBetStats[instrument.id] && (
+                                    <div className="text-[10px] text-white/60 font-mono mt-0.5">
+                                        {t('economy.market.labels.sold', { count: driverBetStats[instrument.id].side_a_sold })}
+                                    </div>
+                                )}
+                                {userTicketA && <div className="text-xs text-green-400 mt-1 font-mono">{t('economy.market.labels.owned', { count: userTicketA?.balance })}</div>}
                                 {(isCreator || userTicketA) && (
                                     <button 
                                         onClick={() => handleViewHolders(instrument.id, 'A', instrument.ticket_type_a_id)}
                                         className="text-[10px] text-primary hover:text-primary/80 mt-1 border border-primary/30 px-2 py-0.5 rounded"
                                     >
-                                        View Holders
+                                        {t('economy.market.labels.view_holders')}
                                     </button>
                                 )}
                             </div>
                             <div className="text-center w-1/2 pl-2 flex flex-col items-center">
-                                <div className="text-xs text-text-secondary">Side B</div>
+                                <div className="text-xs text-text-secondary">{t('economy.market.labels.side_b')}</div>
                                 <div className="font-bold text-white text-sm"><BilingualText text={instrument.side_b_name} /></div>
-                                {userTicketB && <div className="text-xs text-green-400 mt-1 font-mono">Owned: {userTicketB.balance}</div>}
+                                {(isCreator || isInvested) && driverBetStats[instrument.id] && (
+                                    <div className="text-[10px] text-white/60 font-mono mt-0.5">
+                                        {t('economy.market.labels.sold', { count: driverBetStats[instrument.id].side_b_sold })}
+                                    </div>
+                                )}
+                                {userTicketB && <div className="text-xs text-green-400 mt-1 font-mono">{t('economy.market.labels.owned', { count: userTicketB?.balance })}</div>}
                                 {(isCreator || userTicketB) && (
                                     <button 
                                         onClick={() => handleViewHolders(instrument.id, 'B', instrument.ticket_type_b_id)}
                                         className="text-[10px] text-primary hover:text-primary/80 mt-1 border border-primary/30 px-2 py-0.5 rounded"
                                     >
-                                        View Holders
+                                        {t('economy.market.labels.view_holders')}
                                     </button>
                                 )}
                             </div>
@@ -448,16 +463,16 @@ const SupportMarkets = () => {
                                     <XCircle size={14} />
                                 </button>
                                 <div className="text-xs font-bold text-white mb-2">
-                                    Holders (Side {viewingHolders.side})
+                                    {t('economy.market.labels.holders', { side: viewingHolders.side })}
                                 </div>
                                 <div className="max-h-32 overflow-y-auto space-y-1">
                                     {holdersList.length === 0 ? (
-                                        <div className="text-xs text-white/30 italic">No holders found or loading...</div>
+                                        <div className="text-xs text-white/30 italic">{t('economy.market.labels.no_holders')}</div>
                                     ) : (
                                         holdersList.map((h, idx) => (
                                             <div key={idx} className="flex justify-between text-xs font-mono border-b border-white/5 pb-1 last:border-0">
-                                                <span className="text-white/80">{h.username || 'Unknown'}</span>
-                                                <span className="text-primary">{h.balance}</span>
+                                                <span className="text-white/80">{h.username || t('economy.market.labels.unknown')}</span>
+                                                <span className="text-primary">{h?.balance}</span>
                                             </div>
                                         ))
                                     )}
@@ -467,19 +482,19 @@ const SupportMarkets = () => {
                         
                         <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                             <div className="bg-white/5 p-2 rounded">
-                                <div className="text-text-secondary">Price</div>
-                                <div className="text-white">{instrument.ticket_price} Tkn</div>
+                                <div className="text-text-secondary">{t('economy.market.labels.price')}</div>
+                                <div className="text-white">{instrument.ticket_price} {t('economy.wallet.currency.tkn')}</div>
                             </div>
                             <div className="bg-white/5 p-2 rounded">
-                                <div className="text-text-secondary">Limit</div>
+                                <div className="text-text-secondary">{t('economy.market.labels.limit')}</div>
                                 <div className="text-white">{instrument.ticket_limit}</div>
                             </div>
                             <div className="bg-white/5 p-2 rounded">
-                                <div className="text-text-secondary">Sales End</div>
+                                <div className="text-text-secondary">{t('economy.market.labels.sales_end')}</div>
                                 <div className="text-white">{instrument.official_end_date ? new Date(instrument.official_end_date).toLocaleDateString() : '-'}</div>
                             </div>
                             <div className="bg-white/5 p-2 rounded">
-                                <div className="text-text-secondary">Result</div>
+                                <div className="text-text-secondary">{t('economy.market.labels.result')}</div>
                                 <div className="text-white">{instrument.open_date ? new Date(instrument.open_date).toLocaleDateString() : '-'}</div>
                             </div>
                         </div>
@@ -489,7 +504,7 @@ const SupportMarkets = () => {
                                 <div className="flex gap-2">
                                     <input 
                                         type="number" 
-                                        placeholder={`Qty ${instrument.side_a_name?.split('|')[0]}`}
+                                        placeholder={`${t('economy.market.ticket.qty')} ${instrument.side_a_name?.split('|')[0]}`}
                                         className="w-16 bg-background border border-white/10 rounded px-2 py-1 text-white text-xs"
                                         value={amount[`${instrument.id}_A`] || ''}
                                         onChange={e => setAmount({...amount, [`${instrument.id}_A`]: e.target.value})}
@@ -498,13 +513,13 @@ const SupportMarkets = () => {
                                         onClick={() => handleBuyDriverBet(instrument, 'A', parseInt(amount[`${instrument.id}_A`]))}
                                         className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30 truncate"
                                     >
-                                        Buy <BilingualText text={instrument.side_a_name} className="inline" />
+                                        {t('economy.market.labels.buy_action')} <BilingualText text={instrument.side_a_name} className="inline" />
                                     </button>
                                 </div>
                                 <div className="flex gap-2">
                                     <input 
                                         type="number" 
-                                        placeholder={`Qty ${instrument.side_b_name?.split('|')[0]}`}
+                                        placeholder={`${t('economy.market.ticket.qty')} ${instrument.side_b_name?.split('|')[0]}`}
                                         className="w-16 bg-background border border-white/10 rounded px-2 py-1 text-white text-xs"
                                         value={amount[`${instrument.id}_B`] || ''}
                                         onChange={e => setAmount({...amount, [`${instrument.id}_B`]: e.target.value})}
@@ -513,7 +528,7 @@ const SupportMarkets = () => {
                                         onClick={() => handleBuyDriverBet(instrument, 'B', parseInt(amount[`${instrument.id}_B`]))}
                                         className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30 truncate"
                                     >
-                                        Buy <BilingualText text={instrument.side_b_name} className="inline" />
+                                        {t('economy.market.labels.buy_action')} <BilingualText text={instrument.side_b_name} className="inline" />
                                     </button>
                                 </div>
                             </div>
@@ -522,10 +537,10 @@ const SupportMarkets = () => {
                         {/* Resolution Controls for Creator/Dev */}
                         {(wallet?.reputation_balance! > 70 || user?.id === instrument.creator_id) && instrument.resolution_status !== 'RESOLVED' && (
                             <div className="pt-2 border-t border-white/10">
-                                <div className="text-xs text-text-secondary mb-1">Declare Result (Creator/Dev)</div>
+                                <div className="text-xs text-text-secondary mb-1">{t('economy.market.labels.declare_result')}</div>
                                 {!isReleaseDatePassed(instrument.open_date) && (
                                     <div className="text-xs text-yellow-500 mb-1">
-                                        Release Date: {instrument.open_date ? new Date(instrument.open_date).toLocaleString() : 'N/A'}
+                                        {t('economy.market.labels.release_date')}{instrument.open_date ? new Date(instrument.open_date).toLocaleString() : 'N/A'}
                                     </div>
                                 )}
                                 <div className="flex gap-2">
@@ -534,14 +549,14 @@ const SupportMarkets = () => {
                                         disabled={!isReleaseDatePassed(instrument.open_date)}
                                         className={`flex-1 text-xs py-1 rounded transition-colors ${!isReleaseDatePassed(instrument.open_date) ? 'bg-white/5 text-white/30 cursor-not-allowed' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'}`}
                                     >
-                                        {instrument.side_a_name} Wins
+                                        {instrument.side_a_name} {t('economy.market.labels.wins')}
                                     </button>
                                     <button 
                                         onClick={() => handleResolve(instrument.id, 'B')} 
                                         disabled={!isReleaseDatePassed(instrument.open_date)}
                                         className={`flex-1 text-xs py-1 rounded transition-colors ${!isReleaseDatePassed(instrument.open_date) ? 'bg-white/5 text-white/30 cursor-not-allowed' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'}`}
                                     >
-                                        {instrument.side_b_name} Wins
+                                        {instrument.side_b_name} {t('economy.market.labels.wins')}
                                     </button>
                                 </div>
                             </div>
@@ -549,7 +564,7 @@ const SupportMarkets = () => {
 
                         {instrument.resolution_status === 'RESOLVED' && (
                             <div className="bg-green-500/20 text-green-400 text-center py-2 rounded font-bold text-sm border border-green-500/30">
-                                RESOLVED: {instrument.winning_side === 'A' ? instrument.side_a_name : instrument.side_b_name} WON
+                                {t('economy.market.labels.resolved_won', { name: instrument.winning_side === 'A' ? instrument.side_a_name : instrument.side_b_name })}
                             </div>
                         )}
                     </div>
@@ -558,12 +573,12 @@ const SupportMarkets = () => {
                     <>
                     {instrument.refund_schedule && instrument.refund_schedule.length > 0 ? (
                         <div className="mb-4 bg-background/50 p-3 rounded">
-                            <div className="text-text-secondary text-xs mb-2">Refund Schedule (per ticket):</div>
+                            <div className="text-text-secondary text-xs mb-2">{t('economy.market.labels.refund_schedule_title')}</div>
                             <div className="space-y-1 max-h-24 overflow-y-auto">
                                 {instrument.refund_schedule.map((item, idx) => (
                                     <div key={idx} className="flex justify-between text-xs font-mono">
                                         <span className="text-white">{item.date}</span>
-                                        <span className="text-green-400">{item.amount} Tokens</span>
+                                        <span className="text-green-400">{item.amount} {t('economy.wallet.tokens')}</span>
                                     </div>
                                 ))}
                             </div>
@@ -595,17 +610,17 @@ const SupportMarkets = () => {
                             onClick={() => handleSupport(instrument)}
                             className="bg-primary text-background font-bold px-4 py-2 rounded hover:bg-primary/90 transition-colors text-sm font-mono whitespace-nowrap"
                         >
-                            Buy (1 Tkn)
+                            {t('economy.market.labels.buy_one_tkn')}
                         </button>
                         </div>
                     )}
                     </>
                 )}
 
-                {isInvested && (
+                {userTicket && (
                   <div className="mb-4 bg-primary/10 border border-primary/30 rounded p-3 mt-4">
-                    <div className="text-primary text-xs mb-1">Your Tickets</div>
-                    <div className="text-white font-mono font-bold">{userTicket.balance} Tickets</div>
+                    <div className="text-primary text-xs mb-1">{t('economy.market.labels.your_tickets')}</div>
+                    <div className="text-white font-mono font-bold">{userTicket?.balance} {t('economy.market.labels.tickets')}</div>
                   </div>
                 )}
                 
@@ -615,16 +630,16 @@ const SupportMarkets = () => {
                         <button
                             onClick={() => handleDelete(instrument.id, 'MARKET')}
                             className="flex-1 flex items-center justify-center gap-1 bg-yellow-500/20 text-yellow-500 text-xs py-1 rounded hover:bg-yellow-500/30"
-                            title="Delist from Market (Trading continues)"
+                            title={t('economy.market.actions.delist_title')}
                         >
-                            <XCircle size={12} /> Delist
+                            <XCircle size={12} /> {t('economy.market.actions.delist')}
                         </button>
                         <button
                             onClick={() => handleDelete(instrument.id, 'EVERYWHERE')}
                             className="flex-1 flex items-center justify-center gap-1 bg-red-500/20 text-red-500 text-xs py-1 rounded hover:bg-red-500/30"
-                            title="Delete Everywhere (Refunds users)"
+                            title={t('economy.market.actions.delete_title')}
                         >
-                            <Trash2 size={12} /> Delete
+                            <Trash2 size={12} /> {t('economy.market.actions.delete')}
                         </button>
                     </div>
                 )}
@@ -676,29 +691,29 @@ const SupportMarkets = () => {
                         onChange={e => setIsDriverBet(e.target.checked)}
                         className="rounded border-white/10 bg-background"
                     />
-                    <label htmlFor="driverBet" className="text-sm text-white">Is this a Driver Bet? (High Risk)</label>
+                    <label htmlFor="driverBet" className="text-sm text-white">{t('economy.market.campaign.is_driver_bet')}</label>
                 </div>
 
                 {isDriverBet ? (
                     <div className="space-y-4 border border-white/10 rounded p-3">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm text-text-secondary mb-1">Event (e.g. Piastri Wins)</label>
+                                <label className="block text-sm text-text-secondary mb-1">{t('economy.market.campaign.event_label')}</label>
                                 <input
                                     type="text"
                                     className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
-                                    placeholder="Event will happen"
+                                    placeholder={t('economy.market.campaign.event_placeholder')}
                                     value={sideA}
                                     onChange={(e) => setSideA(e.target.value)}
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm text-text-secondary mb-1">Side B (Auto-generated)</label>
+                                <label className="block text-sm text-text-secondary mb-1">{t('economy.market.campaign.side_b_label')}</label>
                                 <input
                                     type="text"
                                     className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white/50 cursor-not-allowed"
-                                    placeholder="Event will NOT happen"
-                                    value={sideA ? `${sideA} will NOT happen` : ''}
+                                    placeholder={t('economy.market.campaign.side_b_suffix')}
+                                    value={sideA ? `${sideA}${t('economy.market.campaign.side_b_suffix')}` : ''}
                                     disabled
                                 />
                             </div>
@@ -706,7 +721,7 @@ const SupportMarkets = () => {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm text-text-secondary mb-1">Ticket Price (Tokens)</label>
+                                <label className="block text-sm text-text-secondary mb-1">{t('economy.market.campaign.ticket_price_label')}</label>
                                 <input
                                     type="number"
                                     step="0.1"
@@ -718,7 +733,7 @@ const SupportMarkets = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm text-text-secondary mb-1">Ticket Limit (Total)</label>
+                                <label className="block text-sm text-text-secondary mb-1">{t('economy.market.campaign.ticket_limit_label')}</label>
                                 <input
                                     type="number"
                                     className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
@@ -730,7 +745,7 @@ const SupportMarkets = () => {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm text-text-secondary mb-1">Official Sales End (Local Time)</label>
+                                <label className="block text-sm text-text-secondary mb-1">{t('economy.market.campaign.sales_end_label')}</label>
                                 <input
                                     type="datetime-local"
                                     className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
@@ -739,7 +754,7 @@ const SupportMarkets = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm text-text-secondary mb-1">Result Release (Local Time)</label>
+                                <label className="block text-sm text-text-secondary mb-1">{t('economy.market.campaign.result_release_label')}</label>
                                 <input
                                     type="datetime-local"
                                     className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
@@ -749,13 +764,13 @@ const SupportMarkets = () => {
                             </div>
                         </div>
                         <div className="text-xs text-text-secondary">
-                           * Times are in your local timezone (e.g. Beijing Time). They will be stored as UTC.
+                           {t('economy.market.campaign.timezone_note')}
                         </div>
                     </div>
                 ) : (
                     /* Refund Schedule Builder */
                     <div className="border border-white/10 rounded p-3">
-                        <label className="block text-xs text-text-secondary mb-2">Refund Schedule (Per Ticket)</label>
+                        <label className="block text-xs text-text-secondary mb-2">{t('economy.market.campaign.refund_schedule_label')}</label>
                         
                         <div className="flex gap-2 mb-2">
                             <input 
@@ -766,7 +781,7 @@ const SupportMarkets = () => {
                             />
                             <input 
                                 type="number" 
-                                placeholder="Amt"
+                                placeholder={t('economy.market.campaign.refund_amt_placeholder')}
                                 className="bg-background border border-white/10 rounded px-2 py-1 text-white text-xs w-16"
                                 value={tempRefundAmount}
                                 onChange={e => setTempRefundAmount(e.target.value)}
@@ -788,7 +803,7 @@ const SupportMarkets = () => {
                                     </button>
                                 </div>
                             ))}
-                            {refundSchedule.length === 0 && <div className="text-text-secondary text-xs italic">No refund items added</div>}
+                            {refundSchedule.length === 0 && <div className="text-text-secondary text-xs italic">{t('economy.market.campaign.no_refund_items')}</div>}
                         </div>
                     </div>
                 )}
@@ -799,14 +814,14 @@ const SupportMarkets = () => {
                   onClick={() => setShowCreateModal(false)}
                   className="flex-1 bg-white/10 text-white py-2 rounded hover:bg-white/20"
                 >
-                  {t('economy.missions.create_modal.cancel')}
+                  {t('economy.market.actions.cancel')}
                 </button>
                 <button
                   onClick={handleCreateCampaign}
                   disabled={creating}
                   className="flex-1 bg-primary text-background font-bold py-2 rounded hover:bg-primary/90"
                 >
-                  {creating ? 'Creating...' : t('economy.market.campaign.submit')}
+                  {creating ? t('economy.market.campaign.creating') : t('economy.market.campaign.submit')}
                 </button>
               </div>
             </motion.div>

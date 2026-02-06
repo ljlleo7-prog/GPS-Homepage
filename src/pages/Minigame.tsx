@@ -4,8 +4,10 @@ import { useEconomy } from '../context/EconomyContext';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { Trophy, Clock, Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function Minigame() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { playReactionGame, getMonthlyLeaderboard, getMonthlyPool } = useEconomy();
   
@@ -23,6 +25,7 @@ export default function Minigame() {
 
   const startTimeRef = useRef<number>(0);
   const timeoutRefs = useRef<NodeJS.Timeout[]>([]);
+  const clickLockedRef = useRef(false);
 
   useEffect(() => {
     if (activeTab === 'LEADERBOARD') {
@@ -47,7 +50,7 @@ export default function Minigame() {
 
   const startGame = () => {
     if (!user) {
-        setMessage('Please login to play and earn rewards!');
+        setMessage(t('minigame.login_warning'));
         return;
     }
     setGameState('COUNTDOWN');
@@ -56,6 +59,7 @@ export default function Minigame() {
     setMessage('');
     setLastReward(null);
     clearAllTimeouts();
+    clickLockedRef.current = false;
 
     // Sequence: Light 1..5 ON (1s interval) -> Random Delay -> All OFF
     let delay = 1000;
@@ -89,7 +93,8 @@ export default function Minigame() {
   };
 
   const handleClick = async () => {
-    if (gameState === 'IDLE' || gameState === 'FINISHED' || gameState === 'FALSE_START') return;
+    if (clickLockedRef.current || gameState === 'IDLE' || gameState === 'FINISHED' || gameState === 'FALSE_START') return;
+    clickLockedRef.current = true;
 
     if (gameState !== 'GO') {
         // False start!
@@ -112,9 +117,9 @@ export default function Minigame() {
 
     if (result.success) {
         setLastReward(result.reward || 0);
-        setMessage(result.message || 'Great job!');
+        setMessage(result.message || t('minigame.great_job'));
     } else {
-        setMessage(result.message || 'Failed to save score.');
+        setMessage(result.message || t('minigame.save_failed'));
     }
   };
 
@@ -133,22 +138,21 @@ export default function Minigame() {
                 onClick={() => setActiveTab('GAME')}
                 className={`px-6 py-2 rounded-full font-bold transition-all ${activeTab === 'GAME' ? 'bg-f1-red text-white' : 'bg-surface text-gray-400 hover:bg-neutral-800'}`}
             >
-                Play Game
+                {t('minigame.play_game')}
             </button>
             <button 
                 onClick={() => setActiveTab('LEADERBOARD')}
                 className={`px-6 py-2 rounded-full font-bold transition-all ${activeTab === 'LEADERBOARD' ? 'bg-f1-red text-white' : 'bg-surface text-gray-400 hover:bg-neutral-800'}`}
             >
-                Monthly Leaderboard
+                {t('minigame.monthly_leaderboard')}
             </button>
         </div>
 
         {activeTab === 'GAME' ? (
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-8 text-f1-red">F1 Reaction Test</h1>
+            <h1 className="text-4xl font-bold mb-8 text-f1-red">{t('minigame.title')}</h1>
             <p className="text-gray-400 mb-12">
-              Test your reaction time! Wait for all 5 red lights to turn on, 
-              then click immediately when they go out.
+              {t('minigame.instructions')}
             </p>
 
             {/* Lights Container */}
@@ -168,7 +172,7 @@ export default function Minigame() {
                 
                 {!user && (
                     <div className="mb-8 p-4 bg-yellow-900/30 border border-yellow-700 text-yellow-500 rounded">
-                        Please login to save your score and earn tokens.
+                        {t('minigame.login_to_save')}
                     </div>
                 )}
 
@@ -177,14 +181,14 @@ export default function Minigame() {
                         onClick={startGame}
                         className="bg-f1-red hover:bg-red-700 text-white font-bold py-4 px-12 rounded-full text-xl transition-all"
                     >
-                        Start Game
+                        {t('minigame.start_game')}
                     </button>
                 )}
 
                 {(gameState === 'COUNTDOWN' || gameState === 'WAITING_FOR_GREEN') && (
                     <>
                         <div className="w-full h-64 flex items-center justify-center select-none pointer-events-none">
-                            <p className="text-2xl text-gray-400 animate-pulse">Wait for it...</p>
+                            <p className="text-2xl text-gray-400 animate-pulse">{t('minigame.wait_for_it')}</p>
                         </div>
                         {/* Full Screen Hitbox to prevent spamming from safe zones */}
                         <div 
@@ -201,20 +205,20 @@ export default function Minigame() {
                     >
                         {/* Invisible overlay to catch clicks anywhere quickly */}
                         <div className="bg-green-500/10 w-full h-full flex items-center justify-center">
-                            <p className="text-6xl font-black text-green-500">CLICK!</p>
+                            <p className="text-6xl font-black text-green-500">{t('minigame.click')}</p>
                         </div>
                     </div>
                 )}
 
                 {gameState === 'FALSE_START' && (
                     <div className="text-center">
-                        <h2 className="text-4xl font-bold text-yellow-500 mb-4">JUMP START!</h2>
-                        <p className="text-gray-400 mb-8">You clicked before the lights went out.</p>
+                        <h2 className="text-4xl font-bold text-yellow-500 mb-4">{t('minigame.jump_start')}</h2>
+                        <p className="text-gray-400 mb-8">{t('minigame.jump_start_message')}</p>
                         <button 
                             onClick={startGame}
                             className="bg-neutral-700 hover:bg-neutral-600 text-white font-bold py-3 px-8 rounded-full"
                         >
-                            Try Again
+                            {t('minigame.try_again')}
                         </button>
                     </div>
                 )}
@@ -226,7 +230,7 @@ export default function Minigame() {
                         </h2>
                         
                         {submitting ? (
-                            <p className="text-gray-400">Verifying...</p>
+                            <p className="text-gray-400">{t('minigame.verifying')}</p>
                         ) : (
                             <div className="mt-4 space-y-4">
                                 <p className={`text-xl ${message.includes('Cooldown') ? 'text-yellow-500' : 'text-green-400'}`}>
@@ -234,7 +238,7 @@ export default function Minigame() {
                                 </p>
                                 {lastReward !== null && lastReward > 0 && (
                                     <div className="p-4 bg-f1-red/20 border border-f1-red/50 rounded-lg inline-block">
-                                        <span className="text-f1-red font-bold">+{lastReward} Tokens Earned!</span>
+                                        <span className="text-f1-red font-bold">+{lastReward} {t('minigame.tokens_earned')}</span>
                                     </div>
                                 )}
                                 <div className="mt-8">
@@ -242,7 +246,7 @@ export default function Minigame() {
                                         onClick={startGame}
                                         className="bg-white text-black hover:bg-gray-200 font-bold py-3 px-8 rounded-full transition-colors"
                                     >
-                                        Play Again
+                                        {t('minigame.play_again')}
                                     </button>
                                 </div>
                             </div>
@@ -255,10 +259,9 @@ export default function Minigame() {
             // Leaderboard UI
             <div className="animate-fade-in-up">
                 <div className="text-center mb-12">
-                    <h2 className="text-3xl font-bold mb-4">Monthly Championship</h2>
+                    <h2 className="text-3xl font-bold mb-4">{t('minigame.monthly_championship')}</h2>
                     <p className="text-gray-400 max-w-2xl mx-auto">
-                        Compete for the fastest reaction time of the month. 
-                        The prize pool grows with every game played by the community!
+                        {t('minigame.championship_description')}
                     </p>
                 </div>
 
@@ -267,18 +270,18 @@ export default function Minigame() {
                     <div className="bg-surface p-6 rounded-lg border border-white/10 text-center">
                         <Users className="w-8 h-8 text-primary mx-auto mb-2" />
                         <div className="text-2xl font-bold">{poolData?.total_plays || 0}</div>
-                        <div className="text-sm text-gray-400">Total Plays This Month</div>
+                        <div className="text-sm text-gray-400">{t('minigame.total_plays')}</div>
                     </div>
                     <div className="bg-surface p-6 rounded-lg border border-f1-red/50 text-center relative overflow-hidden">
                         <div className="absolute inset-0 bg-f1-red/10 animate-pulse"></div>
                         <Trophy className="w-8 h-8 text-f1-red mx-auto mb-2 relative z-10" />
                         <div className="text-3xl font-black text-f1-red relative z-10">{poolData?.dynamic_pool || 0}</div>
-                        <div className="text-sm text-gray-300 relative z-10">Current Prize Pool (Tokens)</div>
+                        <div className="text-sm text-gray-300 relative z-10">{t('minigame.prize_pool')}</div>
                     </div>
                     <div className="bg-surface p-6 rounded-lg border border-white/10 text-center">
                         <Clock className="w-8 h-8 text-secondary mx-auto mb-2" />
                         <div className="text-2xl font-bold">{leaderboard.length > 0 ? leaderboard[0].best_score + 'ms' : '--'}</div>
-                        <div className="text-sm text-gray-400">Current Record</div>
+                        <div className="text-sm text-gray-400">{t('minigame.current_record')}</div>
                     </div>
                 </div>
 
@@ -287,17 +290,17 @@ export default function Minigame() {
                     <table className="w-full text-left">
                         <thead className="bg-black/50 text-gray-400 uppercase text-xs font-mono">
                             <tr>
-                                <th className="px-6 py-4">Rank</th>
-                                <th className="px-6 py-4">Pilot</th>
-                                <th className="px-6 py-4 text-right">Reaction Time</th>
-                                <th className="px-6 py-4 text-right">Est. Prize</th>
+                                <th className="px-6 py-4">{t('minigame.rank')}</th>
+                                <th className="px-6 py-4">{t('minigame.pilot')}</th>
+                                <th className="px-6 py-4 text-right">{t('minigame.reaction_time')}</th>
+                                <th className="px-6 py-4 text-right">{t('minigame.est_prize')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {leaderboard.length === 0 ? (
                                 <tr>
                                     <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
-                                        No times recorded yet this month. Be the first!
+                                        {t('minigame.no_times_recorded')}
                                     </td>
                                 </tr>
                             ) : (
@@ -319,7 +322,7 @@ export default function Minigame() {
                                             </td>
                                             <td className="px-6 py-4 font-bold">
                                                 {entry.username}
-                                                {entry.user_id === user?.id && <span className="ml-2 text-xs bg-primary text-black px-2 py-0.5 rounded">YOU</span>}
+                                                {entry.user_id === user?.id && <span className="ml-2 text-xs bg-primary text-black px-2 py-0.5 rounded">{t('minigame.you')}</span>}
                                             </td>
                                             <td className="px-6 py-4 text-right font-mono text-f1-red font-bold">
                                                 {entry.best_score}ms

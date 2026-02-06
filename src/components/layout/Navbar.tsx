@@ -70,7 +70,7 @@ const Navbar = () => {
           <Link to="/" className="flex items-center space-x-2 group">
             <img 
               src="/GPS-logo.jpg" 
-              alt="GPS Logo" 
+              alt={t('common.logo_alt')} 
               className="h-10 w-10 rounded-full object-cover border border-primary/20 group-hover:border-primary transition-colors duration-300" 
             />
             <span className="font-mono text-xl font-bold tracking-wider group-hover:text-shadow-neon-blue transition-all duration-300">
@@ -94,7 +94,7 @@ const Navbar = () => {
             <button
               onClick={toggleLanguage}
               className="text-text-secondary hover:text-primary transition-colors flex items-center space-x-1"
-              title="Switch Language"
+              title={t('navbar.switch_language')}
             >
               <Globe className="w-5 h-5" />
               <span className="font-mono text-sm uppercase">{i18n.language}</span>
@@ -103,7 +103,7 @@ const Navbar = () => {
             {user ? (
               <div className="flex items-center space-x-4 pl-8 border-l border-white/10">
                 {developerStatus === 'APPROVED' && (
-                  <Link to="/developer-inbox" className="text-cyan-400 hover:text-cyan-300 transition-colors" title="Developer Inbox">
+                  <Link to="/developer-inbox" className="text-cyan-400 hover:text-cyan-300 transition-colors" title={t('navbar.developer_inbox')}>
                     <Shield className="w-5 h-5" />
                   </Link>
                 )}
@@ -178,7 +178,7 @@ const Navbar = () => {
                       className="px-3 py-2 font-mono flex items-center space-x-2 text-cyan-400 hover:text-cyan-300"
                     >
                       <Shield className="w-5 h-5" />
-                      <span>Developer Inbox</span>
+                      <span>{t('navbar.developer_inbox')}</span>
                     </Link>
                   )}
                   <div className={`px-3 py-2 font-mono flex items-center space-x-2 border-t border-white/10 mt-2 pt-4 ${developerStatus === 'APPROVED' ? 'text-cyan-400' : 'text-primary'}`}>

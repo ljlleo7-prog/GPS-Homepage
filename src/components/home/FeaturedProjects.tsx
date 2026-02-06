@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -13,6 +14,7 @@ interface Project {
 }
 
 const FeaturedProjects = () => {
+  const { t } = useTranslation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,7 +44,7 @@ const FeaturedProjects = () => {
     return (
       <div className="py-20 bg-surface">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-text-secondary font-mono">Loading projects...</p>
+          <p className="text-text-secondary font-mono">{t('home.featured_projects.loading')}</p>
         </div>
       </div>
     );
@@ -54,7 +56,7 @@ const FeaturedProjects = () => {
         <div className="flex justify-between items-end mb-12">
           <div>
             <h2 className="text-3xl md:text-4xl font-bold mb-2">
-              <span className="text-primary">Featured</span> Projects
+              <span className="text-primary">{t('home.featured_projects.title_featured')}</span> {t('home.featured_projects.title_projects')}
             </h2>
             <div className="h-1 w-20 bg-secondary rounded-full" />
           </div>
@@ -62,7 +64,7 @@ const FeaturedProjects = () => {
             to="/news" 
             className="hidden md:flex items-center text-text-secondary hover:text-primary transition-colors font-mono"
           >
-            View All <ArrowRight className="ml-2 w-4 h-4" />
+            {t('home.featured_projects.view_all')} <ArrowRight className="ml-2 w-4 h-4" />
           </Link>
         </div>
 
@@ -87,7 +89,7 @@ const FeaturedProjects = () => {
                     to={`/news/${project.id}`}
                     className="px-6 py-2 bg-primary text-background font-bold rounded-full transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300"
                   >
-                    View Case Study
+                    {t('home.featured_projects.view_case_study')}
                   </Link>
                 </div>
               </div>
@@ -111,7 +113,7 @@ const FeaturedProjects = () => {
             to="/news" 
             className="inline-flex items-center text-text-secondary hover:text-primary transition-colors font-mono"
           >
-            View All <ArrowRight className="ml-2 w-4 h-4" />
+            {t('home.featured_projects.view_all')} <ArrowRight className="ml-2 w-4 h-4" />
           </Link>
         </div>
       </div>

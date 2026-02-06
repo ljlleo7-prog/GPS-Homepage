@@ -94,12 +94,12 @@ export const TicketMarket = () => {
     setProcessing(false);
     
     if (result.success) {
-      alert('Purchase successful!');
+      alert(t('economy.market.ticket.alerts.purchase_success'));
       setModalOpen(null);
       setPassword('');
       fetchData();
     } else {
-      alert('Error: ' + result.message);
+      alert(t('economy.market.ticket.alerts.error_prefix') + result.message);
     }
   };
 
@@ -116,12 +116,12 @@ export const TicketMarket = () => {
     setProcessing(false);
 
     if (result.success) {
-      alert('Listing created!');
+      alert(t('economy.market.ticket.alerts.listing_success'));
       setModalOpen(null);
       setPassword('');
       fetchData();
     } else {
-      alert('Error: ' + result.message);
+      alert(t('economy.market.ticket.alerts.error_prefix') + result.message);
     }
   };
 
@@ -159,8 +159,8 @@ export const TicketMarket = () => {
                 </div>
                 <div className="text-sm text-text-secondary mb-4">
                   <div>{t('economy.market.ticket.seller')}: {listing.profiles.username}</div>
-                  <div>{t('economy.market.ticket.price')}: {listing.price_per_unit} / unit</div>
-                  <div className="font-bold text-white mt-1">{t('economy.market.ticket.total')}: {listing.price_per_unit * listing.quantity} Tokens</div>
+                  <div>{t('economy.market.ticket.price')}: {listing.price_per_unit} / {t('economy.market.ticket.unit')}</div>
+                  <div className="font-bold text-white mt-1">{t('economy.market.ticket.total')}: {listing.price_per_unit * listing.quantity} {t('economy.wallet.tokens')}</div>
                 </div>
                 {user && user.id !== listing.seller_id && (
                   <button
@@ -184,7 +184,7 @@ export const TicketMarket = () => {
                 <div>
                   <h4 className="text-white font-bold">{holding.ticket_types.title}</h4>
                   <p className="text-sm text-text-secondary">{holding.ticket_types.description}</p>
-                  <div className="mt-2 text-primary font-mono">{holding.balance} units</div>
+                  <div className="mt-2 text-primary font-mono">{holding.balance} {t('economy.market.ticket.units')}</div>
                 </div>
                 <button
                   onClick={() => { setSellTicketId(holding.ticket_type_id); setModalOpen('sell'); }}
@@ -204,7 +204,7 @@ export const TicketMarket = () => {
           <div className="bg-surface border border-white/20 rounded-lg p-6 max-w-md w-full">
             <h3 className="text-xl font-bold text-white mb-4">{t('economy.market.ticket.buy')} {selectedListing.ticket_types.title}</h3>
             <p className="text-text-secondary mb-4">
-              {t('economy.market.ticket.qty')}: {selectedListing.quantity} x {selectedListing.price_per_unit} = <span className="text-white font-bold">{selectedListing.quantity * selectedListing.price_per_unit} Tokens</span>
+              {t('economy.market.ticket.qty')}: {selectedListing.quantity} x {selectedListing.price_per_unit} = <span className="text-white font-bold">{selectedListing.quantity * selectedListing.price_per_unit} {t('economy.wallet.tokens')}</span>
             </p>
             <div className="mb-4">
               <label className="block text-xs text-text-secondary mb-1">{t('economy.market.ticket.confirm_password')}</label>
@@ -216,7 +216,7 @@ export const TicketMarket = () => {
               />
             </div>
             <div className="flex space-x-3">
-              <button onClick={() => setModalOpen(null)} className="flex-1 bg-white/10 text-white py-2 rounded hover:bg-white/20">Cancel</button>
+              <button onClick={() => setModalOpen(null)} className="flex-1 bg-white/10 text-white py-2 rounded hover:bg-white/20">{t('economy.market.actions.cancel')}</button>
               <button onClick={handleBuy} disabled={processing} className="flex-1 bg-primary text-background font-bold py-2 rounded hover:bg-primary/90">
                 {processing ? t('economy.market.ticket.processing') : t('economy.market.ticket.buy')}
               </button>
@@ -261,9 +261,9 @@ export const TicketMarket = () => {
               </div>
             </div>
             <div className="flex space-x-3">
-              <button onClick={() => setModalOpen(null)} className="flex-1 bg-white/10 text-white py-2 rounded hover:bg-white/20">Cancel</button>
+              <button onClick={() => setModalOpen(null)} className="flex-1 bg-white/10 text-white py-2 rounded hover:bg-white/20">{t('economy.market.actions.cancel')}</button>
               <button onClick={handleSell} disabled={processing} className="flex-1 bg-primary text-background font-bold py-2 rounded hover:bg-primary/90">
-                {processing ? t('economy.market.ticket.processing') : 'List for Sale'}
+                {processing ? t('economy.market.ticket.processing') : t('economy.market.ticket.list_for_sale')}
               </button>
             </div>
           </div>

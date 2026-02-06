@@ -4,6 +4,8 @@ import { Calendar, User, Trash2 } from 'lucide-react';
 import { useEconomy } from '../../context/EconomyContext';
 import { supabase } from '../../lib/supabase';
 
+import { useTranslation } from 'react-i18next';
+
 interface Article {
   id: string;
   title: string;
@@ -21,11 +23,12 @@ interface ArticleCardProps {
 }
 
 const ArticleCard = ({ article, index, onDelete }: ArticleCardProps) => {
+  const { t } = useTranslation();
   const { developerStatus } = useEconomy();
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigation
-    if (!confirm('Are you sure you want to delete this article?')) return;
+    if (!confirm(t('news.article_card.delete_confirm'))) return;
     
     try {
       const { error } = await supabase
@@ -37,7 +40,7 @@ const ArticleCard = ({ article, index, onDelete }: ArticleCardProps) => {
       if (onDelete) onDelete();
     } catch (err) {
       console.error('Error deleting article:', err);
-      alert('Failed to delete article');
+      alert(t('news.article_card.delete_failed'));
     }
   };
 
@@ -64,7 +67,7 @@ const ArticleCard = ({ article, index, onDelete }: ArticleCardProps) => {
             <button
               onClick={handleDelete}
               className="p-2 bg-red-500/80 backdrop-blur-sm text-white rounded-full hover:bg-red-600 transition-colors shadow-lg z-20"
-              title="Delete Article"
+              title={t('news.article_card.delete_btn_title')}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -94,7 +97,7 @@ const ArticleCard = ({ article, index, onDelete }: ArticleCardProps) => {
           to={`/news/${article.id}`}
           className="inline-block text-primary hover:text-secondary transition-colors text-sm font-mono"
         >
-          Read Article &rarr;
+          {t('news.article_card.read_article')} &rarr;
         </Link>
       </div>
     </motion.div>

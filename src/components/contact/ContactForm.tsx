@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Send, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useTranslation } from 'react-i18next';
 
 const ContactForm = () => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,18 +37,18 @@ const ContactForm = () => {
     } catch (error) {
       console.error('Error submitting form:', error);
       setStatus('error');
-      setErrorMessage('Something went wrong. Please try again later.');
+      setErrorMessage(t('contact.form.error'));
     }
   };
 
   return (
     <div className="bg-surface border border-white/5 rounded-xl p-8 shadow-2xl">
-      <h3 className="text-2xl font-bold mb-6 font-mono">Send us a message</h3>
+      <h3 className="text-2xl font-bold mb-6 font-mono">{t('contact.title_message')}</h3>
       
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-text-secondary mb-2">
-            Name
+            {t('contact.form.name')}
           </label>
           <input
             type="text"
@@ -56,13 +58,13 @@ const ContactForm = () => {
             onChange={handleChange}
             required
             className="w-full bg-background border border-white/10 rounded-md px-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
-            placeholder="John Doe"
+            placeholder={t('contact.form.placeholders.name')}
           />
         </div>
 
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-2">
-            Email
+            {t('contact.form.email')}
           </label>
           <input
             type="email"
@@ -72,13 +74,13 @@ const ContactForm = () => {
             onChange={handleChange}
             required
             className="w-full bg-background border border-white/10 rounded-md px-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
-            placeholder="john@example.com"
+            placeholder={t('contact.form.placeholders.email')}
           />
         </div>
 
         <div>
           <label htmlFor="subject" className="block text-sm font-medium text-text-secondary mb-2">
-            Subject
+            {t('contact.form.subject')}
           </label>
           <input
             type="text"
@@ -88,13 +90,13 @@ const ContactForm = () => {
             onChange={handleChange}
             required
             className="w-full bg-background border border-white/10 rounded-md px-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
-            placeholder="Project Inquiry"
+            placeholder={t('contact.form.placeholders.subject')}
           />
         </div>
 
         <div>
           <label htmlFor="message" className="block text-sm font-medium text-text-secondary mb-2">
-            Message
+            {t('contact.form.message')}
           </label>
           <textarea
             id="message"
@@ -104,7 +106,7 @@ const ContactForm = () => {
             required
             rows={5}
             className="w-full bg-background border border-white/10 rounded-md px-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-none"
-            placeholder="Tell us about your project..."
+            placeholder={t('contact.form.placeholders.message')}
           />
         </div>
 
@@ -121,11 +123,11 @@ const ContactForm = () => {
             <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-background" />
           ) : status === 'success' ? (
             <>
-              <CheckCircle className="w-5 h-5 mr-2" /> Message Sent!
+              <CheckCircle className="w-5 h-5 mr-2" /> {t('contact.form.success')}
             </>
           ) : (
             <>
-              Send Message <Send className="w-4 h-4 ml-2" />
+              {t('contact.form.send')} <Send className="w-4 h-4 ml-2" />
             </>
           )}
         </button>

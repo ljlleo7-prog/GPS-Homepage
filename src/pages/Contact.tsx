@@ -69,7 +69,7 @@ const Contact = () => {
             >
               <div className="bg-surface p-8 rounded-lg border border-white/5 hover:border-primary/30 transition-colors">
                 <MapPin className="w-8 h-8 text-primary mb-4" />
-                <h3 className="text-xl font-bold mb-2">Visit Us</h3>
+                <h3 className="text-xl font-bold mb-2">{t('contact.visit_us')}</h3>
                 <p className="text-text-secondary">
                   {content.contact_address_line1}<br />
                   {content.contact_address_line2}
@@ -78,14 +78,14 @@ const Contact = () => {
 
               <div className="bg-surface p-8 rounded-lg border border-white/5 hover:border-primary/30 transition-colors">
                 <Mail className="w-8 h-8 text-secondary mb-4" />
-                <h3 className="text-xl font-bold mb-2">Email Us</h3>
+                <h3 className="text-xl font-bold mb-2">{t('contact.email_us')}</h3>
                 <p className="text-text-secondary">{content.contact_email_primary}</p>
                 <p className="text-text-secondary">{content.contact_email_support}</p>
               </div>
 
               <div className="bg-surface p-8 rounded-lg border border-white/5 hover:border-primary/30 transition-colors">
                 <Phone className="w-8 h-8 text-primary mb-4" />
-                <h3 className="text-xl font-bold mb-2">Call Us</h3>
+                <h3 className="text-xl font-bold mb-2">{t('contact.call_us')}</h3>
                 <p className="text-text-secondary">{content.contact_phone_main}</p>
                 <p className="text-text-secondary">{content.contact_hours}</p>
               </div>

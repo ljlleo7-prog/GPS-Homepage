@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Upload, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 interface PostNewsModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface PostNewsModalProps {
 const categories = ['Company News', 'Technology', 'Projects'];
 
 const PostNewsModal = ({ isOpen, onClose, onSuccess }: PostNewsModalProps) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -58,7 +60,7 @@ const PostNewsModal = ({ isOpen, onClose, onSuccess }: PostNewsModalProps) => {
       });
     } catch (error) {
       console.error('Error posting news:', error);
-      alert('Failed to post news. Please check your permissions.');
+      alert(t('news.post_modal.alerts.post_failed'));
     } finally {
       setLoading(false);
     }
@@ -68,7 +70,7 @@ const PostNewsModal = ({ isOpen, onClose, onSuccess }: PostNewsModalProps) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className="bg-surface border border-white/10 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-surface border-b border-white/10 p-4 flex justify-between items-center z-10">
-          <h2 className="text-xl font-bold">Post News Article</h2>
+          <h2 className="text-xl font-bold">{t('news.post_modal.title')}</h2>
           <button onClick={onClose} className="text-text-secondary hover:text-white">
             <X className="w-6 h-6" />
           </button>
@@ -76,20 +78,20 @@ const PostNewsModal = ({ isOpen, onClose, onSuccess }: PostNewsModalProps) => {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>
-            <label className="block text-sm font-mono text-text-secondary mb-2">Title</label>
+            <label className="block text-sm font-mono text-text-secondary mb-2">{t('news.post_modal.labels.title')}</label>
             <input
               type="text"
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               className="w-full bg-background border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-primary"
-              placeholder="Article Title"
+              placeholder={t('news.post_modal.placeholders.title')}
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-mono text-text-secondary mb-2">Category</label>
+              <label className="block text-sm font-mono text-text-secondary mb-2">{t('news.post_modal.labels.category')}</label>
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
@@ -101,7 +103,7 @@ const PostNewsModal = ({ isOpen, onClose, onSuccess }: PostNewsModalProps) => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-mono text-text-secondary mb-2">Image URL</label>
+              <label className="block text-sm font-mono text-text-secondary mb-2">{t('news.post_modal.labels.image_url')}</label>
               <input
                 type="url"
                 required
@@ -114,24 +116,24 @@ const PostNewsModal = ({ isOpen, onClose, onSuccess }: PostNewsModalProps) => {
           </div>
 
           <div>
-            <label className="block text-sm font-mono text-text-secondary mb-2">Excerpt (Short Summary)</label>
+            <label className="block text-sm font-mono text-text-secondary mb-2">{t('news.post_modal.labels.excerpt')}</label>
             <textarea
               required
               value={formData.excerpt}
               onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
               className="w-full bg-background border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-primary h-20"
-              placeholder="Brief description for the card view..."
+              placeholder={t('news.post_modal.placeholders.excerpt')}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-mono text-text-secondary mb-2">Content</label>
+            <label className="block text-sm font-mono text-text-secondary mb-2">{t('news.post_modal.labels.content')}</label>
             <textarea
               required
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
               className="w-full bg-background border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-primary h-60 font-mono text-sm"
-              placeholder="Full article content..."
+              placeholder={t('news.post_modal.placeholders.content')}
             />
           </div>
 
@@ -144,12 +146,12 @@ const PostNewsModal = ({ isOpen, onClose, onSuccess }: PostNewsModalProps) => {
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Publishing...
+                  {t('news.post_modal.buttons.publishing')}
                 </>
               ) : (
                 <>
                   <Upload className="w-5 h-5 mr-2" />
-                  Publish Article
+                  {t('news.post_modal.buttons.publish')}
                 </>
               )}
             </button>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useEconomy } from '../../context/EconomyContext';
 import { supabase } from '../../lib/supabase';
@@ -20,6 +21,7 @@ interface CommentSectionProps {
 }
 
 const CommentSection = ({ newsId }: CommentSectionProps) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { developerStatus } = useEconomy();
   const [comments, setComments] = useState<Comment[]>([]);
@@ -90,14 +92,14 @@ const CommentSection = ({ newsId }: CommentSectionProps) => {
       fetchComments(); // Refresh list
     } catch (error) {
       console.error('Error posting comment:', error);
-      alert('Failed to post comment');
+      alert(t('news.comments.alerts.post_failed'));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (commentId: string) => {
-    if (!confirm('Are you sure you want to delete this comment?')) return;
+    if (!confirm(t('news.comments.alerts.delete_confirm'))) return;
 
     try {
       const { error } = await supabase
@@ -110,15 +112,15 @@ const CommentSection = ({ newsId }: CommentSectionProps) => {
       setComments(comments.filter(c => c.id !== commentId));
     } catch (error) {
       console.error('Error deleting comment:', error);
-      alert('Failed to delete comment');
+      alert(t('news.comments.alerts.delete_failed'));
     }
   };
 
-  if (loading) return <div className="py-4 text-center">Loading comments...</div>;
+  if (loading) return <div className="py-4 text-center">{t('news.comments.loading')}</div>;
 
   return (
     <div className="mt-12 pt-8 border-t border-white/10">
-      <h3 className="text-2xl font-bold mb-6">Comments ({comments.length})</h3>
+      <h3 className="text-2xl font-bold mb-6">{t('news.comments.title')} ({comments.length})</h3>
 
       {/* Comment Form */}
       {user ? (
@@ -128,7 +130,7 @@ const CommentSection = ({ newsId }: CommentSectionProps) => {
               <textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Share your thoughts..."
+                placeholder={t('news.comments.placeholder')}
                 className="w-full bg-surface border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-primary min-h-[100px]"
               />
             </div>
@@ -138,20 +140,20 @@ const CommentSection = ({ newsId }: CommentSectionProps) => {
               className="px-6 py-2 bg-primary text-background font-bold rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed h-fit flex items-center"
             >
               <Send className="w-4 h-4 mr-2" />
-              Post
+              {t('news.comments.submit')}
             </button>
           </div>
         </form>
       ) : (
         <div className="bg-surface/50 p-4 rounded-lg mb-8 text-center text-text-secondary">
-          Please <a href="/login" className="text-primary hover:underline">log in</a> to leave a comment.
+          {t('news.comments.login_prompt_pre')} <a href="/login" className="text-primary hover:underline">{t('news.comments.login_link')}</a> {t('news.comments.login_prompt_post')}
         </div>
       )}
 
       {/* Comments List */}
       <div className="space-y-6">
         {comments.length === 0 ? (
-          <p className="text-text-secondary text-center italic">No comments yet. Be the first to share your thoughts!</p>
+          <p className="text-text-secondary text-center italic">{t('news.comments.empty')}</p>
         ) : (
           comments.map((comment) => (
             <div key={comment.id} className="bg-surface border border-white/5 rounded-lg p-4">
@@ -166,7 +168,7 @@ const CommentSection = ({ newsId }: CommentSectionProps) => {
                   </div>
                   <div>
                     <span className="font-bold text-white block">
-                      {comment.user?.username || 'Unknown User'}
+                      {comment.user?.username || t('news.comments.unknown_user')}
                     </span>
                     <span className="text-xs text-text-secondary">
                       {new Date(comment.created_at).toLocaleDateString()} {new Date(comment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -179,7 +181,7 @@ const CommentSection = ({ newsId }: CommentSectionProps) => {
                   <button
                     onClick={() => handleDelete(comment.id)}
                     className="text-text-secondary hover:text-red-500 transition-colors"
-                    title="Delete comment"
+                    title={t('news.comments.delete_title')}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

@@ -10,9 +10,12 @@
     "community": "社区",
     "contact": "联系我们",
     "login": "登录",
-    "sign_out": "退出"
+    "sign_out": "退出登录",
+    "developer_inbox": "开发者收件箱",
+    "switch_language": "切换语言"
   },
   "footer": {
+    "navigation": "导航",
     "tagline": "构建未来的学生开发者。激情与代码交汇之地。",
     "connect": "联系方式",
     "location": {
@@ -35,7 +38,38 @@
     "rewarded": "已奖励",
     "reward_action": "奖励帖子",
     "reward_amount": "金额",
-    "confirm_reward": "确认奖励"
+    "confirm_reward": "确认奖励",
+    "loading": "正在加载讨论...",
+    "empty": "暂无帖子。成为第一人！",
+    "unknown_user": "未知",
+    "tokens": "代币",
+    "comments_count": "评论",
+    "acknowledge": "确认",
+    "comments_section": {
+      "title": "评论",
+      "empty": "暂无评论。",
+      "placeholder": "写下评论...",
+      "login_prompt": "登录以评论"
+    },
+    "create_modal": {
+      "placeholder_title": "输入标题...",
+      "placeholder_content": "分享您的想法...",
+      "posting": "发布中..."
+    },
+    "reward_modal": {
+      "reward_prefix": "奖励 ",
+      "by": " 作者 ",
+      "amount_label": "奖励金额 (代币)",
+      "min_token": "1 代币",
+      "max_token": "1000 代币",
+      "processing": "处理中..."
+    },
+    "alerts": {
+      "create_failed": "创建帖子失败",
+      "acknowledge_success": "帖子确认成功！",
+      "acknowledge_failed": "奖励帖子失败：",
+      "unknown_error": "未知错误"
+    }
   },
   "home": {
     "hero": {
@@ -60,6 +94,13 @@
         "learning_together": "共同学习",
         "learning_together_desc": "分享资源，举办研讨会，作为一个开发者社区共同成长。"
       }
+    },
+    "featured_projects": {
+      "title_featured": "精选",
+      "title_projects": "项目",
+      "loading": "正在加载项目...",
+      "view_all": "查看全部",
+      "view_case_study": "查看案例研究"
     }
   },
   "about": {
@@ -138,6 +179,10 @@
   },
   "contact": {
     "title": "联系我们",
+    "visit_us": "访问我们",
+    "email_us": "给我们发邮件",
+    "call_us": "联系我们",
+    "title_message": "给我们发送消息",
     "subtitle": "有项目想法或只是想打个招呼？",
     "form": {
       "name": "姓名",
@@ -146,7 +191,16 @@
       "message": "消息",
       "send": "发送消息",
       "success": "消息发送成功！",
-      "error": "发送失败，请重试。"
+      "error": "发送失败，请重试。",
+      "placeholders": {
+        "name": "张三",
+        "email": "zhangsan@example.com",
+        "subject": "项目咨询",
+        "message": "告诉我们关于您的项目..."
+      },
+      "buttons": {
+        "sending": "发送中..."
+      }
     }
   },
   "products": {
@@ -224,8 +278,19 @@
         "min_label": "最小奖励 (代币)",
         "max_label": "最大奖励 (代币)",
         "submit": "发布任务",
-        "cancel": "取消"
+        "launching": "发布中...",
+        "cancel": "取消",
+        "driver_bet": "这是车手博弈吗？(高风险)",
+        "event": "事件 (例如：Piastri 获胜)",
+        "side_b_auto": "B 方 (自动生成)",
+        "ticket_price": "票价 (代币)",
+        "ticket_limit": "票据限额 (总计)",
+        "sales_end": "销售截止 (本地时间)",
+        "result_release": "结果发布 (本地时间)",
+        "refund_schedule": "退款计划 (每张票据)",
+        "no_refunds": "未添加退款项"
       },
+      "launched_success": "任务发布成功！等待批准。",
       "high_rep_only": "需 >70 声望",
       "status": {
         "pending": "审核中",
@@ -256,7 +321,78 @@
         "desc_label": "描述",
         "yield_label": "收益率 (%)",
         "lockup_label": "锁定期 (天)",
-        "submit": "创建活动"
+        "submit": "创建活动",
+        "is_driver_bet": "这是车手博弈吗？(高风险)",
+        "event_label": "事件 (例如：Piastri 获胜)",
+        "event_placeholder": "事件将发生",
+        "side_b_label": "B 方 (自动生成)",
+        "side_b_suffix": " 将不会发生",
+        "ticket_price_label": "票价 (代币)",
+        "ticket_limit_label": "票据限额 (总计)",
+        "sales_end_label": "销售截止 (本地时间)",
+        "result_release_label": "结果发布 (本地时间)",
+        "timezone_note": "* 时间为您本地时区 (例如：北京时间)。存储为 UTC。",
+        "refund_schedule_label": "退款计划 (每张票据)",
+        "refund_amt_placeholder": "金额",
+        "no_refund_items": "未添加退款项",
+        "creating": "创建中..."
+      },
+      "alerts": {
+        "low_rep": "声望过低。您需要 > 50 声望才能支持项目。",
+        "invalid_amount": "金额无效",
+        "ticket_integer": "票据数量必须为整数",
+        "purchase_success": "票据购买成功！",
+        "purchase_failed": "购买失败：{{message}}",
+        "fill_driver_bet": "请填写所有 Driver Bet 字段。",
+        "driver_bet_created": "Driver Bet 创建成功！",
+        "add_refund_schedule": "请至少添加一项退款计划。",
+        "campaign_created": "活动创建成功！",
+        "verify_url_prompt": "请输入验证 URL（例如 F1 官方网站）：",
+        "resolve_confirm": "您确定要宣布 {{side}} 方获胜吗？这将执行派彩且无法撤销。",
+        "resolve_success": "投注结算成功！",
+        "resolve_failed": "结算失败：{{message}}",
+        "buy_integer": "请输入有效的整数数量",
+        "buy_success": "成功购买 {{qty}} 张 {{side}} 方票据！",
+        "buy_failed": "购买失败：{{message}}",
+        "delete_confirm": "您确定要{{mode}}删除此活动吗？此操作无法撤销。",
+        "delete_mode_market": "从市场中",
+        "delete_mode_everywhere": "彻底",
+        "delete_success": "活动删除成功。",
+        "delete_failed": "删除失败：{{message}}",
+        "disclaimer_full": "免责声明：博彩可能成瘾，请理性参与。虚拟市场存在与现实股市类似的高风险，请勿投入超出承受能力的资金。"
+      },
+      "labels": {
+        "side_a": "A 方",
+        "side_b": "B 方",
+        "sold": "已售：{{count}}",
+        "owned": "持有：{{count}}",
+        "view_holders": "查看持有人",
+        "holders": "持有人 ({{side}} 方)",
+        "no_holders": "暂无持有人或正在加载...",
+        "unknown": "未知",
+        "price": "价格",
+        "limit": "限额",
+        "sales_end": "销售截止",
+        "result": "结果",
+        "buy_action": "购买",
+        "buy_one_tkn": "购买 (1 代币)",
+        "declare_result": "宣布结果 (创建者/开发者)",
+        "release_date": "发布日期：",
+        "wins": " 获胜",
+        "resolved_won": "已解决：{{name}} 获胜",
+        "refund_schedule_title": "退款计划 (每张票据)：",
+        "risk": "{{level}} 风险",
+        "driver_bet": "车手博弈",
+        "invested": "已投资",
+        "delisted": "已退市",
+        "your_tickets": "您的票据"
+      },
+      "actions": {
+        "cancel": "取消",
+        "delist": "退市",
+        "delist_title": "从市场退市 (交易继续)",
+        "delete": "删除",
+        "delete_title": "彻底删除 (退款给用户)"
       },
       "ticket": {
         "market_tab": "交易市场",
@@ -273,32 +409,73 @@
         "confirm_password": "确认密码",
         "processing": "处理中...",
         "low_rep": "声望过低。您需要 > 50 声望才能交易。",
+        "alerts": {
+          "purchase_success": "购买成功！",
+          "listing_success": "挂单已创建！",
+          "error_prefix": "错误: "
+        },
+        "unit": "单位",
+        "units": "单位",
+        "list_for_sale": "上架出售",
         "create_type_btn": "发起活动",
         "create_type_title": "发起新活动",
         "create_type_desc": "创建新的预测市场票据。"
       }
     },
     "wallet": {
+      "currency": {
+        "tkn": "代币",
+        "rep": "声望"
+      },
+      "title": "我的钱包",
       "daily_bonus": {
         "title": "每日登录奖励",
         "claim": "领取奖励",
-        "claimed": "今日已领",
+        "claimed": "今日已领取",
         "next": "明天再来！",
-        "desc": "奖励金额随声望等级提升。"
+        "desc": "奖励金额随您的声望提升而增加。"
       },
       "developer": {
         "title": "开发者计划",
         "request": "申请开发者身份",
-        "pending": "申请审核中",
+        "pending": "请求待处理",
         "approved": "开发者账户已激活",
-        "desc": "开发者获得 80 声望并可批准社区内容。"
+        "desc": "开发者可获得80声望并能批准社区内容。"
       },
       "tiers": {
         "title": "声望特权",
-        "level1": "LVL 1 (>30 声望): 参与社区任务",
-        "level2": "LVL 2 (>50 声望): 参与票据市场交易",
-        "level3": "LVL 3 (>70 声望): 发起活动与任务"
+        "level1": "等级 1 (>30 声望): 访问社区任务",
+        "level2": "等级 2 (>50 声望): 在票务市场交易",
+        "level3": "等级 3 (>70 声望): 发起活动和任务"
+      },
+      "test_player": {
+        "title": "测试玩家计划",
+        "request": "申请测试玩家身份",
+        "pending": "请求待处理",
+        "approved": "测试玩家已激活",
+        "desc": "测试玩家可获得20声望并能访问测试频道。"
+      },
+      "history": {
+        "title": "交易历史",
+        "empty": "无交易记录",
+        "loading": "加载中...",
+        "recent_transactions": "最近交易",
+        "headers": {
+          "type": "类型",
+          "amount": "金额",
+          "date": "日期",
+          "description": "描述"
+        }
       }
     }
+  },
+  "news": {
+    "title": "最新动态",
+    "subtitle": "来自我们团队的最新消息、更新和公告。",
+    "loading": "正在加载新闻...",
+    "read_more": "阅读更多",
+    "no_articles": "暂无新闻文章。",
+    "filter_by_tag": "按标签筛选：",
+    "all_tags": "所有标签"
   }
 }

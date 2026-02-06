@@ -125,7 +125,7 @@ const Missions = () => {
     );
 
     if (result.success) {
-      alert('Mission launched successfully! Pending approval.');
+      alert(t('economy.missions.launched_success'));
       setShowCreateModal(false);
       setNewMissionTitle('');
       setNewMissionDesc('');
@@ -209,8 +209,8 @@ const Missions = () => {
                        </div>
                     ) : (
                       <>
-                        <div className="text-primary font-bold font-mono">+{mission.reward_tokens} Tokens</div>
-                        <div className="text-secondary font-bold font-mono">+{mission.reward_rep} Rep</div>
+                        <div className="text-primary font-bold font-mono">+{mission.reward_tokens} {t('economy.wallet.tokens')}</div>
+                        <div className="text-secondary font-bold font-mono">+{mission.reward_rep} {t('economy.wallet.rep')}</div>
                       </>
                     )}
                   </div>
@@ -238,7 +238,7 @@ const Missions = () => {
                           </div>
                           {sub.status === 'APPROVED' && (
                             <div className="font-mono text-primary">
-                              +{sub.payout_tokens ?? 0} Tokens / +{sub.payout_rep ?? 0} Rep
+                              +{sub.payout_tokens ?? 0} {t('economy.wallet.tokens')} / +{sub.payout_rep ?? 0} {t('economy.wallet.rep')}
                             </div>
                           )}
                         </div>
@@ -338,7 +338,7 @@ const Missions = () => {
                   disabled={creating}
                   className="flex-1 bg-primary text-background font-bold py-2 rounded hover:bg-primary/90"
                 >
-                  {creating ? 'Launching...' : t('economy.missions.create_modal.submit')}
+                  {creating ? t('economy.missions.create_modal.launching') : t('economy.missions.create_modal.submit')}
                 </button>
               </div>
             </motion.div>

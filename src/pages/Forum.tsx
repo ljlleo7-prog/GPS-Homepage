@@ -37,7 +37,7 @@ interface Comment {
 }
 
 const Forum = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { wallet, developerStatus, refreshEconomy } = useEconomy();
   
@@ -196,7 +196,7 @@ const Forum = () => {
       fetchPosts();
     } catch (error) {
       console.error('Error creating post:', error);
-      alert('Failed to create post');
+      alert(t('forum.alerts.create_failed'));
     } finally {
       setCreating(false);
     }
@@ -215,14 +215,14 @@ const Forum = () => {
       if (error) throw error;
       if (data && !data.success) throw new Error(data.message);
 
-      alert('Post acknowledged successfully!');
+      alert(t('forum.alerts.acknowledge_success'));
       setSelectedPost(null);
       setRewardAmount('10');
       fetchPosts();
       refreshEconomy(); 
     } catch (error: any) {
       console.error('Error rewarding post:', error);
-      alert('Failed to reward post: ' + (error.message || 'Unknown error'));
+      alert(t('forum.alerts.acknowledge_failed') + (error.message || t('forum.alerts.unknown_error')));
     } finally {
       setRewarding(false);
     }
@@ -257,12 +257,12 @@ const Forum = () => {
           {loading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-text-secondary font-mono">Loading discussions...</p>
+              <p className="text-text-secondary font-mono">{t('forum.loading')}</p>
             </div>
           ) : posts.length === 0 ? (
             <div className="text-center py-12 bg-surface border border-white/5 rounded-lg">
               <MessageSquare className="w-12 h-12 text-text-secondary mx-auto mb-4 opacity-50" />
-              <p className="text-text-secondary font-mono">No posts yet. Be the first!</p>
+              <p className="text-text-secondary font-mono">{t('forum.empty')}</p>
             </div>
           ) : (
             posts.map((post) => (
@@ -286,16 +286,16 @@ const Forum = () => {
                     <div className="flex items-center text-sm text-text-secondary space-x-4">
                       <div className="flex items-center">
                         <User className="w-4 h-4 mr-1" />
-                        <span className={post.profiles?.developer_status === 'APPROVED' ? 'text-cyan-400' : ''}>{post.profiles?.username || 'Unknown'}</span>
+                        <span className={post.profiles?.developer_status === 'APPROVED' ? 'text-cyan-400' : ''}>{post.profiles?.username || t('forum.unknown_user')}</span>
                       </div>
-                      <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                      <span>{new Date(post.created_at).toLocaleDateString(i18n.language)}</span>
                     </div>
                   </div>
                   
                   {post.reward_amount > 0 && (
                     <div className="flex items-center text-secondary font-mono bg-secondary/10 px-3 py-1 rounded-full">
                       <Award className="w-4 h-4 mr-2" />
-                      +{post.reward_amount} Tokens
+                      +{post.reward_amount} {t('forum.tokens')}
                     </div>
                   )}
                 </div>
@@ -319,7 +319,7 @@ const Forum = () => {
                     className="flex items-center space-x-2 text-text-secondary hover:text-primary transition-colors"
                   >
                     <MessageCircle className="w-5 h-5" />
-                    <span className="font-mono text-sm">{post.comments_count} Comments</span>
+                    <span className="font-mono text-sm">{post.comments_count} {t('forum.comments_count')}</span>
                   </button>
 
                   {/* Admin Actions */}
@@ -329,7 +329,7 @@ const Forum = () => {
                       className="text-sm font-mono text-cyan-400 hover:text-cyan-300 transition-colors flex items-center ml-auto"
                     >
                       <Award className="w-4 h-4 mr-1" />
-                      Acknowledge
+                      {t('forum.acknowledge')}
                     </button>
                   )}
                 </div>
@@ -344,14 +344,14 @@ const Forum = () => {
                       className="overflow-hidden"
                     >
                       <div className="mt-4 pt-4 border-t border-white/5 bg-black/20 -mx-6 px-6 pb-4">
-                        <h4 className="font-mono text-sm text-text-secondary mb-4">Comments</h4>
+                        <h4 className="font-mono text-sm text-text-secondary mb-4">{t('forum.comments_section.title')}</h4>
                         
                         {loadingComments ? (
                           <div className="text-center py-4">
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto"></div>
                           </div>
                         ) : comments.length === 0 ? (
-                          <p className="text-sm text-text-secondary italic mb-4">No comments yet.</p>
+                          <p className="text-sm text-text-secondary italic mb-4">{t('forum.comments_section.empty')}</p>
                         ) : (
                           <div className="space-y-4 mb-6">
                             {comments.map((comment) => (
@@ -364,10 +364,10 @@ const Forum = () => {
                                 <div>
                                   <div className="flex items-center space-x-2">
                                     <span className={`font-bold text-sm ${comment.profiles?.developer_status === 'APPROVED' ? 'text-cyan-400' : 'text-white'}`}>
-                                      {comment.profiles?.username || 'Unknown'}
+                                      {comment.profiles?.username || t('forum.unknown_user')}
                                     </span>
                                     <span className="text-xs text-text-secondary">
-                                      {new Date(comment.created_at).toLocaleDateString()}
+                                      {new Date(comment.created_at).toLocaleDateString(i18n.language)}
                                     </span>
                                   </div>
                                   <p className="text-sm text-text-secondary mt-1">{comment.content}</p>
@@ -384,7 +384,7 @@ const Forum = () => {
                               type="text"
                               value={newComment}
                               onChange={(e) => setNewComment(e.target.value)}
-                              placeholder="Write a comment..."
+                              placeholder={t('forum.comments_section.placeholder')}
                               className="flex-1 bg-surface border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-primary transition-colors"
                               onKeyDown={(e) => e.key === 'Enter' && handleSubmitComment(post.id)}
                             />
@@ -397,7 +397,7 @@ const Forum = () => {
                             </button>
                           </div>
                         ) : (
-                          <p className="text-xs text-text-secondary text-center">Log in to comment</p>
+                          <p className="text-xs text-text-secondary text-center">{t('forum.comments_section.login_prompt')}</p>
                         )}
                       </div>
                     </motion.div>
@@ -433,7 +433,7 @@ const Forum = () => {
                       value={newTitle}
                       onChange={(e) => setNewTitle(e.target.value)}
                       className="w-full bg-background border border-white/10 rounded px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
-                      placeholder="Enter title..."
+                      placeholder={t('forum.create_modal.placeholder_title')}
                     />
                   </div>
                   <div>
@@ -442,7 +442,7 @@ const Forum = () => {
                       value={newContent}
                       onChange={(e) => setNewContent(e.target.value)}
                       className="w-full bg-background border border-white/10 rounded px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors h-32 resize-none"
-                      placeholder="Share your thoughts..."
+                      placeholder={t('forum.create_modal.placeholder_content')}
                     />
                   </div>
                 </div>
@@ -459,7 +459,7 @@ const Forum = () => {
                     disabled={creating}
                     className="px-6 py-2 bg-primary text-background font-mono font-bold rounded hover:bg-primary-dark transition-colors disabled:opacity-50"
                   >
-                    {creating ? 'Posting...' : t('forum.submit')}
+                    {creating ? t('forum.create_modal.posting') : t('forum.submit')}
                   </button>
                 </div>
               </motion.div>
@@ -485,11 +485,11 @@ const Forum = () => {
                 </div>
 
                 <p className="text-sm text-text-secondary mb-4">
-                  Reward <strong>{selectedPost.title}</strong> by {selectedPost.profiles?.username}
+                  {t('forum.reward_modal.reward_prefix')} <strong>{selectedPost.title}</strong> {t('forum.reward_modal.by')} {selectedPost.profiles?.username}
                 </p>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-mono text-text-secondary mb-2">Reward Amount (Tokens)</label>
+                  <label className="block text-sm font-mono text-text-secondary mb-2">{t('forum.reward_modal.amount_label')}</label>
                   <div className="flex items-center gap-4">
                     <input
                       type="range"
@@ -510,8 +510,8 @@ const Forum = () => {
                     />
                   </div>
                   <div className="flex justify-between text-xs text-text-secondary mt-2 font-mono">
-                    <span>1 Token</span>
-                    <span>1000 Tokens</span>
+                    <span>{t('forum.reward_modal.min_token')}</span>
+                    <span>{t('forum.reward_modal.max_token')}</span>
                   </div>
                 </div>
 
@@ -527,7 +527,7 @@ const Forum = () => {
                     disabled={rewarding}
                     className="px-6 py-2 bg-secondary text-background font-mono font-bold rounded hover:bg-secondary-dark transition-colors disabled:opacity-50"
                   >
-                    {rewarding ? 'Processing...' : t('forum.confirm_reward')}
+                    {rewarding ? t('forum.reward_modal.processing') : t('forum.confirm_reward')}
                   </button>
                 </div>
               </motion.div>

@@ -1,6 +1,6 @@
 import { useEconomy } from '../context/EconomyContext';
 import { motion } from 'framer-motion';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import { Gift, Lock, Shield, UserCheck, Activity, Star, CheckCircle, Gamepad2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
@@ -20,7 +20,7 @@ const Wallet = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background pt-24 text-center text-white">
-        Loading Wallet...
+        {t('economy.wallet.loading')}
       </div>
     );
   }
@@ -28,7 +28,7 @@ const Wallet = () => {
   if (!wallet) {
     return (
       <div className="min-h-screen bg-background pt-24 text-center text-white">
-        Please log in to view your wallet.
+        {t('economy.wallet.login_msg')}
       </div>
     );
   }
@@ -40,7 +40,7 @@ const Wallet = () => {
     setClaiming(true);
     const result = await claimDailyBonus();
     if (result.success) {
-      alert(`Claimed ${result.amount} Tokens!`);
+      alert(t('economy.wallet.claimed_success', { amount: result.amount }));
     } else {
       alert(result.message);
     }
@@ -48,11 +48,11 @@ const Wallet = () => {
   };
 
   const handleRequestDev = async () => {
-    if (!confirm('Request developer status? This will set your Reputation to 80 upon approval.')) return;
+    if (!confirm(t('economy.wallet.request_confirm'))) return;
     setRequesting(true);
     const result = await requestDeveloperAccess();
     if (result.success) {
-      alert('Request sent successfully!');
+      alert(t('economy.wallet.request_success'));
     } else {
       alert(result.message);
     }
@@ -69,7 +69,7 @@ const Wallet = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-3xl font-bold font-mono mb-8 text-white"
         >
-          My Wallet
+          {t('economy.wallet.title')}
         </motion.h1>
 
         {/* Balances */}
@@ -79,11 +79,11 @@ const Wallet = () => {
             animate={{ opacity: 1, x: 0 }}
             className="bg-surface border border-white/10 rounded-lg p-6"
           >
-            <h2 className="text-sm font-mono text-text-secondary uppercase tracking-wider mb-2">Tokens</h2>
+            <h2 className="text-sm font-mono text-text-secondary uppercase tracking-wider mb-2">{t('economy.wallet.tokens')}</h2>
             <div className="text-4xl font-bold text-primary font-mono">
-              {wallet.token_balance} <span className="text-lg">TKN</span>
+              {wallet.token_balance} <span className="text-lg">{t('economy.wallet.currency.tkn')}</span>
             </div>
-            <p className="text-xs text-text-secondary mt-2">Transferable currency for markets.</p>
+            <p className="text-xs text-text-secondary mt-2">{t('economy.wallet.tokens_desc')}</p>
           </motion.div>
 
           <motion.div
@@ -91,11 +91,11 @@ const Wallet = () => {
             animate={{ opacity: 1, x: 0 }}
             className="bg-surface border border-white/10 rounded-lg p-6"
           >
-            <h2 className="text-sm font-mono text-text-secondary uppercase tracking-wider mb-2">Reputation</h2>
+            <h2 className="text-sm font-mono text-text-secondary uppercase tracking-wider mb-2">{t('economy.wallet.reputation')}</h2>
             <div className="text-4xl font-bold text-secondary font-mono">
-              {wallet.reputation_balance} <span className="text-lg">REP</span>
+              {wallet.reputation_balance} <span className="text-lg">{t('economy.wallet.currency.rep')}</span>
             </div>
-            <p className="text-xs text-text-secondary mt-2">Non-transferable. Earned by contribution.</p>
+            <p className="text-xs text-text-secondary mt-2">{t('economy.wallet.rep_desc')}</p>
           </motion.div>
         </div>
 
@@ -128,7 +128,7 @@ const Wallet = () => {
                 disabled={claiming}
                 className="w-full bg-primary text-background font-bold py-2 rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                {claiming ? 'Claiming...' : t('economy.wallet.daily_bonus.claim')}
+                {claiming ? t('economy.wallet.claiming') : t('economy.wallet.daily_bonus.claim')}
               </button>
             )}
           </motion.div>
@@ -168,7 +168,7 @@ const Wallet = () => {
                 disabled={requesting}
                 className="w-full bg-secondary text-background font-bold py-2 rounded hover:bg-secondary/90 transition-colors disabled:opacity-50"
               >
-                {requesting ? 'Sending...' : t('economy.wallet.developer.request')}
+                {requesting ? t('economy.wallet.sending') : t('economy.wallet.developer.request')}
               </button>
             )}
           </motion.div>
@@ -186,17 +186,19 @@ const Wallet = () => {
           </div>
           <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
             <Gamepad2 size={20} className="text-blue-400" />
-            Test Player Access
+            {t('economy.wallet.test_player.title')}
           </h3>
           <p className="text-sm text-text-secondary mb-4">
-            Request access to test unreleased or premium programs like Skyline Tragedy or DeltaDash.
-            Approved testers receive <span className="text-secondary font-bold">+20 Reputation</span> and free access.
+            <Trans
+              i18nKey="economy.wallet.test_player.desc"
+              components={{ bold: <span className="text-secondary font-bold" /> }}
+            />
           </p>
           <button
             onClick={() => setIsTestModalOpen(true)}
             className="bg-blue-500/10 border border-blue-500/30 text-blue-400 font-bold py-2 px-6 rounded hover:bg-blue-500/20 transition-colors"
           >
-            Request Access
+            {t('economy.wallet.test_player.btn')}
           </button>
         </motion.div>
 
@@ -217,21 +219,21 @@ const Wallet = () => {
               <span className={reputation > 30 ? 'text-white' : 'text-text-secondary'}>
                 {t('economy.wallet.tiers.level1')}
               </span>
-              {reputation > 30 && <span className="ml-auto text-xs text-primary font-bold">UNLOCKED</span>}
+              {reputation > 30 && <span className="ml-auto text-xs text-primary font-bold">{t('economy.wallet.unlocked')}</span>}
             </div>
             <div className={`flex items-center gap-3 p-3 rounded border ${reputation > 50 ? 'bg-primary/10 border-primary/30' : 'bg-white/5 border-white/10 opacity-50'}`}>
               <div className={`w-3 h-3 rounded-full ${reputation > 50 ? 'bg-primary' : 'bg-white/20'}`} />
               <span className={reputation > 50 ? 'text-white' : 'text-text-secondary'}>
                 {t('economy.wallet.tiers.level2')}
               </span>
-              {reputation > 50 && <span className="ml-auto text-xs text-primary font-bold">UNLOCKED</span>}
+              {reputation > 50 && <span className="ml-auto text-xs text-primary font-bold">{t('economy.wallet.unlocked')}</span>}
             </div>
             <div className={`flex items-center gap-3 p-3 rounded border ${reputation > 70 ? 'bg-primary/10 border-primary/30' : 'bg-white/5 border-white/10 opacity-50'}`}>
               <div className={`w-3 h-3 rounded-full ${reputation > 70 ? 'bg-primary' : 'bg-white/20'}`} />
               <span className={reputation > 70 ? 'text-white' : 'text-text-secondary'}>
                 {t('economy.wallet.tiers.level3')}
               </span>
-              {reputation > 70 && <span className="ml-auto text-xs text-primary font-bold">UNLOCKED</span>}
+              {reputation > 70 && <span className="ml-auto text-xs text-primary font-bold">{t('economy.wallet.unlocked')}</span>}
             </div>
           </div>
         </motion.div>
@@ -244,16 +246,16 @@ const Wallet = () => {
           className="bg-surface border border-white/10 rounded-lg overflow-hidden"
         >
           <div className="p-6 border-b border-white/10">
-            <h2 className="text-xl font-bold text-white font-mono">Transaction History</h2>
+            <h2 className="text-xl font-bold text-white font-mono">{t('economy.wallet.history.title')}</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-white/5 text-text-secondary font-mono uppercase">
                 <tr>
-                  <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Type</th>
-                  <th className="px-6 py-3">Description</th>
-                  <th className="px-6 py-3 text-right">Amount</th>
+                  <th className="px-6 py-3">{t('economy.wallet.history.date')}</th>
+                  <th className="px-6 py-3">{t('economy.wallet.history.type')}</th>
+                  <th className="px-6 py-3">{t('economy.wallet.history.desc')}</th>
+                  <th className="px-6 py-3 text-right">{t('economy.wallet.history.amount')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
@@ -269,14 +271,14 @@ const Wallet = () => {
                       {entry.description || '-'}
                     </td>
                     <td className={`px-6 py-4 text-right font-mono font-bold ${entry.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {entry.amount > 0 ? '+' : ''}{entry.amount} {entry.currency}
+                      {entry.amount > 0 ? '+' : ''}{entry.amount} {t(`economy.wallet.currency.${entry.currency.toLowerCase()}`, { defaultValue: entry.currency })}
                     </td>
                   </tr>
                 ))}
                 {ledger.length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-6 py-8 text-center text-text-secondary">
-                      No transactions found.
+                      {t('economy.wallet.history.no_transactions')}
                     </td>
                   </tr>
                 )}

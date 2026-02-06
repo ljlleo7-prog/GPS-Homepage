@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calendar, User, ArrowLeft, Tag } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import CommentSection from '../components/news/CommentSection';
 
-interface Article {
+interface NewsArticle {
   id: string;
   title: string;
   content: string;
@@ -16,8 +17,9 @@ interface Article {
 }
 
 const ArticleDetails = () => {
-  const { id } = useParams<{ id: string }>();
-  const [article, setArticle] = useState<Article | null>(null);
+  const { id } = useParams();
+  const { t } = useTranslation();
+  const [article, setArticle] = useState<NewsArticle | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -54,9 +56,9 @@ const ArticleDetails = () => {
   if (!article) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-4">
-        <h2 className="text-2xl font-bold mb-4">Article not found</h2>
+        <h2 className="text-2xl font-bold mb-4">{t('news.article_not_found')}</h2>
         <Link to="/news" className="text-primary hover:text-secondary transition-colors">
-          Return to News
+          {t('news.return_to_news')}
         </Link>
       </div>
     );
@@ -77,7 +79,7 @@ const ArticleDetails = () => {
             to="/news" 
             className="inline-flex items-center text-white/80 hover:text-primary transition-colors bg-black/30 px-4 py-2 rounded-full backdrop-blur-sm"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to News
+            <ArrowLeft className="w-4 h-4 mr-2" /> {t('news.back_to_news')}
           </Link>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, PlusCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 import ArticleCard from '../components/news/ArticleCard';
 import PostNewsModal from '../components/news/PostNewsModal';
@@ -19,6 +20,7 @@ interface Article {
 const categories = ['All', 'Company News', 'Technology', 'Projects'];
 
 const News = () => {
+  const { t } = useTranslation();
   const { developerStatus } = useEconomy();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,10 +64,10 @@ const News = () => {
             animate={{ opacity: 1, y: 0 }}
             className="text-4xl md:text-5xl font-bold mb-4"
           >
-            Latest <span className="text-primary">Updates</span>
+            {t('news.title_latest')} <span className="text-primary">{t('news.title_updates')}</span>
           </motion.h1>
           <p className="text-text-secondary max-w-2xl mx-auto">
-            Stay informed about our latest projects, technology insights, and studio news.
+            {t('news.subtitle')}
           </p>
         </div>
 
@@ -82,7 +84,7 @@ const News = () => {
                     : 'bg-surface text-text-secondary hover:text-white hover:bg-white/10'
                 }`}
               >
-                {category}
+                {t(`news.categories.${category.toLowerCase().replace(' ', '_')}`)}
               </button>
             ))}
           </div>
@@ -94,7 +96,7 @@ const News = () => {
                 className="flex items-center px-4 py-2 bg-secondary/10 border border-secondary text-secondary rounded-full font-mono text-sm hover:bg-secondary hover:text-background transition-all duration-300"
               >
                 <PlusCircle className="w-4 h-4 mr-2" />
-                Post News
+                {t('news.post_btn')}
               </button>
             )}
 
@@ -102,7 +104,7 @@ const News = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search articles..."
+                placeholder={t('news.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-surface border border-white/10 rounded-full pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-primary transition-colors"
@@ -135,7 +137,7 @@ const News = () => {
               ))
             ) : (
               <div className="col-span-full text-center py-20 text-text-secondary">
-                No articles found matching your criteria.
+                {t('news.no_results')}
               </div>
             )}
           </div>

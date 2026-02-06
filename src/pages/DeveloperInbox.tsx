@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Shield, CheckCircle, XCircle, FileText, MessageSquare, Trophy, AlertTriangle, ExternalLink, Gamepad2 } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, MessageSquare, Trophy, AlertTriangle, ExternalLink, Gamepad2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useEconomy } from '../context/EconomyContext';
 import { useNavigate } from 'react-router-dom';
@@ -58,7 +58,7 @@ interface PendingTest {
 }
 
 const DeveloperInbox = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { developerStatus, approveDeveloperAccess, resolveDriverBet, approveTestPlayerRequest, declineTestPlayerRequest } = useEconomy();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -209,8 +209,8 @@ const DeveloperInbox = () => {
           <div className="min-h-screen bg-background pt-24 text-center text-white">
               <div className="max-w-md mx-auto p-6 bg-surface border border-red-500/30 rounded-lg">
                   <Shield size={48} className="mx-auto text-red-500 mb-4" />
-                  <h2 className="text-xl font-bold mb-2">Access Denied</h2>
-                  <p className="text-text-secondary">You must be an approved developer to view this page.</p>
+                  <h2 className="text-xl font-bold mb-2">{t('developer_inbox.access_denied')}</h2>
+                  <p className="text-text-secondary">{t('developer_inbox.must_be_developer')}</p>
               </div>
           </div>
       );
@@ -226,24 +226,24 @@ const DeveloperInbox = () => {
         >
           <h1 className="text-3xl font-bold font-mono text-white flex items-center gap-3">
             <Shield className="text-cyan-400" />
-            Developer Inbox
+            {t('developer_inbox.title')}
           </h1>
           <button 
             onClick={fetchInbox}
             className="px-4 py-2 bg-white/5 border border-white/10 rounded hover:bg-white/10 text-sm font-mono text-text-secondary"
           >
-            Refresh
+            {t('developer_inbox.refresh')}
           </button>
         </motion.div>
 
         {loading ? (
-             <div className="text-center text-text-secondary py-12">Loading inbox data...</div>
+             <div className="text-center text-text-secondary py-12">{t('developer_inbox.loading')}</div>
         ) : (
             <div className="space-y-8">
                 {/* 1. Pending Developer Requests */}
-                <Section title="Pending Developer Requests" icon={<UserIcon />} count={data.pending_devs.length}>
+                <Section title={t('developer_inbox.pending_dev_requests')} icon={<UserIcon />} count={data.pending_devs.length}>
                     {data.pending_devs.length === 0 ? (
-                        <EmptyState message="No pending developer requests" />
+                        <EmptyState message={t('developer_inbox.no_pending_dev_requests')} />
                     ) : (
                         <div className="grid gap-4">
                             {data.pending_devs.map(dev => (
@@ -251,19 +251,19 @@ const DeveloperInbox = () => {
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <h3 className="font-bold text-white text-lg">{dev.username}</h3>
-                                            <p className="text-sm text-text-secondary">Full Name: {dev.full_name}</p>
-                                            <p className="text-xs text-text-secondary mt-1">Requested: {new Date(dev.created_at).toLocaleDateString()}</p>
+                                            <p className="text-sm text-text-secondary">{t('developer_inbox.full_name')}: {dev.full_name}</p>
+                                            <p className="text-xs text-text-secondary mt-1">{t('developer_inbox.requested')}: {new Date(dev.created_at).toLocaleDateString(i18n.language)}</p>
                                         </div>
                                         <div className="flex gap-2">
                                             <ActionButton 
                                                 onClick={() => handleApproveDev(dev.id)} 
                                                 variant="approve"
-                                                label="Approve"
+                                                label={t('common.approve')}
                                             />
                                             <ActionButton 
                                                 onClick={() => handleDeclineDev(dev.id)} 
                                                 variant="reject"
-                                                label="Decline"
+                                                label={t('common.decline')}
                                             />
                                         </div>
                                     </div>
@@ -274,9 +274,9 @@ const DeveloperInbox = () => {
                 </Section>
 
                 {/* 2. Pending Mission Submissions */}
-                <Section title="Pending Mission Submissions" icon={<TrophyIcon />} count={data.pending_missions.length}>
+                <Section title={t('developer_inbox.pending_mission_submissions')} icon={<TrophyIcon />} count={data.pending_missions.length}>
                     {data.pending_missions.length === 0 ? (
-                        <EmptyState message="No pending mission submissions" />
+                        <EmptyState message={t('developer_inbox.no_pending_mission_submissions')} />
                     ) : (
                         <div className="grid gap-4">
                             {data.pending_missions.map(sub => (
@@ -285,11 +285,11 @@ const DeveloperInbox = () => {
                                         <div className="flex-1 mr-4">
                                             <div className="flex items-center gap-2 mb-2">
                                                 <span className="bg-primary/20 text-primary text-xs px-2 py-0.5 rounded border border-primary/30 font-mono">
-                                                    MISSION
+                                                    {t('developer_inbox.mission_tag')}
                                                 </span>
                                                 <h3 className="font-bold text-white">{sub.mission_title}</h3>
                                             </div>
-                                            <p className="text-sm text-text-secondary mb-2">by <span className="text-white">{sub.submitter_name}</span></p>
+                                            <p className="text-sm text-text-secondary mb-2">{t('common.by')} <span className="text-white">{sub.submitter_name}</span></p>
                                             <div className="bg-black/30 p-3 rounded border border-white/5 text-sm font-mono text-gray-300 whitespace-pre-wrap max-h-40 overflow-y-auto">
                                                 {sub.content}
                                             </div>
@@ -298,12 +298,12 @@ const DeveloperInbox = () => {
                                             <ActionButton 
                                                 onClick={() => handleApproveMission(sub.id)} 
                                                 variant="approve"
-                                                label="Approve"
+                                                label={t('common.approve')}
                                             />
                                             <ActionButton 
                                                 onClick={() => handleRejectMission(sub.id)} 
                                                 variant="reject"
-                                                label="Reject"
+                                                label={t('common.reject')}
                                             />
                                         </div>
                                     </div>
@@ -314,9 +314,9 @@ const DeveloperInbox = () => {
                 </Section>
 
                 {/* 3. Active Driver Bets (Resolution Needed) */}
-                <Section title="Active Driver Bets (Needs Resolution)" icon={<AlertTriangleIcon />} count={data.active_bets.length}>
+                <Section title={t('developer_inbox.active_driver_bets')} icon={<AlertTriangleIcon />} count={data.active_bets.length}>
                      {data.active_bets.length === 0 ? (
-                        <EmptyState message="No active bets needing resolution" />
+                        <EmptyState message={t('developer_inbox.no_active_bets')} />
                     ) : (
                         <div className="grid gap-4">
                             {data.active_bets.map(bet => (
@@ -325,27 +325,27 @@ const DeveloperInbox = () => {
                                         <div>
                                             <div className="flex items-center gap-2 mb-2">
                                                 <span className="bg-secondary/20 text-secondary text-xs px-2 py-0.5 rounded border border-secondary/30 font-mono">
-                                                    DRIVER BET
+                                                    {t('developer_inbox.driver_bet_tag')}
                                             </span>
                                             <h3 className="font-bold text-white">{bet.title}</h3>
                                         </div>
-                                        <p className="text-sm text-text-secondary mb-2">by <span className="text-white">{bet.creator_name || 'Unknown'}</span></p>
+                                        <p className="text-sm text-text-secondary mb-2">{t('common.by')} <span className="text-white">{bet.creator_name || t('common.unknown')}</span></p>
                                         <p className="text-sm text-text-secondary mb-2">{bet.description}</p>
-                                        <p className="text-xs text-text-secondary">End Date: {new Date(bet.official_end_date).toLocaleDateString()}</p>
+                                        <p className="text-xs text-text-secondary">{t('developer_inbox.end_date')}: {new Date(bet.official_end_date).toLocaleDateString(i18n.language)}</p>
                                     </div>
                                         <div className="flex flex-col gap-2 min-w-[140px]">
-                                            <span className="text-xs text-center text-text-secondary mb-1">Declare Winner:</span>
+                                            <span className="text-xs text-center text-text-secondary mb-1">{t('developer_inbox.declare_winner')}:</span>
                                             <button 
                                                 onClick={() => handleResolveBetAction(bet.id, 'A')}
                                                 className="px-3 py-1.5 bg-green-500/10 border border-green-500/30 text-green-400 rounded hover:bg-green-500/20 text-xs font-mono"
                                             >
-                                                Side A: {bet.side_a_name}
+                                                {t('developer_inbox.side_a')}: {bet.side_a_name}
                                             </button>
                                             <button 
                                                 onClick={() => handleResolveBetAction(bet.id, 'B')}
                                                 className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded hover:bg-red-500/20 text-xs font-mono"
                                             >
-                                                Side B: {bet.side_b_name}
+                                                {t('developer_inbox.side_b')}: {bet.side_b_name}
                                             </button>
                                         </div>
                                     </div>
@@ -356,9 +356,9 @@ const DeveloperInbox = () => {
                 </Section>
 
                 {/* 4. Forum Acknowledgements */}
-                <Section title="Forum Acknowledgements" icon={<MessageSquareIcon />} count={data.pending_acks.length}>
+                <Section title={t('developer_inbox.forum_acknowledgements')} icon={<MessageSquareIcon />} count={data.pending_acks.length}>
                     {data.pending_acks.length === 0 ? (
-                        <EmptyState message="No pending acknowledgements" />
+                        <EmptyState message={t('developer_inbox.no_pending_acknowledgements')} />
                     ) : (
                         <div className="grid gap-4">
                             {data.pending_acks.map(ack => (
@@ -367,16 +367,16 @@ const DeveloperInbox = () => {
                                         <div>
                                             <h3 className="font-bold text-white text-lg mb-1">{ack.title}</h3>
                                             <p className="text-sm text-text-secondary">
-                                                Request by <span className="text-white">{ack.author_name}</span> • {new Date(ack.created_at).toLocaleDateString()}
+                                                {t('developer_inbox.request_by')} <span className="text-white">{ack.author_name}</span> • {new Date(ack.created_at).toLocaleDateString(i18n.language)}
                                             </p>
                                             <a href={`/community?post=${ack.id}`} target="_blank" rel="noreferrer" className="text-primary text-xs hover:underline flex items-center gap-1 mt-2">
-                                                View Post <ExternalLink size={12} />
+                                                {t('developer_inbox.view_post')} <ExternalLink size={12} />
                                             </a>
                                         </div>
                                         <ActionButton 
                                             onClick={() => handleAcknowledgePost(ack.id)} 
                                             variant="neutral"
-                                            label="Acknowledge"
+                                            label={t('developer_inbox.acknowledge')}
                                         />
                                     </div>
                                 </Card>
@@ -385,9 +385,9 @@ const DeveloperInbox = () => {
                     )}
                 </Section>
                 {/* 5. Pending Test Player Requests */}
-                <Section title="Test Player Requests" icon={<Gamepad2 size={20} className="text-blue-400" />} count={data.pending_tests.length}>
+                <Section title={t('developer_inbox.test_player_requests')} icon={<Gamepad2 size={20} className="text-blue-400" />} count={data.pending_tests.length}>
                     {data.pending_tests.length === 0 ? (
-                        <EmptyState message="No pending test player requests" />
+                        <EmptyState message={t('developer_inbox.no_pending_test_player_requests')} />
                     ) : (
                         <div className="grid gap-4">
                             {data.pending_tests.map(req => (
@@ -396,15 +396,15 @@ const DeveloperInbox = () => {
                                         <div className="flex-1 mr-4">
                                             <div className="flex items-center gap-2 mb-2">
                                                 <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded border border-blue-500/30 font-mono">
-                                                    TESTER
+                                                    {t('developer_inbox.tester_tag')}
                                                 </span>
                                                 <h3 className="font-bold text-white">{req.program}</h3>
                                             </div>
                                             <p className="text-sm text-text-secondary mb-1">
-                                              User: <span className="text-white">{req.user_name}</span> ({req.identifiable_name})
+                                              {t('developer_inbox.user')}: <span className="text-white">{req.user_name}</span> ({req.identifiable_name})
                                             </p>
                                             <p className="text-xs text-text-secondary mb-3">
-                                              Email: {req.user_email} • {new Date(req.created_at).toLocaleDateString()}
+                                              {t('developer_inbox.email')}: {req.user_email} • {new Date(req.created_at).toLocaleDateString(i18n.language)}
                                             </p>
                                             <div className="bg-black/30 p-3 rounded border border-white/5 text-sm text-gray-300">
                                                 {req.progress_description}
@@ -414,12 +414,12 @@ const DeveloperInbox = () => {
                                             <ActionButton 
                                                 onClick={() => handleApproveTest(req.id)} 
                                                 variant="approve"
-                                                label="Approve"
+                                                label={t('common.approve')}
                                             />
                                             <ActionButton 
                                                 onClick={() => handleDeclineTest(req.id)} 
                                                 variant="reject"
-                                                label="Decline"
+                                                label={t('common.decline')}
                                             />
                                         </div>
                                     </div>
