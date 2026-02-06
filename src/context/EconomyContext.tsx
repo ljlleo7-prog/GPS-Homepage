@@ -44,11 +44,12 @@ interface EconomyContextType {
   createDriverBet: (
     title: string,
     description: string,
-    sideA: string, // Event Name
+    sideA: string,
     ticketPrice: number,
     ticketLimit: number,
     endDate: string,
-    openDate: string
+    openDate: string,
+    sideB?: string
   ) => Promise<{ success: boolean; message?: string; data?: any }>;
   buyDriverBetTicket: (
     instrumentId: string,
@@ -61,6 +62,9 @@ interface EconomyContextType {
     proofUrl: string
   ) => Promise<{ success: boolean; message?: string }>;
   deleteCampaign: (id: string, mode: 'MARKET' | 'EVERYWHERE') => Promise<{ success: boolean; message?: string }>;
+  requestTestPlayerAccess: (identifiableName: string, program: string, progressDescription: string) => Promise<{ success: boolean; message?: string }>;
+  approveTestPlayerRequest: (requestId: string) => Promise<{ success: boolean; message?: string }>;
+  declineTestPlayerRequest: (requestId: string) => Promise<{ success: boolean; message?: string }>;
   playReactionGame: (scoreMs: number) => Promise<{ success: boolean; reward?: number; message?: string }>;
   getMonthlyLeaderboard: () => Promise<{ success: boolean; data?: any[] }>;
   getMonthlyPool: () => Promise<{ success: boolean; data?: any }>;
@@ -83,6 +87,9 @@ const EconomyContext = createContext<EconomyContextType>({
   buyDriverBetTicket: async () => ({ success: false }),
   resolveDriverBet: async () => ({ success: false }),
   deleteCampaign: async () => ({ success: false }),
+  requestTestPlayerAccess: async () => ({ success: false }),
+  approveTestPlayerRequest: async () => ({ success: false }),
+  declineTestPlayerRequest: async () => ({ success: false }),
   playReactionGame: async () => ({ success: false }),
   getMonthlyLeaderboard: async () => ({ success: false }),
   getMonthlyPool: async () => ({ success: false }),
@@ -355,7 +362,8 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     ticketPrice: number,
     ticketLimit: number,
     endDate: string,
-    openDate: string
+    openDate: string,
+    sideB?: string
   ) => {
     if (!user) return { success: false, message: 'Not authenticated' };
     try {
@@ -366,7 +374,8 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
         p_ticket_price: ticketPrice,
         p_ticket_limit: ticketLimit,
         p_official_end_date: endDate,
-        p_open_date: openDate
+        p_open_date: openDate,
+        p_side_b_name: sideB
       });
 
       if (error) throw error;
@@ -438,6 +447,61 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
+  const requestTestPlayerAccess = async (identifiableName: string, program: string, progressDescription: string) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+      const { data, error } = await supabase.rpc('request_test_player_access', {
+        p_identifiable_name: identifiableName,
+        p_program: program,
+        p_progress_description: progressDescription
+      });
+
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error requesting test player access:', error);
+      return { success: false, message: error.message || 'Failed to submit request' };
+    }
+  };
+
+  const approveTestPlayerRequest = async (requestId: string) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+      const { data, error } = await supabase.rpc('approve_test_player_request', {
+        p_request_id: requestId
+      });
+
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      
+      await refreshEconomy();
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error approving test player request:', error);
+      return { success: false, message: error.message || 'Failed to approve request' };
+    }
+  };
+
+  const declineTestPlayerRequest = async (requestId: string) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+      const { data, error } = await supabase.rpc('decline_test_player_request', {
+        p_request_id: requestId
+      });
+
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      
+      await refreshEconomy();
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error declining test player request:', error);
+      return { success: false, message: error.message || 'Failed to decline request' };
+    }
+  };
+
   const playReactionGame = async (scoreMs: number) => {
     if (!user) return { success: false, message: 'Not authenticated' };
     try {
@@ -496,6 +560,9 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       buyDriverBetTicket,
       resolveDriverBet,
       deleteCampaign,
+      requestTestPlayerAccess,
+      approveTestPlayerRequest,
+      declineTestPlayerRequest,
       playReactionGame,
       getMonthlyLeaderboard,
       getMonthlyPool

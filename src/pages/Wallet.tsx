@@ -1,15 +1,17 @@
 import { useEconomy } from '../context/EconomyContext';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Gift, Lock, Shield, UserCheck, Activity, Star, CheckCircle } from 'lucide-react';
+import { Gift, Lock, Shield, UserCheck, Activity, Star, CheckCircle, Gamepad2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import TestPlayerRequestModal from '../components/dashboard/TestPlayerRequestModal';
 
 const Wallet = () => {
   const { wallet, ledger, loading, developerStatus, claimDailyBonus, requestDeveloperAccess, approveDeveloperAccess } = useEconomy();
   const { t } = useTranslation();
   const [claiming, setClaiming] = useState(false);
   const [requesting, setRequesting] = useState(false);
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
 
   useEffect(() => {
     // Refresh economy data is handled by context
@@ -172,6 +174,32 @@ const Wallet = () => {
           </motion.div>
         </div>
 
+        {/* Test Player Request Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="bg-surface border border-white/10 rounded-lg p-6 relative overflow-hidden mb-12"
+        >
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <Gamepad2 size={64} />
+          </div>
+          <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+            <Gamepad2 size={20} className="text-blue-400" />
+            Test Player Access
+          </h3>
+          <p className="text-sm text-text-secondary mb-4">
+            Request access to test unreleased or premium programs like Skyline Tragedy or DeltaDash.
+            Approved testers receive <span className="text-secondary font-bold">+20 Reputation</span> and free access.
+          </p>
+          <button
+            onClick={() => setIsTestModalOpen(true)}
+            className="bg-blue-500/10 border border-blue-500/30 text-blue-400 font-bold py-2 px-6 rounded hover:bg-blue-500/20 transition-colors"
+          >
+            Request Access
+          </button>
+        </motion.div>
+
         {/* Reputation Tiers */}
         <motion.div
            initial={{ opacity: 0, y: 20 }}
@@ -257,6 +285,7 @@ const Wallet = () => {
           </div>
         </motion.div>
       </div>
+      <TestPlayerRequestModal isOpen={isTestModalOpen} onClose={() => setIsTestModalOpen(false)} />
     </div>
   );
 };

@@ -22,6 +22,8 @@ interface Instrument {
   lockup_period_days: number;
   creator_id?: string;
   ticket_type_id?: string;
+  ticket_type_a_id?: string;
+  ticket_type_b_id?: string;
   refund_schedule?: RefundItem[];
   is_driver_bet?: boolean;
   deletion_status?: 'NONE' | 'DELISTED_MARKET' | 'DELETED_EVERYWHERE';
@@ -65,6 +67,8 @@ const SupportMarkets = () => {
   const [openDate, setOpenDate] = useState('');
 
   const [creating, setCreating] = useState(false);
+  const [viewingHolders, setViewingHolders] = useState<{id: string, side: 'A' | 'B' | 'General'} | null>(null);
+  const [holdersList, setHoldersList] = useState<{username: string, balance: number}[]>([]);
 
   useEffect(() => {
     fetchInstruments();
@@ -165,7 +169,8 @@ const SupportMarkets = () => {
             parseFloat(ticketPrice),
             parseInt(ticketLimit),
             new Date(endDate).toISOString(),
-            new Date(openDate).toISOString()
+            new Date(openDate).toISOString(),
+            sideB
         );
 
         if (result.success) {
@@ -256,6 +261,36 @@ const SupportMarkets = () => {
       }
   };
 
+  const handleViewHolders = async (instrumentId: string, side: 'A' | 'B' | 'General', ticketTypeId?: string) => {
+      if (!ticketTypeId) return;
+      
+      setViewingHolders({ id: instrumentId, side });
+      setHoldersList([]);
+      
+      const { data, error } = await supabase.rpc('get_ticket_holders', {
+          p_ticket_type_id: ticketTypeId
+      });
+      
+      if (error) {
+          console.error('Error fetching holders:', error);
+          // If RPC is missing or fails, we just show empty list or error
+      } else {
+          setHoldersList(data || []);
+      }
+  };
+
+  const BilingualText = ({ text, className = "" }: { text?: string, className?: string }) => {
+      if (!text) return null;
+      const parts = text.split('|').map(s => s.trim());
+      if (parts.length <= 1) return <span className={className}>{text}</span>;
+      return (
+          <div className={`flex flex-col ${className}`}>
+              <span>{parts[0]}</span>
+              <span className="text-xs opacity-70 font-normal">{parts[1]}</span>
+          </div>
+      );
+  };
+
   const getRiskColor = (level: string) => {
     switch (level) {
       case 'LOW': return 'text-green-400 border-green-400/30 bg-green-400/10';
@@ -275,10 +310,19 @@ const SupportMarkets = () => {
           <p className="text-text-secondary max-w-2xl mx-auto mb-6">
             {t('economy.market.subtitle')}
             <br />
-            <span className="text-xs text-yellow-500 flex items-center justify-center mt-2">
-              <AlertTriangle className="w-3 h-3 mr-1" />
-              {t('economy.market.disclaimer')}
-            </span>
+            <div className="flex flex-col gap-2 mt-4 items-center">
+                <span className="text-xs text-yellow-500 flex items-center justify-center">
+                <AlertTriangle className="w-3 h-3 mr-1" />
+                {t('economy.market.disclaimer')}
+                </span>
+                <span className="text-xs text-red-400/80 max-w-lg text-center">
+                    DISCLAIMER: Gambling can be addictive. Please play responsibly. 
+                    Virtual markets carry high risks similar to real-world stocks. 
+                    Never bet more than you can afford to lose.
+                    <br/>
+                    免责声明：博彩可能成瘾，请理性参与。虚拟市场存在与现实股市类似的高风险，请勿投入超出承受能力的资金。
+                </span>
+            </div>
           </p>
 
           <div className="flex justify-center space-x-4 border-b border-white/10 pb-1">
@@ -328,7 +372,10 @@ const SupportMarkets = () => {
             {instruments.map((instrument) => {
               // Find if user has tickets for this instrument
               const userTicket = userPositions.find(p => p.ticket_type_id === instrument.ticket_type_id);
-              const isInvested = !!userTicket;
+              const userTicketA = instrument.ticket_type_a_id ? userPositions.find(p => p.ticket_type_id === instrument.ticket_type_a_id) : null;
+              const userTicketB = instrument.ticket_type_b_id ? userPositions.find(p => p.ticket_type_id === instrument.ticket_type_b_id) : null;
+              
+              const isInvested = !!userTicket || !!userTicketA || !!userTicketB;
               const isCreator = user && instrument.creator_id === user.id;
               const isDelisted = instrument.deletion_status === 'DELISTED_MARKET';
               
@@ -363,16 +410,60 @@ const SupportMarkets = () => {
                 
                 {instrument.is_driver_bet ? (
                     <div className="mb-4 bg-background/50 p-3 rounded space-y-3">
-                        <div className="flex justify-between items-center bg-white/5 p-2 rounded">
-                            <div className="text-center w-1/2 border-r border-white/10 pr-2">
+                        <div className="flex justify-between items-start bg-white/5 p-2 rounded">
+                            <div className="text-center w-1/2 border-r border-white/10 pr-2 flex flex-col items-center">
                                 <div className="text-xs text-text-secondary">Side A</div>
-                                <div className="font-bold text-white">{instrument.side_a_name}</div>
+                                <div className="font-bold text-white text-sm"><BilingualText text={instrument.side_a_name} /></div>
+                                {userTicketA && <div className="text-xs text-green-400 mt-1 font-mono">Owned: {userTicketA.balance}</div>}
+                                {(isCreator || userTicketA) && (
+                                    <button 
+                                        onClick={() => handleViewHolders(instrument.id, 'A', instrument.ticket_type_a_id)}
+                                        className="text-[10px] text-primary hover:text-primary/80 mt-1 border border-primary/30 px-2 py-0.5 rounded"
+                                    >
+                                        View Holders
+                                    </button>
+                                )}
                             </div>
-                            <div className="text-center w-1/2 pl-2">
+                            <div className="text-center w-1/2 pl-2 flex flex-col items-center">
                                 <div className="text-xs text-text-secondary">Side B</div>
-                                <div className="font-bold text-white">{instrument.side_b_name}</div>
+                                <div className="font-bold text-white text-sm"><BilingualText text={instrument.side_b_name} /></div>
+                                {userTicketB && <div className="text-xs text-green-400 mt-1 font-mono">Owned: {userTicketB.balance}</div>}
+                                {(isCreator || userTicketB) && (
+                                    <button 
+                                        onClick={() => handleViewHolders(instrument.id, 'B', instrument.ticket_type_b_id)}
+                                        className="text-[10px] text-primary hover:text-primary/80 mt-1 border border-primary/30 px-2 py-0.5 rounded"
+                                    >
+                                        View Holders
+                                    </button>
+                                )}
                             </div>
                         </div>
+
+                        {viewingHolders && viewingHolders.id === instrument.id && (
+                            <div className="bg-black/40 p-3 rounded border border-white/10 relative">
+                                <button 
+                                    onClick={() => setViewingHolders(null)}
+                                    className="absolute top-2 right-2 text-white/50 hover:text-white"
+                                >
+                                    <XCircle size={14} />
+                                </button>
+                                <div className="text-xs font-bold text-white mb-2">
+                                    Holders (Side {viewingHolders.side})
+                                </div>
+                                <div className="max-h-32 overflow-y-auto space-y-1">
+                                    {holdersList.length === 0 ? (
+                                        <div className="text-xs text-white/30 italic">No holders found or loading...</div>
+                                    ) : (
+                                        holdersList.map((h, idx) => (
+                                            <div key={idx} className="flex justify-between text-xs font-mono border-b border-white/5 pb-1 last:border-0">
+                                                <span className="text-white/80">{h.username || 'Unknown'}</span>
+                                                <span className="text-primary">{h.balance}</span>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
                         
                         <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                             <div className="bg-white/5 p-2 rounded">
@@ -398,31 +489,31 @@ const SupportMarkets = () => {
                                 <div className="flex gap-2">
                                     <input 
                                         type="number" 
-                                        placeholder={`Qty ${instrument.side_a_name}`}
+                                        placeholder={`Qty ${instrument.side_a_name?.split('|')[0]}`}
                                         className="w-16 bg-background border border-white/10 rounded px-2 py-1 text-white text-xs"
                                         value={amount[`${instrument.id}_A`] || ''}
                                         onChange={e => setAmount({...amount, [`${instrument.id}_A`]: e.target.value})}
                                     />
                                     <button 
                                         onClick={() => handleBuyDriverBet(instrument, 'A', parseInt(amount[`${instrument.id}_A`]))}
-                                        className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30"
+                                        className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30 truncate"
                                     >
-                                        Buy {instrument.side_a_name}
+                                        Buy <BilingualText text={instrument.side_a_name} className="inline" />
                                     </button>
                                 </div>
                                 <div className="flex gap-2">
                                     <input 
                                         type="number" 
-                                        placeholder={`Qty ${instrument.side_b_name}`}
+                                        placeholder={`Qty ${instrument.side_b_name?.split('|')[0]}`}
                                         className="w-16 bg-background border border-white/10 rounded px-2 py-1 text-white text-xs"
                                         value={amount[`${instrument.id}_B`] || ''}
                                         onChange={e => setAmount({...amount, [`${instrument.id}_B`]: e.target.value})}
                                     />
                                     <button 
                                         onClick={() => handleBuyDriverBet(instrument, 'B', parseInt(amount[`${instrument.id}_B`]))}
-                                        className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30"
+                                        className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30 truncate"
                                     >
-                                        Buy {instrument.side_b_name}
+                                        Buy <BilingualText text={instrument.side_b_name} className="inline" />
                                     </button>
                                 </div>
                             </div>

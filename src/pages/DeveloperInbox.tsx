@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Shield, CheckCircle, XCircle, FileText, MessageSquare, Trophy, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, FileText, MessageSquare, Trophy, AlertTriangle, ExternalLink, Gamepad2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useEconomy } from '../context/EconomyContext';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ interface InboxData {
   pending_missions: PendingMission[];
   active_bets: ActiveBet[];
   pending_acks: PendingAck[];
+  pending_tests: PendingTest[];
 }
 
 interface PendingDev {
@@ -46,16 +47,27 @@ interface PendingAck {
   author_name: string;
 }
 
+interface PendingTest {
+  id: string;
+  identifiable_name: string;
+  program: string;
+  progress_description: string;
+  created_at: string;
+  user_name: string;
+  user_email: string;
+}
+
 const DeveloperInbox = () => {
   const { t } = useTranslation();
-  const { developerStatus, approveDeveloperAccess, resolveDriverBet } = useEconomy();
+  const { developerStatus, approveDeveloperAccess, resolveDriverBet, approveTestPlayerRequest, declineTestPlayerRequest } = useEconomy();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<InboxData>({
     pending_devs: [],
     pending_missions: [],
     active_bets: [],
-    pending_acks: []
+    pending_acks: [],
+    pending_tests: []
   });
 
   useEffect(() => {
@@ -76,7 +88,8 @@ const DeveloperInbox = () => {
           pending_devs: result.pending_devs,
           pending_missions: result.pending_missions,
           active_bets: result.active_bets,
-          pending_acks: result.pending_acks
+          pending_acks: result.pending_acks,
+          pending_tests: result.pending_tests || []
         });
       }
     } catch (error) {
@@ -169,6 +182,26 @@ const DeveloperInbox = () => {
       } catch (error: any) {
           alert(error.message || 'Failed to acknowledge');
       }
+  };
+
+  const handleApproveTest = async (id: string) => {
+    if (!confirm('Approve this test player? They will receive +20 Rep.')) return;
+    const result = await approveTestPlayerRequest(id);
+    if (result.success) {
+      fetchInbox();
+    } else {
+      alert(result.message || 'Failed to approve');
+    }
+  };
+
+  const handleDeclineTest = async (id: string) => {
+    if (!confirm('Decline this request?')) return;
+    const result = await declineTestPlayerRequest(id);
+    if (result.success) {
+      fetchInbox();
+    } else {
+      alert(result.message || 'Failed to decline');
+    }
   };
 
   if (developerStatus !== 'APPROVED') {
@@ -345,6 +378,50 @@ const DeveloperInbox = () => {
                                             variant="neutral"
                                             label="Acknowledge"
                                         />
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                </Section>
+                {/* 5. Pending Test Player Requests */}
+                <Section title="Test Player Requests" icon={<Gamepad2 size={20} className="text-blue-400" />} count={data.pending_tests.length}>
+                    {data.pending_tests.length === 0 ? (
+                        <EmptyState message="No pending test player requests" />
+                    ) : (
+                        <div className="grid gap-4">
+                            {data.pending_tests.map(req => (
+                                <Card key={req.id}>
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-1 mr-4">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded border border-blue-500/30 font-mono">
+                                                    TESTER
+                                                </span>
+                                                <h3 className="font-bold text-white">{req.program}</h3>
+                                            </div>
+                                            <p className="text-sm text-text-secondary mb-1">
+                                              User: <span className="text-white">{req.user_name}</span> ({req.identifiable_name})
+                                            </p>
+                                            <p className="text-xs text-text-secondary mb-3">
+                                              Email: {req.user_email} • {new Date(req.created_at).toLocaleDateString()}
+                                            </p>
+                                            <div className="bg-black/30 p-3 rounded border border-white/5 text-sm text-gray-300">
+                                                {req.progress_description}
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <ActionButton 
+                                                onClick={() => handleApproveTest(req.id)} 
+                                                variant="approve"
+                                                label="Approve"
+                                            />
+                                            <ActionButton 
+                                                onClick={() => handleDeclineTest(req.id)} 
+                                                variant="reject"
+                                                label="Decline"
+                                            />
+                                        </div>
                                     </div>
                                 </Card>
                             ))}

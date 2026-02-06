@@ -182,12 +182,16 @@ export default function Minigame() {
                 )}
 
                 {(gameState === 'COUNTDOWN' || gameState === 'WAITING_FOR_GREEN') && (
-                    <div 
-                        className="w-full h-64 flex items-center justify-center cursor-pointer select-none"
-                        onMouseDown={handleClick} // MouseDown for faster reaction than Click
-                    >
-                        <p className="text-2xl text-gray-400 animate-pulse">Wait for it...</p>
-                    </div>
+                    <>
+                        <div className="w-full h-64 flex items-center justify-center select-none pointer-events-none">
+                            <p className="text-2xl text-gray-400 animate-pulse">Wait for it...</p>
+                        </div>
+                        {/* Full Screen Hitbox to prevent spamming from safe zones */}
+                        <div 
+                            className="fixed inset-0 z-50 cursor-crosshair"
+                            onMouseDown={handleClick}
+                        />
+                    </>
                 )}
 
                 {gameState === 'GO' && (
