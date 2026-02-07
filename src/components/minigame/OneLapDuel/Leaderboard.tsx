@@ -1,0 +1,83 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../../../lib/supabase';
+import { useAuth } from '../../../context/AuthContext';
+import { Trophy, Clock, Medal } from 'lucide-react';
+
+export default function Leaderboard() {
+  const { user } = useAuth();
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, []);
+
+  const fetchLeaderboard = async () => {
+    // Ideally use a view that joins profiles
+    // Since we don't have a view, we fetch and join manually or use a joined query if relations exist
+    // We created relation to profiles in migration
+    const { data } = await supabase
+      .from('one_lap_leaderboard')
+      .select('*, profiles(username, avatar_url)')
+      .order('best_lap_time_ms', { ascending: true }) // Fastest time first
+      .limit(50);
+    
+    if (data) setLeaderboard(data);
+  };
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+        <Trophy className="w-6 h-6 text-yellow-500" />
+        Championship Standings
+      </h2>
+
+      <div className="bg-surface rounded-lg overflow-hidden border border-white/10">
+        <table className="w-full text-left">
+          <thead className="bg-black/50 text-gray-400 uppercase text-xs font-mono">
+            <tr>
+              <th className="px-6 py-4">Rank</th>
+              <th className="px-6 py-4">Driver</th>
+              <th className="px-6 py-4 text-right">Best Lap</th>
+              <th className="px-6 py-4 text-right">Wins</th>
+              <th className="px-6 py-4 text-right">Points</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {leaderboard.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                  No records yet. Be the first to race!
+                </td>
+              </tr>
+            ) : (
+              leaderboard.map((entry, index) => (
+                <tr key={entry.user_id} className={`hover:bg-white/5 transition-colors ${entry.user_id === user?.id ? 'bg-primary/10' : ''}`}>
+                  <td className="px-6 py-4 font-mono">
+                    {index === 0 && <span className="text-yellow-400 text-xl">🥇</span>}
+                    {index === 1 && <span className="text-gray-300 text-xl">🥈</span>}
+                    {index === 2 && <span className="text-orange-400 text-xl">🥉</span>}
+                    {index > 2 && <span className="text-gray-500">#{index + 1}</span>}
+                  </td>
+                  <td className="px-6 py-4 font-bold flex items-center gap-3">
+                    {entry.profiles?.avatar_url && <img src={entry.profiles.avatar_url} className="w-6 h-6 rounded-full" />}
+                    {entry.profiles?.username || 'Unknown'}
+                    {entry.user_id === user?.id && <span className="text-xs bg-primary text-black px-2 py-0.5 rounded">YOU</span>}
+                  </td>
+                  <td className="px-6 py-4 text-right font-mono text-f1-red font-bold">
+                    {entry.best_lap_time_ms ? (entry.best_lap_time_ms / 1000).toFixed(3) : '--'}s
+                  </td>
+                  <td className="px-6 py-4 text-right font-mono text-green-400">
+                    {entry.wins}
+                  </td>
+                  <td className="px-6 py-4 text-right font-mono">
+                    {entry.total_points}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
