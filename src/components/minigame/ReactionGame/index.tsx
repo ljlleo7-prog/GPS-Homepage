@@ -154,7 +154,7 @@ export default function ReactionGame() {
         {activeTab === 'GAME' ? (
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-8">
-              <h1 className="text-4xl font-bold text-f1-red">{t('minigame.title')}</h1>
+              <h1 className="text-4xl font-bold text-f1-red">{t('minigame.reaction.title')}</h1>
               <PolicyInfo titleKey="policies.minigame_title" contentKey="policies.minigame_content" />
             </div>
             <p className="text-gray-400 mb-12">

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
 import { useEconomy } from '../../../context/EconomyContext';
 import { supabase } from '../../../lib/supabase';
@@ -9,6 +10,7 @@ import Leaderboard from './Leaderboard';
 import { DriverStats } from './types';
 
 export default function OneLapDuel() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [activeView, setActiveView] = useState<'DASHBOARD' | 'LOBBY' | 'ROOM' | 'LEADERBOARD'>('DASHBOARD');
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
@@ -132,7 +134,7 @@ export default function OneLapDuel() {
   };
 
   if (!user) {
-    return <div className="text-center p-8">Please login to play.</div>;
+    return <div className="text-center p-8">{t('minigame_onelapduel.common.login_required')}</div>;
   }
 
   return (
@@ -144,26 +146,26 @@ export default function OneLapDuel() {
             onClick={() => setActiveView('DASHBOARD')}
             className={`px-4 py-2 font-bold ${activeView === 'DASHBOARD' ? 'text-f1-red border-b-2 border-f1-red' : 'text-gray-400'}`}
           >
-            Driver HQ
+            {t('minigame_onelapduel.nav.driver_hq')}
           </button>
           <button 
             onClick={() => setActiveView('LOBBY')}
             className={`px-4 py-2 font-bold ${activeView === 'LOBBY' ? 'text-f1-red border-b-2 border-f1-red' : 'text-gray-400'}`}
           >
-            Race Lobby
+            {t('minigame_onelapduel.nav.race_lobby')}
           </button>
           <button 
             onClick={() => setActiveView('LEADERBOARD')}
             className={`px-4 py-2 font-bold ${activeView === 'LEADERBOARD' ? 'text-f1-red border-b-2 border-f1-red' : 'text-gray-400'}`}
           >
-            Standings
+            {t('minigame_onelapduel.nav.standings')}
           </button>
           {currentRoomId && (
             <button 
               onClick={() => setActiveView('ROOM')}
               className={`px-4 py-2 font-bold ${activeView === 'ROOM' ? 'text-f1-red border-b-2 border-f1-red' : 'text-gray-400'}`}
             >
-              Current Race
+              {t('minigame_onelapduel.nav.current_race')}
             </button>
           )}
         </div>
@@ -174,7 +176,7 @@ export default function OneLapDuel() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
           </span>
-          <span className="font-mono font-bold">{onlineCount}</span> Online
+          <span className="font-mono font-bold">{onlineCount}</span> {t('minigame_onelapduel.nav.online')}
         </div>
       </div>
 

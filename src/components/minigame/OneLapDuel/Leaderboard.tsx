@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { Trophy, Clock, Medal } from 'lucide-react';
 
 export default function Leaderboard() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
@@ -28,25 +30,25 @@ export default function Leaderboard() {
     <div>
       <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
         <Trophy className="w-6 h-6 text-yellow-500" />
-        Championship Standings
+        {t('minigame_onelapduel.leaderboard.title')}
       </h2>
 
       <div className="bg-surface rounded-lg overflow-hidden border border-white/10">
         <table className="w-full text-left">
           <thead className="bg-black/50 text-gray-400 uppercase text-xs font-mono">
             <tr>
-              <th className="px-6 py-4">Rank</th>
-              <th className="px-6 py-4">Driver</th>
-              <th className="px-6 py-4 text-right">Best Lap</th>
-              <th className="px-6 py-4 text-right">Wins</th>
-              <th className="px-6 py-4 text-right">Points</th>
+              <th className="px-6 py-4">{t('minigame_onelapduel.leaderboard.rank')}</th>
+              <th className="px-6 py-4">{t('minigame_onelapduel.leaderboard.driver')}</th>
+              <th className="px-6 py-4 text-right">{t('minigame_onelapduel.leaderboard.best_lap')}</th>
+              <th className="px-6 py-4 text-right">{t('minigame_onelapduel.leaderboard.wins')}</th>
+              <th className="px-6 py-4 text-right">{t('minigame_onelapduel.leaderboard.points')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
             {leaderboard.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  No records yet. Be the first to race!
+                  {t('minigame_onelapduel.leaderboard.no_records')}
                 </td>
               </tr>
             ) : (
@@ -60,8 +62,8 @@ export default function Leaderboard() {
                   </td>
                   <td className="px-6 py-4 font-bold flex items-center gap-3">
                     {entry.profiles?.avatar_url && <img src={entry.profiles.avatar_url} className="w-6 h-6 rounded-full" />}
-                    {entry.profiles?.username || 'Unknown'}
-                    {entry.user_id === user?.id && <span className="text-xs bg-primary text-black px-2 py-0.5 rounded">YOU</span>}
+                    {entry.profiles?.username || t('minigame_onelapduel.common.unknown')}
+                    {entry.user_id === user?.id && <span className="text-xs bg-primary text-black px-2 py-0.5 rounded">{t('minigame_onelapduel.leaderboard.you')}</span>}
                   </td>
                   <td className="px-6 py-4 text-right font-mono text-f1-red font-bold">
                     {entry.best_lap_time_ms ? (entry.best_lap_time_ms / 1000).toFixed(3) : '--'}s

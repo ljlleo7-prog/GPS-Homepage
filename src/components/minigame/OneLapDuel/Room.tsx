@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
-import { DriverStats, MONZA_TRACK, PlayerStrategy, RacingLine, ERSMode } from './types';
-import { simulateRace, SimulationResult } from './simulation';
-import { Check, User, AlertTriangle, Play, ChevronRight, Zap, Shield, MousePointer2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { DriverStats, MONZA_TRACK, PlayerStrategy, TRACKS, INITIAL_BATTERY, RaceState, ERSMode, RacingLine } from './types';
+import { getInitialRaceState, advanceRaceState, SimulationResult } from './simulation';
+import { Check, User, Zap, MousePointer2, AlertTriangle, Play, Battery, Gauge } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
   roomId: string;
@@ -13,65 +14,139 @@ interface Props {
 }
 
 export default function Room({ roomId, driver, onLeave }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [room, setRoom] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
   const [strategy, setStrategy] = useState<PlayerStrategy>({
     ers_per_node: {},
-    line_per_node: {}
+    line_per_node: {},
+    current_ers: 'neutral',
+    current_line: 'clean'
   });
   const [isReady, setIsReady] = useState(false);
-  const [raceResult, setRaceResult] = useState<SimulationResult | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [simulationStep, setSimulationStep] = useState(0); // For replay
+  const [isStarting, setIsStarting] = useState(false); 
+  
+  // Real-time Race State
+  const [raceState, setRaceState] = useState<RaceState | null>(null);
+  const raceIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastStrategyUpdate = useRef<number>(0); // Rate limiting
+  const lastLineChangeNodeRef = useRef<number>(-1);
+  const [toast, setToast] = useState<{msg: string, type: 'error' | 'success'} | null>(null);
+
+  const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Get Track
+  const currentTrack = room?.track_id ? TRACKS[room.track_id] || MONZA_TRACK : MONZA_TRACK;
+  const trackLength = currentTrack.reduce((acc, n) => acc + n.length, 0);
 
   // Fetch initial state & subscribe
   useEffect(() => {
     fetchRoomDetails();
 
+    // Realtime subscription
     const roomChannel = supabase
       .channel(`room:${roomId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'one_lap_rooms', filter: `id=eq.${roomId}` }, (payload: any) => {
-        setRoom(payload.new);
+        if (payload.eventType === 'DELETE') {
+            onLeave(); 
+        } else {
+            setRoom(payload.new);
+            if (payload.new.status === 'finished') {
+                 if (raceIntervalRef.current) clearInterval(raceIntervalRef.current);
+            }
+        }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'one_lap_room_players', filter: `room_id=eq.${roomId}` }, () => {
-        fetchRoomDetails(); // Reload players
+        fetchRoomDetails(); 
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'one_lap_races', filter: `room_id=eq.${roomId}` }, (payload: any) => {
-        // Race finished!
-        if (payload.new.simulation_log) {
-            setRaceResult({
-                winner_id: payload.new.winner_id,
-                p1_total_time: 0, // In log
-                p2_total_time: 0, // In log
-                logs: payload.new.simulation_log
-            });
-            // Start visualization
-            startReplay();
-        }
+      .on('broadcast', { event: 'race_update' }, (payload) => {
+          setRaceState(payload.payload);
+      })
+      .on('broadcast', { event: 'strategy_update' }, (payload) => {
+          // Update local player cache for Host simulation
+          setPlayers(prev => prev.map(p => {
+              if (p.user_id === payload.payload.user_id) {
+                  return { 
+                      ...p, 
+                      strategy: {
+                          ...p.strategy,
+                          current_ers: payload.payload.ers,
+                          current_line: payload.payload.line
+                      }
+                  };
+              }
+              return p;
+          }));
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(roomChannel);
+      if (raceIntervalRef.current) clearInterval(raceIntervalRef.current);
     };
   }, [roomId]);
 
   const fetchRoomDetails = async () => {
-    const { data: roomData } = await supabase.from('one_lap_rooms').select('*').eq('id', roomId).single();
-    const { data: playersData } = await supabase
+    const { data: roomData, error: roomError } = await supabase.from('one_lap_rooms').select('*').eq('id', roomId).single();
+    if (roomError) console.error('Error fetching room:', roomError);
+
+    const { data: playersData, error: playersError } = await supabase
       .from('one_lap_room_players')
-      .select('*, profiles(username, avatar_url), one_lap_drivers(*)')
-      .eq('room_id', roomId);
+      .select('*, profiles(username, avatar_url, one_lap_drivers(*))')
+      .eq('room_id', roomId)
+      .order('joined_at', { ascending: true });
     
-    setRoom(roomData);
+    if (playersError) console.error('Error fetching players:', playersError);
+    
+    if (roomData) {
+        setRoom(roomData);
+        // If room is finished, fetch results to reconstruct state
+        if (roomData.status === 'finished' && !raceState) {
+             const { data: raceData } = await supabase
+                .from('one_lap_races')
+                .select('*')
+                .eq('room_id', roomId)
+                .single();
+            
+            if (raceData && raceData.simulation_log) {
+                // Reconstruct finished state
+                const logs = raceData.simulation_log;
+                const lastLog = logs[logs.length - 1];
+                setRaceState({
+                    time: lastLog.time,
+                    p1: { distance: lastLog.p1_dist, speed: lastLog.p1_speed, battery: lastLog.p1_battery, last_node_id: lastLog.nodeId },
+                    p2: { distance: lastLog.p2_dist, speed: lastLog.p2_speed, battery: lastLog.p2_battery, last_node_id: lastLog.nodeId },
+                    finished: true,
+                    winner_id: raceData.winner_id,
+                    logs: logs
+                });
+            }
+        }
+    }
+
     if (playersData) {
-        setPlayers(playersData);
-        // Load my strategy if saved
-        const myPlayer = playersData.find((p: any) => p.user_id === user?.id);
+        const processedPlayers = playersData.map((p: any) => ({
+            ...p,
+            one_lap_drivers: p.profiles?.one_lap_drivers?.[0] || p.profiles?.one_lap_drivers || null,
+            // Ensure strategy has realtime fields
+            strategy: {
+                ...p.strategy,
+                current_ers: p.strategy?.current_ers || 'neutral',
+                current_line: p.strategy?.current_line || 'clean'
+            }
+        }));
+        
+        setPlayers(processedPlayers);
+        
+        const myPlayer = processedPlayers.find((p: any) => p.user_id === user?.id);
         if (myPlayer) {
             setIsReady(myPlayer.is_ready);
-            if (myPlayer.strategy && Object.keys(myPlayer.strategy).length > 0) {
+            if (myPlayer.strategy) {
                 setStrategy(myPlayer.strategy);
             }
         }
@@ -80,13 +155,13 @@ export default function Room({ roomId, driver, onLeave }: Props) {
 
   // Check for start condition
   useEffect(() => {
-    if (players.length === 2 && players.every(p => p.is_ready) && room?.status === 'open' && !countdown) {
-        // Start Countdown
+    if (players.length === 2 && players.every(p => p.is_ready) && room?.status === 'open' && !isStarting && !raceState) {
         startRaceSequence();
     }
-  }, [players, room]);
+  }, [players, room, raceState, isStarting]);
 
   const startRaceSequence = async () => {
+    setIsStarting(true);
     setCountdown(5);
     let count = 5;
     const interval = setInterval(() => {
@@ -95,67 +170,112 @@ export default function Room({ roomId, driver, onLeave }: Props) {
         if (count === 0) {
             clearInterval(interval);
             setCountdown(null);
-            runSimulation();
+            
+            // Host starts the engine
+            const amIHost = room?.created_by === user?.id;
+            if (amIHost) {
+                runSimulation();
+            }
         }
     }, 1000);
   };
 
-  const runSimulation = async () => {
-    // Only the host (creator) runs the sim to avoid duplicates
-    // Or simpler: The last person to ready up runs it? 
-    // Let's rely on whoever is first in the list (usually creator) to run it.
-    if (!user || !players.length) return;
-    
-    const amIHost = players[0].user_id === user.id;
-    if (!amIHost) return;
+  // Ref for players to access inside interval
+  const playersRef = useRef(players);
+  useEffect(() => { playersRef.current = players; }, [players]);
 
-    // Run Sim
-    const p1 = players[0];
-    const p2 = players[1];
+  const startRaceEngineRef = async () => {
+      const initialState = getInitialRaceState(currentTrack);
+      
+      let currentState = initialState;
+      setRaceState(currentState);
 
-    // Prepare data
-    const p1Data = { 
-        id: p1.user_id, 
-        driver: p1.one_lap_drivers, 
-        strategy: p1.strategy || { ers_per_node: {}, line_per_node: {} } 
-    };
-    const p2Data = { 
-        id: p2.user_id, 
-        driver: p2.one_lap_drivers, 
-        strategy: p2.strategy || { ers_per_node: {}, line_per_node: {} } 
-    };
+      // Broadcast Start
+      supabase.channel(`room:${roomId}`).send({
+          type: 'broadcast',
+          event: 'race_update',
+          payload: initialState
+      });
 
-    const result = simulateRace(p1Data, p2Data);
+      raceIntervalRef.current = setInterval(async () => {
+          if (currentState.finished) {
+              if (raceIntervalRef.current) clearInterval(raceIntervalRef.current);
+              
+              await supabase.from('one_lap_races').insert([{
+                  room_id: roomId,
+                  winner_id: currentState.winner_id,
+                  simulation_log: currentState.logs
+              }]);
+              await supabase.from('one_lap_rooms').update({ status: 'finished' }).eq('id', roomId);
+              return;
+          }
 
-    // Save Result
-    await supabase.from('one_lap_races').insert([{
-        room_id: roomId,
-        winner_id: result.winner_id,
-        simulation_log: result.logs
-    }]);
+          const p1 = playersRef.current[0];
+          const p2 = playersRef.current[1];
 
-    // Update Room Status
-    await supabase.from('one_lap_rooms').update({ status: 'finished' }).eq('id', roomId);
-    
-    // Distribute Rewards (Client-side trigger for now - ideally backend)
-    // Winner gets 2 tokens
-    // We assume 'play_reaction_game' logic handles deduction, but here we just award winner.
-    // For MVP we skip economy transaction or call a generic 'add_tokens' rpc if available.
-    // Using ledger_entries manually if possible, or just updating wallet.
-    // Let's just log it for now.
+          if (!p1 || !p2) return; // Safety check
+
+          currentState = advanceRaceState(
+              currentState,
+              { id: p1.user_id, driver: p1.one_lap_drivers, strategy: p1.strategy },
+              { id: p2.user_id, driver: p2.one_lap_drivers, strategy: p2.strategy },
+              currentTrack
+          );
+
+          setRaceState(currentState);
+          
+          // Broadcast
+          supabase.channel(`room:${roomId}`).send({
+              type: 'broadcast',
+              event: 'race_update',
+              payload: currentState
+          });
+
+      }, 1000); // 1 tick per second
   };
 
-  const startReplay = () => {
-    setSimulationStep(0);
-    const interval = setInterval(() => {
-        setSimulationStep(prev => {
-            if (prev >= MONZA_TRACK.length - 1) {
-                clearInterval(interval);
-                return prev;
-            }
-            return prev + 1;
-        });
-    }, 1500); // 1.5s per turn
+  const runSimulation = () => {
+      const amIHost = room?.created_by === user?.id;
+      if (amIHost) {
+          startRaceEngineRef();
+      }
+  };
+
+  const updateRealtimeStrategy = async (type: 'ers' | 'line', value: string) => {
+      const now = Date.now();
+      if (now - lastStrategyUpdate.current < 500) return; // 500ms debounce
+      
+      if (!raceState || players.length < 2) return;
+      const myPlayerState = players[0].user_id === user?.id ? raceState.p1 : raceState.p2;
+      const currentNodeId = myPlayerState.last_node_id;
+
+      if (type === 'line') {
+          // Limitation: 1 change per node (sector proxy)
+          if (lastLineChangeNodeRef.current === currentNodeId) {
+             showToast(t('minigame_onelapduel.room.strategy_limit') || 'Strategy Locked for this Sector!', 'error');
+             return; 
+          }
+          lastLineChangeNodeRef.current = currentNodeId;
+      }
+      
+      lastStrategyUpdate.current = now;
+
+      const newStrategy = {
+          ...strategy,
+          [type === 'ers' ? 'current_ers' : 'current_line']: value
+      };
+      setStrategy(newStrategy);
+
+      // Broadcast to Host
+      await supabase.channel(`room:${roomId}`).send({
+          type: 'broadcast',
+          event: 'strategy_update',
+          payload: {
+              user_id: user?.id,
+              ers: type === 'ers' ? value : strategy.current_ers,
+              line: type === 'line' ? value : strategy.current_line
+          }
+      });
   };
 
   const toggleReady = async () => {
@@ -173,196 +293,223 @@ export default function Room({ roomId, driver, onLeave }: Props) {
         .eq('user_id', user.id);
   };
 
-  const updateStrategy = (nodeId: number, type: 'ers' | 'line', value: string) => {
-    setStrategy(prev => ({
-        ...prev,
-        [type === 'ers' ? 'ers_per_node' : 'line_per_node']: {
-            ...prev[type === 'ers' ? 'ers_per_node' : 'line_per_node'],
-            [nodeId]: value
-        }
-    }));
+  const handleExit = async () => {
+    if (!user) return;
+    const isHost = room?.created_by === user.id;
+    if (isHost) {
+        await supabase.from('one_lap_rooms').delete().eq('id', roomId);
+    } else {
+        await supabase.from('one_lap_room_players').delete().eq('room_id', roomId).eq('user_id', user.id);
+    }
+    onLeave();
   };
 
-  // Render Helpers
-  const currentLog = raceResult?.logs[simulationStep];
-  const isRacing = !!raceResult;
-
+  const isRacing = !!raceState;
+  const amIHost = room?.created_by === user?.id;
+  
   return (
     <div>
       {/* Header */}
       <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
         <div>
             <h2 className="text-2xl font-bold flex items-center gap-2">
-                Monza GP <span className="text-sm font-normal text-gray-400 bg-neutral-800 px-2 py-1 rounded">1 Lap</span>
+                {t(`minigame_onelapduel.room.track_${room?.track_id || 'monza'}`) || 'Monza'} 
+                <span className="text-sm font-normal text-gray-400 bg-neutral-800 px-2 py-1 rounded">1 {t('minigame_onelapduel.room.lap')}</span>
             </h2>
-            <div className="text-sm text-gray-500">Room: {roomId.slice(0,8)}...</div>
+            <div className="text-sm text-gray-500">{t('minigame_onelapduel.room.room_id')} {roomId.slice(0,8)}...</div>
         </div>
-        <button onClick={onLeave} className="text-gray-400 hover:text-white">Exit Room</button>
+        <div className="flex items-center gap-4">
+            {!isRacing && (
+                 <div className="text-[10px] text-gray-600 hidden md:block font-mono">
+                     {room?.status} • {players.length}/2 • R:{players.filter(p=>p.is_ready).length}
+                 </div>
+            )}
+            <button onClick={handleExit} className="text-gray-400 hover:text-white">{t('minigame_onelapduel.room.exit')}</button>
+        </div>
       </div>
 
-      {/* Players */}
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        {players.map((p, idx) => (
-            <div key={p.user_id} className={`p-4 rounded-lg border ${p.is_ready ? 'border-green-500/50 bg-green-500/10' : 'border-white/10 bg-surface'}`}>
-                <div className="flex items-center gap-3">
-                    {p.profiles?.avatar_url ? (
-                        <img src={p.profiles.avatar_url} className="w-12 h-12 rounded-full" />
-                    ) : (
-                        <div className="w-12 h-12 bg-neutral-700 rounded-full flex items-center justify-center">
-                            <User className="w-6 h-6 text-gray-400" />
-                        </div>
-                    )}
-                    <div>
-                        <div className="font-bold flex items-center gap-2">
-                            {p.profiles?.username}
-                            {p.user_id === user?.id && <span className="text-xs bg-primary text-black px-1 rounded">YOU</span>}
-                        </div>
-                        <div className={`text-sm ${p.is_ready ? 'text-green-400' : 'text-yellow-400'}`}>
-                            {p.is_ready ? 'READY' : 'PREPARING'}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        ))}
-        {players.length < 2 && (
-            <div className="p-4 rounded-lg border border-white/10 bg-black/20 flex items-center justify-center text-gray-500 animate-pulse">
-                Waiting for opponent...
-            </div>
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toast && (
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full font-bold shadow-lg
+                    ${toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-black'}`}
+            >
+                {toast.msg}
+            </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
       {/* Main Content */}
       {countdown !== null ? (
         <div className="text-center py-20">
             <div className="text-6xl font-black text-f1-red mb-4 animate-ping">{countdown}</div>
-            <p className="text-xl text-gray-400">Race Starting...</p>
+            <p className="text-xl text-gray-400">{t('minigame_onelapduel.room.race_starting')}</p>
         </div>
       ) : isRacing ? (
-        // Race Visualization
-        <div className="bg-black p-6 rounded-lg border border-white/10">
-            {currentLog && (
-                <div className="text-center">
-                    <h3 className="text-xl font-bold mb-8 text-f1-red">{currentLog.nodeName}</h3>
-                    
-                    {/* Visual Track Position */}
-                    <div className="relative h-20 bg-neutral-800 rounded-full mb-8 flex items-center px-4 overflow-hidden">
-                        {/* P1 */}
+        // Real-time Race Visualization
+        <div className="bg-black p-6 rounded-lg border border-white/10 relative">
+            {/* Track Progress */}
+            <div className="relative h-24 bg-neutral-900 rounded-xl mb-8 border border-white/5 overflow-hidden">
+                <div className="absolute top-1/2 left-4 right-4 h-1 bg-white/10 -translate-y-1/2 rounded-full" />
+                {/* Cars */}
+                {players.map((p, idx) => {
+                    const pState = idx === 0 ? raceState.p1 : raceState.p2;
+                    const progress = (pState.distance / trackLength) * 100;
+                    return (
                         <motion.div 
-                            className="absolute w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center font-bold text-xs border-2 border-white z-10"
-                            animate={{ left: currentLog.gap > 0 ? '60%' : '40%' }} // Simple visual: if gap > 0 (P1 ahead), move right
+                            key={p.user_id}
+                            className={`absolute top-1/2 -translate-y-1/2 z-${20-idx} flex flex-col items-center`}
+                            animate={{ left: `${Math.min(95, Math.max(5, progress))}%` }}
+                            transition={{ ease: "linear", duration: 1 }}
+                            style={{ marginTop: idx === 1 ? '20px' : '-20px' }}
                         >
-                            P1
+                             <div className={`w-8 h-4 ${idx===0 ? 'bg-blue-500' : 'bg-orange-500'} rounded-sm border border-white/50 relative`}>
+                                <div className="absolute -right-1 top-0 bottom-0 w-1 bg-black/20" />
+                            </div>
+                            <div className={`mt-1 text-[10px] font-bold ${idx===0 ? 'text-blue-400' : 'text-orange-400'} whitespace-nowrap`}>
+                                {p.profiles?.username}
+                            </div>
                         </motion.div>
-                        {/* P2 */}
-                        <motion.div 
-                            className="absolute w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center font-bold text-xs border-2 border-white z-10"
-                            animate={{ left: currentLog.gap > 0 ? '40%' : '60%' }}
-                        >
-                            P2
-                        </motion.div>
-                        <div className="absolute inset-0 flex items-center justify-center text-neutral-600 font-mono text-sm">
-                            Gap: {Math.abs(currentLog.gap).toFixed(3)}s
-                        </div>
-                    </div>
+                    );
+                })}
+            </div>
 
-                    {/* Telemetry */}
-                    <div className="grid grid-cols-2 gap-8 text-left">
-                        <div>
-                            <div className="text-blue-400 font-bold mb-2">Player 1</div>
-                            <div className="space-y-1 text-sm font-mono">
-                                <div>Speed: {currentLog.p1_speed.toFixed(0)} km/h</div>
-                                <div>Batt: {currentLog.p1_battery.toFixed(0)}%</div>
-                                <div>Time: {currentLog.p1_time.toFixed(3)}s</div>
+            {/* Telemetry & Controls */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {players.map((p, idx) => {
+                    const pState = idx === 0 ? raceState.p1 : raceState.p2;
+                    const isMe = p.user_id === user?.id;
+                    return (
+                        <div key={p.user_id} className={`bg-neutral-900 rounded-lg p-4 border-l-4 ${idx===0 ? 'border-blue-500' : 'border-orange-500'} ${isMe ? 'ring-1 ring-white/20' : ''}`}>
+                            <div className="flex justify-between items-center mb-4">
+                                <span className={`font-bold ${idx===0 ? 'text-blue-400' : 'text-orange-400'}`}>{p.profiles?.username}</span>
+                                {isMe && <span className="text-xs bg-white/10 text-white px-2 py-1 rounded">YOU</span>}
                             </div>
-                        </div>
-                        <div className="text-right">
-                            <div className="text-orange-400 font-bold mb-2">Player 2</div>
-                            <div className="space-y-1 text-sm font-mono">
-                                <div>Speed: {currentLog.p2_speed.toFixed(0)} km/h</div>
-                                <div>Batt: {currentLog.p2_battery.toFixed(0)}%</div>
-                                <div>Time: {currentLog.p2_time.toFixed(3)}s</div>
+                            
+                            {/* Stats */}
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="bg-black/30 p-2 rounded">
+                                    <div className="text-xs text-gray-500 flex items-center gap-1"><Gauge className="w-3 h-3"/> SPEED</div>
+                                    <div className="text-2xl font-mono font-bold">{pState.speed.toFixed(0)}</div>
+                                </div>
+                                <div className="bg-black/30 p-2 rounded">
+                                    <div className="text-xs text-gray-500 flex items-center gap-1"><Battery className="w-3 h-3"/> BATTERY</div>
+                                    <div className={`text-2xl font-mono font-bold ${pState.battery < 20 ? 'text-red-500 animate-pulse' : 'text-green-400'}`}>
+                                        {pState.battery.toFixed(0)}%
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Events */}
-                    <div className="mt-8 h-12">
-                        {currentLog.events.map((e, i) => (
-                            <div key={i} className="text-yellow-400 font-bold animate-pulse">{e}</div>
-                        ))}
-                    </div>
-
-                    {simulationStep >= MONZA_TRACK.length - 1 && (
-                        <div className="mt-8 p-4 bg-white/10 rounded-lg">
-                            <div className="text-2xl font-black mb-2">
-                                {raceResult.winner_id === user?.id ? 'VICTORY!' : 'DEFEAT'}
-                            </div>
-                            <button onClick={onLeave} className="bg-white text-black px-6 py-2 rounded-full font-bold hover:bg-gray-200">
-                                Return to Lobby
-                            </button>
+                            {/* Controls (Only for Me) */}
+                            {isMe && !raceState.finished && (
+                                <div className="space-y-3 border-t border-white/5 pt-4">
+                                    <div>
+                                        <div className="text-xs text-gray-500 mb-2 uppercase">ERS Mode</div>
+                                        <div className="grid grid-cols-4 gap-1">
+                                            {(['neutral', 'hotlap', 'overtake', 'recharge'] as const).map(mode => (
+                                                <button
+                                                    key={mode}
+                                                    onClick={() => updateRealtimeStrategy('ers', mode)}
+                                                    className={`px-1 py-2 rounded text-[10px] uppercase font-bold transition-colors
+                                                        ${strategy.current_ers === mode 
+                                                            ? 'bg-f1-red text-white' 
+                                                            : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                                                >
+                                                    {mode}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-gray-500 mb-2 uppercase">Racing Line</div>
+                                        <div className="grid grid-cols-3 gap-1">
+                                            {(['clean', 'defense', 'opportunity'] as const).map(line => (
+                                                <button
+                                                    key={line}
+                                                    onClick={() => updateRealtimeStrategy('line', line)}
+                                                    className={`px-1 py-2 rounded text-[10px] uppercase font-bold transition-colors
+                                                        ${strategy.current_line === line 
+                                                            ? 'bg-blue-600 text-white' 
+                                                            : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                                                >
+                                                    {line}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    )}
+                    );
+                })}
+            </div>
+            
+            {/* Events Log */}
+            <div className="mt-6 h-32 overflow-y-auto bg-black/50 rounded p-2 text-xs font-mono space-y-1">
+                {raceState.logs.slice(-5).reverse().map((log, i) => (
+                    log.events.length > 0 && log.events.map((e: any, j: number) => (
+                        <div key={`${i}-${j}`} className="text-yellow-400">
+                             [{log.time}s] {e.type === 'overtake_chance' ? 'OVERTAKE ATTEMPT!' : 'DEFENSE SUCCESSFUL!'}
+                        </div>
+                    ))
+                ))}
+            </div>
+
+            {/* Finish Overlay */}
+            {raceState.finished && (
+                <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+                    <h2 className="text-6xl font-black italic text-white mb-4">
+                        {raceState.winner_id === user?.id ? 'VICTORY' : 'DEFEAT'}
+                    </h2>
+                    <button onClick={handleExit} className="bg-white text-black px-8 py-3 rounded-full font-bold hover:bg-gray-200">
+                        RETURN TO LOBBY
+                    </button>
                 </div>
             )}
         </div>
       ) : (
-        // Strategy Selection
-        <div>
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold">Race Strategy</h3>
-                <button 
-                    onClick={toggleReady}
-                    className={`px-8 py-3 rounded-full font-bold flex items-center gap-2 transition-all ${
-                        isReady ? 'bg-green-500 text-black hover:bg-green-400' : 'bg-white text-black hover:bg-gray-200'
-                    }`}
-                >
-                    {isReady ? <><Check className="w-5 h-5" /> Ready</> : 'Confirm Strategy'}
-                </button>
-            </div>
-
-            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                {MONZA_TRACK.map((node) => (
-                    <div key={node.id} className="bg-surface p-4 rounded border border-white/5 hover:border-white/10 transition-colors">
-                        <div className="flex justify-between items-center mb-3">
-                            <span className="font-bold text-gray-300">{node.name}</span>
-                            <span className="text-xs text-gray-500 uppercase">{node.type} • {node.length}m</span>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                            {/* ERS */}
-                            <div>
-                                <label className="text-xs text-gray-500 mb-1 block flex items-center gap-1"><Zap className="w-3 h-3" /> ERS Mode</label>
-                                <select 
-                                    className="w-full bg-black border border-white/10 rounded px-2 py-1 text-sm"
-                                    value={strategy.ers_per_node[node.id] || 'neutral'}
-                                    onChange={(e) => updateStrategy(node.id, 'ers', e.target.value)}
-                                    disabled={isReady}
-                                >
-                                    <option value="neutral">Neutral (Bal)</option>
-                                    <option value="hotlap">Hotlap (Speed++)</option>
-                                    <option value="overtake">Overtake (Pass++)</option>
-                                    <option value="recharge">Recharge (Slow)</option>
-                                </select>
+        // Lobby / Strategy Selection
+        <div className="grid grid-cols-2 gap-4 mb-8">
+             {players.map((p) => (
+                <div key={p.user_id} className={`p-4 rounded-lg border ${p.is_ready ? 'border-green-500/50 bg-green-500/10' : 'border-white/10 bg-surface'}`}>
+                    <div className="flex items-center gap-3">
+                        {p.profiles?.avatar_url ? (
+                            <img src={p.profiles.avatar_url} className="w-12 h-12 rounded-full" />
+                        ) : (
+                            <div className="w-12 h-12 bg-neutral-700 rounded-full flex items-center justify-center">
+                                <User className="w-6 h-6 text-gray-400" />
                             </div>
-
-                            {/* Line */}
-                            <div>
-                                <label className="text-xs text-gray-500 mb-1 block flex items-center gap-1"><MousePointer2 className="w-3 h-3" /> Racing Line</label>
-                                <select 
-                                    className="w-full bg-black border border-white/10 rounded px-2 py-1 text-sm"
-                                    value={strategy.line_per_node[node.id] || 'clean'}
-                                    onChange={(e) => updateStrategy(node.id, 'line', e.target.value)}
-                                    disabled={isReady}
-                                >
-                                    <option value="clean">Clean Line</option>
-                                    <option value="defense">Defensive (Block)</option>
-                                    <option value="opportunity">Opportunity (Risk)</option>
-                                </select>
+                        )}
+                        <div>
+                            <div className="font-bold">{p.profiles?.username}</div>
+                            <div className={`text-sm ${p.is_ready ? 'text-green-400' : 'text-yellow-400'}`}>
+                                {p.is_ready ? t('minigame_onelapduel.room.ready_status') : t('minigame_onelapduel.room.preparing_status')}
                             </div>
                         </div>
                     </div>
-                ))}
-            </div>
+                </div>
+             ))}
+             {players.length < 2 && (
+                 <div className="p-4 rounded-lg border border-white/10 bg-black/20 flex items-center justify-center text-gray-500 animate-pulse">
+                     {t('minigame_onelapduel.room.waiting_opponent')}
+                 </div>
+             )}
+        </div>
+      )}
+      
+      {!isRacing && (
+        <div className="flex justify-center mt-8">
+             <button 
+                 onClick={toggleReady}
+                 className={`px-12 py-4 rounded-full text-xl font-bold transition-all transform hover:scale-105
+                     ${isReady ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-green-500 text-black hover:bg-green-400'}`}
+             >
+                 {isReady ? t('minigame_onelapduel.room.cancel_ready') : t('minigame_onelapduel.room.ready_button')}
+             </button>
         </div>
       )}
     </div>

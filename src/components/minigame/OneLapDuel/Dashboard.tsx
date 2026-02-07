@@ -1,6 +1,7 @@
 import { DriverStats } from './types';
 import { supabase } from '../../../lib/supabase';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Brain, Gauge, Zap, Activity, Heart, Calendar } from 'lucide-react';
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function Dashboard({ driver, onUpdate }: Props) {
+  const { t } = useTranslation();
   const [updating, setUpdating] = useState(false);
 
   const updateTraining = async (mode: 'rest' | 'light' | 'intense') => {
@@ -25,18 +27,18 @@ export default function Dashboard({ driver, onUpdate }: Props) {
   };
 
   const skills = [
-    { name: 'Acceleration', value: driver.acceleration_skill, icon: Gauge, color: 'text-blue-400' },
-    { name: 'Braking', value: driver.braking_skill, icon: Activity, color: 'text-red-400' },
-    { name: 'Cornering', value: driver.cornering_skill, icon: Zap, color: 'text-yellow-400' },
-    { name: 'ERS Efficiency', value: driver.ers_efficiency_skill, icon: Zap, color: 'text-green-400' },
-    { name: 'Decision Making', value: driver.decision_making_skill, icon: Brain, color: 'text-purple-400' },
+    { name: t('minigame_onelapduel.dashboard.skills.acceleration'), value: driver.acceleration_skill, icon: Gauge, color: 'text-blue-400' },
+    { name: t('minigame_onelapduel.dashboard.skills.braking'), value: driver.braking_skill, icon: Activity, color: 'text-red-400' },
+    { name: t('minigame_onelapduel.dashboard.skills.cornering'), value: driver.cornering_skill, icon: Zap, color: 'text-yellow-400' },
+    { name: t('minigame_onelapduel.dashboard.skills.ers_efficiency'), value: driver.ers_efficiency_skill, icon: Zap, color: 'text-green-400' },
+    { name: t('minigame_onelapduel.dashboard.skills.decision_making'), value: driver.decision_making_skill, icon: Brain, color: 'text-purple-400' },
   ];
 
   // Training descriptions
   const trainingModes = {
-    rest: { label: 'Rest Day', desc: 'Recover Morale significantly. No skill gain.', impact: 'Morale ++ / Dev 0' },
-    light: { label: 'Light Training', desc: 'Small skill gain, maintains morale.', impact: 'Morale + / Dev +' },
-    intense: { label: 'Intense Training', desc: 'Max skill gain, drains morale.', impact: 'Morale -- / Dev +++' },
+    rest: { label: t('minigame_onelapduel.dashboard.training_modes.rest.label'), desc: t('minigame_onelapduel.dashboard.training_modes.rest.desc'), impact: t('minigame_onelapduel.dashboard.training_modes.rest.impact') },
+    light: { label: t('minigame_onelapduel.dashboard.training_modes.light.label'), desc: t('minigame_onelapduel.dashboard.training_modes.light.desc'), impact: t('minigame_onelapduel.dashboard.training_modes.light.impact') },
+    intense: { label: t('minigame_onelapduel.dashboard.training_modes.intense.label'), desc: t('minigame_onelapduel.dashboard.training_modes.intense.desc'), impact: t('minigame_onelapduel.dashboard.training_modes.intense.impact') },
   };
 
   return (
@@ -45,7 +47,7 @@ export default function Dashboard({ driver, onUpdate }: Props) {
       <div className="space-y-6">
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
           <Brain className="w-6 h-6 text-f1-red" />
-          Driver Stats
+          {t('minigame_onelapduel.dashboard.stats_title')}
         </h2>
         
         <div className="bg-black/40 p-6 rounded-lg border border-white/10">
@@ -53,12 +55,12 @@ export default function Dashboard({ driver, onUpdate }: Props) {
             <div className="flex items-center gap-3">
               <Heart className={`w-8 h-8 ${driver.morale > 80 ? 'text-green-500' : driver.morale < 40 ? 'text-red-500' : 'text-yellow-500'}`} />
               <div>
-                <div className="text-sm text-gray-400">Morale</div>
+                <div className="text-sm text-gray-400">{t('minigame_onelapduel.dashboard.skills.morale')}</div>
                 <div className="text-2xl font-bold">{Math.round(driver.morale)}%</div>
               </div>
             </div>
             <div className="text-right text-sm text-gray-500 max-w-[150px]">
-                {driver.morale > 80 ? 'High morale improves ERS & Consistency.' : 'Low morale causes mistakes.'}
+                {driver.morale > 80 ? t('minigame_onelapduel.dashboard.morale_high_desc') : t('minigame_onelapduel.dashboard.morale_low_desc')}
             </div>
           </div>
 
@@ -88,7 +90,7 @@ export default function Dashboard({ driver, onUpdate }: Props) {
       <div>
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
           <Calendar className="w-6 h-6 text-f1-red" />
-          Training Schedule
+          {t('minigame_onelapduel.dashboard.training_schedule')}
         </h2>
 
         <div className="grid gap-4">

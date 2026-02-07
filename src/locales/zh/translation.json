@@ -303,8 +303,8 @@
       "subtitle": "展示您对项目里程碑和贡献者的支持。",
       "disclaimer": "非真实金融工具。仅用于社区互动。",
       "tabs": {
-        "instruments": "金融工具",
-        "tickets": "任务票据"
+        "instruments": "官方市场",
+        "tickets": "民间市场"
       },
       "instrument": {
         "support_btn": "支持",
@@ -479,7 +479,21 @@
     "all_tags": "所有标签"
   },
   "minigame": {
-    "title": "F1 反应测试",
+    "title": "围场俱乐部",
+    "subtitle": "选择你的挑战",
+    "back": "返回游戏列表",
+    "reaction": {
+      "title": "F1 反应测试",
+      "desc": "测试你在五盏红灯熄灭时的反应速度。你能击败 F1 车手吗？",
+      "tag_pool": "月度奖金池",
+      "tag_live": "进行中"
+    },
+    "duel": {
+      "title": "单圈对决 (2026)",
+      "desc": "策略性 1v1 竞速。管理 ERS，选择赛车线，培养你的车手。",
+      "tag_strat": "策略模拟",
+      "tag_new": "新发布"
+    },
     "instructions": "五盏红灯熄灭时，全力点击屏幕！",
     "login_to_save": "登录以保存您的分数并参与排名。",
     "start_game": "开始游戏 (1 代币)",
@@ -522,5 +536,166 @@
     "minigame_content": "参与成本：每局 1 代币。\n\n奖励机制：\n1. 即时奖励：有效成绩获 5 代币（60分钟冷却）。\n2. 月度锦标赛：前10名瓜分奖池（基础 500 + 每局增加 2 代币）。\n\n反作弊：低于 110ms 的反应将被视为无效。",
     "fees_title": "费率与计算",
     "fees_content": "市场费率：每笔 P2P 票据交易收取 2% 手续费。\n\n小游戏费用：1 代币入场费部分注入月度奖池。\n\n代币供应：通过任务（浮动）和每日登录获取。通过费用和惩罚销毁。"
+  },
+
+  "minigame_onelapduel": {
+    "nav": {
+      "driver_hq": "车手总部",
+      "race_lobby": "赛事大厅",
+      "standings": "积分榜",
+      "current_race": "当前比赛",
+      "online": "在线"
+    },
+    "common": {
+      "unknown": "未知",
+      "login_required": "请先登录以开始游戏。"
+    },
+    "dashboard": {
+      "stats_title": "车手数据",
+      "training_schedule": "训练日程",
+      "training_modes": {
+        "rest": {
+          "label": "休息日",
+          "desc": "大幅恢复士气。无技能提升。",
+          "impact": "士气 ++ / 发展 0"
+        },
+        "light": {
+          "label": "轻度训练",
+          "desc": "少量技能提升，维持士气。",
+          "impact": "士气 + / 发展 +"
+        },
+        "intense": {
+          "label": "高强度训练",
+          "desc": "最大化技能提升，消耗士气。",
+          "impact": "士气 -- / 发展 +++"
+        }
+      },
+      "skills": {
+          "acceleration": "加速",
+          "braking": "刹车",
+          "cornering": "过弯",
+          "ers_efficiency": "ERS 效率",
+          "decision_making": "决策",
+          "morale": "士气"
+      },
+      "morale_high_desc": "高士气提升 ERS 效率和稳定性。",
+      "morale_low_desc": "低士气会导致失误。",
+      "next_update": "下次更新"
+    },
+    "lobby": {
+      "title": "比赛大厅",
+      "no_races": "暂无公开比赛。创建一个！",
+      "create_room": "创建房间",
+      "creating": "创建中...",
+      "join": "加入",
+      "spectate": "观战",
+      "laps": "圈",
+      "host": "房主",
+      "rejoin": "重新加入",
+      "join_race": "加入比赛",
+      "pilots_online": "{{count}} 名车手在线",
+      "status": {
+        "WAITING": "等待中",
+        "RACING": "比赛中",
+        "FINISHED": "已结束"
+      }
+    },
+    "leaderboard": {
+      "title": "锦标赛积分榜",
+      "no_records": "暂无记录。争做第一人！",
+      "rank": "排名",
+      "driver": "车手",
+      "best_lap": "最佳圈速",
+      "wins": "胜场",
+      "podiums": "领奖台",
+      "points": "积分",
+      "you": "你"
+    },
+    "room": {
+      "track_monza": "蒙扎大奖赛",
+      "track_spa": "斯帕-弗朗科尔尚",
+      "track_silverstone": "银石赛道",
+      "exit": "退出房间",
+      "room_id": "房间:",
+      "force_start": "强制开始",
+      "waiting_for_players": "等待玩家...",
+      "waiting_opponent": "等待对手...",
+      "waiting_all_ready": "等待所有玩家准备...",
+      "ready": "准备",
+      "cancel_ready": "取消准备",
+      "strategy_phase": "策略阶段",
+      "race_phase": "比赛阶段",
+      "replay": "回放",
+      "start_race": "开始比赛",
+      "starting": "启动中...",
+      "race_in_progress": "比赛进行中...",
+      "winner": "获胜者",
+      "race_results": "比赛结果",
+      "back_to_lobby": "返回大厅",
+      "lap": "圈",
+      "ready_status": "已准备",
+      "preparing_status": "准备中",
+      "race_starting": "比赛开始...",
+      "gap": "差距:",
+      "player_1": "玩家 1",
+      "player_2": "玩家 2",
+      "speed": "速度:",
+      "batt": "电量:",
+      "time": "时间:",
+      "victory": "胜利!",
+      "defeat": "失败",
+      "return_lobby": "返回大厅",
+      "race_strategy": "比赛策略",
+      "confirm_strategy": "确认策略",
+      "ers_mode": "ERS 模式",
+      "racing_line": "赛车线",
+      "track_type": {
+        "straight": "直道",
+        "turn": "弯道",
+        "chicane": "芝加哥弯"
+      },
+      "track": {
+        "main_straight": "主直道",
+        "variante_del_rettifilo": "第一变向弯",
+        "curva_grande": "大弯",
+        "variante_della_roggia": "罗吉亚变向弯",
+        "lesmo_1": "列斯莫1号弯",
+        "lesmo_2": "列斯莫2号弯",
+        "serraglio_straight": "塞拉利奥直道",
+        "variante_ascari": "阿斯卡里变向弯",
+        "back_straight": "后直道",
+        "parabolica": "帕拉波利卡弯",
+        "la_source": "拉苏尔斯",
+        "eau_rouge": "红河弯",
+        "raidillon": "拉迪隆",
+        "kemmel_straight": "凯梅尔直道",
+        "les_combes": "莱孔布",
+        "bruxelles": "布鲁塞尔",
+        "pouhon": "普翁",
+        "blanchimont": "布兰奇蒙特",
+        "bus_stop": "巴士站芝加哥",
+        "copse": "科普斯",
+        "maggots": "马戈特斯",
+        "becketts": "贝克特斯",
+        "chapel": "查 Chapel",
+        "hangar_straight": "机库直道",
+        "stowe": "斯托",
+        "vale": "韦尔",
+        "club": "俱乐部"
+      },
+      "events": {
+        "defense_success": "{{leader}} 成功防守 {{chaser}}!",
+        "overtake_chance": "{{chaser}} 发现 {{leader}} 的破绽!"
+      },
+      "strategy": {
+        "neutral": "中性 (平衡)",
+        "hotlap": "飞驰 (速度++)",
+        "overtake": "超车 (超车++)",
+        "recharge": "充电 (慢速)",
+        "clean": "标准线",
+        "defense": "防守 (阻挡)",
+        "opportunity": "激进 (风险)"
+      }
+    }
   }
 }

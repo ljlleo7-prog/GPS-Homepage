@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
-import { Plus, User, RefreshCw, Play } from 'lucide-react';
+import { Plus, User, RefreshCw, Play, Flag, Users, Map } from 'lucide-react';
+import { TRACKS } from './types';
 
 interface Props {
   onJoin: (roomId: string) => void;
@@ -9,18 +11,23 @@ interface Props {
 }
 
 export default function Lobby({ onJoin, onlineCount }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [selectedTrackId, setSelectedTrackId] = useState<string>('monza');
 
   useEffect(() => {
     fetchRooms();
     
     // Subscribe to new rooms
     const channel = supabase
-      .channel('public:one_lap_rooms')
+      .channel('public:one_lap_rooms_lobby')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'one_lap_rooms' }, () => {
+        fetchRooms();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'one_lap_room_players' }, () => {
         fetchRooms();
       })
       .subscribe();
@@ -56,7 +63,7 @@ export default function Lobby({ onJoin, onlineCount }: Props) {
     // 1. Create Room
     const { data: room, error } = await supabase
       .from('one_lap_rooms')
-      .insert([{ created_by: user.id, status: 'open' }])
+      .insert([{ created_by: user.id, status: 'open', track_id: selectedTrackId }])
       .select()
       .single();
 
@@ -87,9 +94,9 @@ export default function Lobby({ onJoin, onlineCount }: Props) {
         .select('*')
         .eq('room_id', roomId)
         .eq('user_id', user.id)
-        .single();
+        .limit(1); // Use limit instead of maybeSingle to avoid 406 on duplicates
     
-    if (existing) {
+    if (existing && existing.length > 0) {
         onJoin(roomId);
         return;
     }
@@ -108,16 +115,29 @@ export default function Lobby({ onJoin, onlineCount }: Props) {
     <div>
       <div className="flex justify-between items-center mb-6">
         <div>
-            <h2 className="text-2xl font-bold">Race Lobby</h2>
+            <h2 className="text-2xl font-bold">{t('minigame_onelapduel.lobby.title')}</h2>
             <div className="text-sm text-green-400 flex items-center gap-1">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                 </span>
-                {onlineCount} Pilots Online
+                {t('minigame_onelapduel.lobby.pilots_online', { count: onlineCount })}
             </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+            <div className="relative">
+                <select 
+                    value={selectedTrackId}
+                    onChange={(e) => setSelectedTrackId(e.target.value)}
+                    className="bg-neutral-800 border border-white/10 rounded-full px-4 py-2 text-sm appearance-none pr-8 cursor-pointer hover:border-white/30 transition-colors"
+                >
+                    {Object.keys(TRACKS).map(id => (
+                        <option key={id} value={id}>{t(`minigame_onelapduel.room.track_${id}`) || id.charAt(0).toUpperCase() + id.slice(1)}</option>
+                    ))}
+                </select>
+                <Map className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+
             <button 
                 onClick={fetchRooms}
                 className="p-2 hover:bg-white/10 rounded-full transition-colors"
@@ -129,7 +149,7 @@ export default function Lobby({ onJoin, onlineCount }: Props) {
                 disabled={creating}
                 className="bg-f1-red hover:bg-red-700 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2"
             >
-                {creating ? 'Creating...' : <><Plus className="w-5 h-5" /> Create Room</>}
+                {creating ? t('minigame_onelapduel.lobby.creating') : <><Plus className="w-5 h-5" /> {t('minigame_onelapduel.lobby.create_room')}</>}
             </button>
         </div>
       </div>
@@ -137,12 +157,13 @@ export default function Lobby({ onJoin, onlineCount }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {rooms.length === 0 ? (
             <div className="col-span-full text-center py-12 text-gray-500 bg-white/5 rounded-lg border border-white/5 border-dashed">
-                No open races found. Start one!
+                {t('minigame_onelapduel.lobby.no_races')}
             </div>
         ) : (
             rooms.map((room) => {
                 const playerCount = room.one_lap_room_players?.length || 0;
                 const creator = room.profiles;
+                const trackId = room.track_id || 'monza'; // Fallback
                 return (
                     <div key={room.id} className="bg-surface border border-white/10 rounded-lg p-5 hover:border-f1-red/50 transition-colors">
                         <div className="flex justify-between items-start mb-4">
@@ -155,8 +176,8 @@ export default function Lobby({ onJoin, onlineCount }: Props) {
                                     </div>
                                 )}
                                 <div>
-                                    <div className="font-bold">{creator?.username || 'Unknown'}</div>
-                                    <div className="text-xs text-gray-500">Host</div>
+                                    <div className="font-bold">{creator?.username || t('minigame_onelapduel.common.unknown')}</div>
+                                    <div className="text-xs text-gray-500">{t('minigame_onelapduel.lobby.host')}</div>
                                 </div>
                             </div>
                             <div className="bg-black/40 px-3 py-1 rounded-full text-sm font-mono">
@@ -166,7 +187,7 @@ export default function Lobby({ onJoin, onlineCount }: Props) {
 
                         <div className="flex justify-between items-center mt-4">
                             <div className="text-sm text-gray-400">
-                                Monza GP (1 Lap)
+                                {t(`minigame_onelapduel.room.track_${trackId}`) || trackId} (1 {t('minigame_onelapduel.lobby.laps')})
                             </div>
                             <button
                                 onClick={() => joinRoom(room.id)}
@@ -177,7 +198,7 @@ export default function Lobby({ onJoin, onlineCount }: Props) {
                                     : 'bg-white text-black hover:bg-gray-200'
                                 }`}
                             >
-                                {room.one_lap_room_players.some((p: any) => p.user_id === user?.id) ? 'Rejoin' : 'Join Race'}
+                                {room.one_lap_room_players.some((p: any) => p.user_id === user?.id) ? t('minigame_onelapduel.lobby.rejoin') : t('minigame_onelapduel.lobby.join_race')}
                             </button>
                         </div>
                     </div>

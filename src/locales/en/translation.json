@@ -302,8 +302,8 @@
       "subtitle": "Trade outcomes and support ecosystem growth",
       "disclaimer": "Experimental Economy. No real money involved.",
       "tabs": {
-        "instruments": "Instruments",
-        "tickets": "Ticket Market"
+        "instruments": "Official Instruments",
+        "tickets": "Civil Ticket Market"
       },
       "instrument": {
         "yield": "Est. Yield",
@@ -538,11 +538,27 @@
     }
   },
   "minigame": {
+    "title": "Paddock Club",
+    "subtitle": "Choose your challenge",
+    "back": "Back to Games",
+    "reaction": {
+      "title": "F1 Reaction Test",
+      "desc": "Test your reaction time against the lights. Can you beat an F1 driver?",
+      "tag_pool": "Monthly Prize Pool",
+      "tag_live": "LIVE"
+    },
+    "duel": {
+      "title": "One-Lap Duel (2026)",
+      "desc": "Strategic 1v1 racing. Manage ERS, choose racing lines, and develop your driver.",
+      "tag_strat": "Strategy Sim",
+      "tag_new": "NEW"
+    },
     "play_game": "Play Game",
     "monthly_leaderboard": "Monthly Leaderboard",
-    "title": "F1 Reaction Test",
     "instructions": "Test your reaction time! Wait for all 5 red lights to turn on, then click immediately when they go out.",
     "login_to_save": "Please login to save your score and earn tokens.",
+    "login_warning": "Please login!",
+    "cost_warning": "Insufficient tokens (1 required)",
     "start_game": "Start Game",
     "wait_for_it": "Wait for it...",
     "click": "CLICK!",
@@ -563,6 +579,166 @@
     "est_prize": "Est. Prize",
     "no_times_recorded": "No times recorded yet this month. Be the first!",
     "you": "YOU"
+  },
+  "minigame_onelapduel": {
+    "nav": {
+      "driver_hq": "Driver HQ",
+      "race_lobby": "Race Lobby",
+      "standings": "Standings",
+      "current_race": "Current Race",
+      "online": "Online"
+    },
+    "common": {
+      "unknown": "Unknown",
+      "login_required": "Please login to start the game."
+    },
+    "dashboard": {
+      "stats_title": "Driver Stats",
+      "training_schedule": "Training Schedule",
+      "training_modes": {
+        "rest": {
+          "label": "Rest Day",
+          "desc": "Recover morale significantly. No skill gain.",
+          "impact": "Morale ++ / Dev 0"
+        },
+        "light": {
+          "label": "Light Training",
+          "desc": "Minor skill gain, maintain morale.",
+          "impact": "Morale + / Dev +"
+        },
+        "intense": {
+          "label": "Intense Training",
+          "desc": "Max skill gain, drains morale.",
+          "impact": "Morale -- / Dev +++"
+        }
+      },
+      "skills": {
+        "acceleration": "Acceleration",
+        "braking": "Braking",
+        "cornering": "Cornering",
+        "ers_efficiency": "ERS Efficiency",
+        "decision_making": "Decision Making",
+        "morale": "Morale"
+      },
+      "morale_high_desc": "High morale improves ERS efficiency and consistency.",
+      "morale_low_desc": "Low morale leads to mistakes.",
+      "next_update": "Next Update"
+    },
+    "lobby": {
+      "title": "Race Lobby",
+      "no_races": "No public races. Create one!",
+      "create_room": "Create Room",
+      "creating": "Creating...",
+      "join": "Join",
+      "spectate": "Spectate",
+      "laps": "Laps",
+      "host": "Host",
+      "rejoin": "Rejoin",
+      "join_race": "Join Race",
+      "pilots_online": "{{count}} pilots online",
+      "status": {
+        "WAITING": "Waiting",
+        "RACING": "Racing",
+        "FINISHED": "Finished"
+      }
+    },
+    "leaderboard": {
+      "title": "Championship Standings",
+      "no_records": "No records yet. Be the first!",
+      "rank": "Rank",
+      "driver": "Driver",
+      "best_lap": "Best Lap",
+      "wins": "Wins",
+      "podiums": "Podiums",
+      "points": "Points",
+      "you": "You"
+    },
+    "room": {
+      "track_monza": "Monza GP",
+      "track_spa": "Spa-Francorchamps",
+      "track_silverstone": "Silverstone",
+      "exit": "Exit Room",
+      "room_id": "Room:",
+      "force_start": "Force Start",
+      "waiting_for_players": "Waiting for players...",
+      "waiting_opponent": "Waiting for opponent...",
+      "waiting_all_ready": "Waiting for all players to be ready...",
+      "ready": "Ready",
+      "cancel_ready": "Cancel Ready",
+      "strategy_phase": "Strategy Phase",
+      "race_phase": "Race Phase",
+      "replay": "Replay",
+      "start_race": "Start Race",
+      "starting": "Starting...",
+      "race_in_progress": "Race in progress...",
+      "winner": "Winner",
+      "race_results": "Race Results",
+      "back_to_lobby": "Back to Lobby",
+      "lap": "Lap",
+      "ready_status": "READY",
+      "preparing_status": "PREPARING",
+      "race_starting": "Race Starting...",
+      "gap": "Gap:",
+      "player_1": "Player 1",
+      "player_2": "Player 2",
+      "speed": "Speed:",
+      "batt": "Batt:",
+      "time": "Time:",
+      "victory": "VICTORY!",
+      "defeat": "DEFEAT",
+      "return_lobby": "Return to Lobby",
+      "race_strategy": "Race Strategy",
+      "confirm_strategy": "Confirm Strategy",
+      "ers_mode": "ERS Mode",
+      "racing_line": "Racing Line",
+      "track_type": {
+        "straight": "Straight",
+        "turn": "Turn",
+        "chicane": "Chicane"
+      },
+      "track": {
+        "main_straight": "Main Straight",
+        "variante_del_rettifilo": "Variante del Rettifilo",
+        "curva_grande": "Curva Grande",
+        "variante_della_roggia": "Variante della Roggia",
+        "lesmo_1": "Lesmo 1",
+        "lesmo_2": "Lesmo 2",
+        "serraglio_straight": "Serraglio Straight",
+        "variante_ascari": "Variante Ascari",
+        "back_straight": "Back Straight",
+        "parabolica": "Parabolica",
+        "la_source": "La Source",
+        "eau_rouge": "Eau Rouge",
+        "raidillon": "Raidillon",
+        "kemmel_straight": "Kemmel Straight",
+        "les_combes": "Les Combes",
+        "bruxelles": "Bruxelles",
+        "pouhon": "Pouhon",
+        "blanchimont": "Blanchimont",
+        "bus_stop": "Bus Stop Chicane",
+        "copse": "Copse",
+        "maggots": "Maggots",
+        "becketts": "Becketts",
+        "chapel": "Chapel",
+        "hangar_straight": "Hangar Straight",
+        "stowe": "Stowe",
+        "vale": "Vale",
+        "club": "Club"
+      },
+      "events": {
+        "defense_success": "{{leader}} successfully defended against {{chaser}}!",
+        "overtake_chance": "{{chaser}} found an opening on {{leader}}!"
+      },
+      "strategy": {
+        "neutral": "Neutral (Balanced)",
+        "hotlap": "Hotlap (Speed++)",
+        "overtake": "Overtake (Pass++)",
+        "recharge": "Recharge (Slow)",
+        "clean": "Standard Line",
+        "defense": "Defense (Block)",
+        "opportunity": "Aggressive (Risk)"
+      }
+    }
   },
   "developer": {
     "inbox": {
@@ -669,18 +845,195 @@
     "login_warning": "Please log in first!"
   },
   "policies": {
-    "click_for_info": "Click for policy info",
+    "click_for_info": "Click for info",
     "market_title": "Market Policy",
-    "market_content": "Our Market allows you to trade tickets and support projects.\n\nPrices fluctuate based on demand. High-risk items like Driver Bets may result in total loss.\n\nAlways research before investing.",
+    "market_content": "Our market allows you to trade tickets and support projects.\n\nPrices fluctuate based on demand. High risk items like Driver Bets can result in total loss.\n\nAlways do your own research before investing.",
     "token_rep_title": "Token & Reputation Policy",
-    "token_rep_content": "Tokens are our internal currency for trading and rewards.\n\nReputation reflects your contribution and trust level. High reputation unlocks advanced features like creating campaigns.",
+    "token_rep_content": "Tokens are our internal currency for trading and rewards.\n\nReputation reflects your contribution and trustworthiness. High reputation unlocks advanced features like creating campaigns.",
     "mission_title": "Mission Policy",
     "mission_content": "Complete missions to earn Tokens and Reputation.\n\nSubmissions are reviewed by admins. Quality work is rewarded; spam or low-effort submissions will be rejected.",
     "betting_title": "Betting Policy",
-    "betting_content": "Driver Bets are high-risk binary options. You bet on a specific outcome (e.g., 'Piastri Wins').\n\nIf the event happens, 'YES' tickets pay out 100% of the pool (proportional to holdings), while 'NO' tickets become worthless, and vice versa.\n\nThere is no guaranteed return. Resolution is manually verified by the creator/admin.",
+    "betting_content": "Betting involves risk. Driver Bets are binary outcomes (Win/Lose).",
+    "fees_title": "Fees Policy",
+    "fees_content": "A 2% fee applies to all market transactions to support the platform.",
     "minigame_title": "Minigame Policy",
-    "minigame_content": "Entry Cost: 1 Token per play.\n\nRewards:\n1. Instant: 5 Tokens for a valid score (60m cooldown).\n2. Monthly Championship: Top 10 players share the prize pool (Base 500 + 2 Tokens per play).\n\nAnti-Cheat: Reactions under 110ms are rejected.",
-    "fees_title": "Fees & Calculation",
-    "fees_content": "Market Fee: 2% on every peer-to-peer ticket trade.\n\nMinigame Fee: 1 Token entry fee contributes to the monthly prize pool.\n\nToken Supply: Earned via Missions (variable) and Daily Login. Burnt via fees and penalties."
+    "minigame_content": "Minigames are for entertainment. Spamming or using bots to farm rewards is prohibited and will result in a ban."
+  },
+  "minigame": {
+    "title": "PADDOCK CLUB",
+    "subtitle": "Select your challenge",
+    "back": "Back to Games",
+    "reaction": {
+      "title": "F1 Reaction Test",
+      "desc": "Test your reflexes against the 5 red lights. Can you beat an F1 driver's reaction time?",
+      "tag_pool": "MONTHLY PRIZE POOL",
+      "tag_live": "LIVE"
+    },
+    "duel": {
+      "title": "One-Lap Duel (2026)",
+      "desc": "Strategic 1v1 racing. Manage ERS, choose racing lines, and develop your driver.",
+      "tag_strat": "STRATEGY SIMULATION",
+      "tag_new": "NEW"
+    }
+  },
+  "minigame_onelapduel": {
+    "nav": {
+      "driver_hq": "Driver HQ",
+      "race_lobby": "Race Lobby",
+      "standings": "Standings",
+      "current_race": "Current Race",
+      "online": "Online"
+    },
+    "common": {
+      "unknown": "Unknown",
+      "login_required": "Please login to play."
+    },
+    "dashboard": {
+      "stats_title": "Driver Stats",
+      "training_schedule": "Training Schedule",
+      "training_modes": {
+        "rest": {
+          "label": "Rest Day",
+          "desc": "Recover Morale significantly. No skill gain.",
+          "impact": "Morale ++ / Dev 0"
+        },
+        "light": {
+          "label": "Light Training",
+          "desc": "Small skill gain, maintains morale.",
+          "impact": "Morale + / Dev +"
+        },
+        "intense": {
+          "label": "Intense Training",
+          "desc": "Max skill gain, drains morale.",
+          "impact": "Morale -- / Dev +++"
+        }
+      },
+      "skills": {
+          "acceleration": "Acceleration",
+          "braking": "Braking",
+          "cornering": "Cornering",
+          "ers_efficiency": "ERS Efficiency",
+          "decision_making": "Decision Making",
+          "morale": "Morale"
+      },
+      "morale_high_desc": "High morale improves ERS & Consistency.",
+      "morale_low_desc": "Low morale causes mistakes.",
+      "next_update": "Next update in"
+    },
+    "lobby": {
+      "title": "Race Lobby",
+      "no_races": "No open races found. Start one!",
+      "create_room": "Create Room",
+      "creating": "Creating...",
+      "join": "Join",
+      "spectate": "Spectate",
+      "laps": "Laps",
+      "host": "Host",
+      "rejoin": "Rejoin",
+      "join_race": "Join Race",
+      "pilots_online": "{{count}} Pilots Online",
+      "status": {
+        "WAITING": "Waiting",
+        "RACING": "Racing",
+        "FINISHED": "Finished"
+      }
+    },
+    "leaderboard": {
+      "title": "Championship Standings",
+      "no_records": "No records yet. Be the first to race!",
+      "rank": "Rank",
+      "driver": "Driver",
+      "best_lap": "Best Lap",
+      "wins": "Wins",
+      "podiums": "Podiums",
+      "points": "Points",
+      "you": "YOU"
+    },
+    "room": {
+      "track_monza": "Monza GP",
+      "track_spa": "Spa-Francorchamps",
+      "track_silverstone": "Silverstone",
+      "exit": "Exit Room",
+      "room_id": "Room:",
+      "force_start": "Force Start",
+      "waiting_for_players": "Waiting for players...",
+      "waiting_opponent": "Waiting for opponent...",
+      "waiting_all_ready": "Waiting for all players to be ready...",
+      "ready": "Ready",
+      "cancel_ready": "Cancel Ready",
+      "strategy_phase": "Strategy Phase",
+      "race_phase": "Race Phase",
+      "replay": "Replay",
+      "start_race": "Start Race",
+      "starting": "Starting...",
+      "race_in_progress": "Race in progress...",
+      "winner": "Winner",
+      "race_results": "Race Results",
+      "back_to_lobby": "Back to Lobby",
+      "lap": "Lap",
+      "ready_status": "READY",
+      "preparing_status": "PREPARING",
+      "race_starting": "Race Starting...",
+      "gap": "Gap:",
+      "player_1": "Player 1",
+      "player_2": "Player 2",
+      "speed": "Speed:",
+      "batt": "Batt:",
+      "time": "Time:",
+      "victory": "VICTORY!",
+      "defeat": "DEFEAT",
+      "return_lobby": "Return to Lobby",
+      "race_strategy": "Race Strategy",
+      "confirm_strategy": "Confirm Strategy",
+      "ers_mode": "ERS Mode",
+      "racing_line": "Racing Line",
+      "track_type": {
+        "straight": "Straight",
+        "turn": "Turn",
+        "chicane": "Chicane"
+      },
+      "track": {
+        "main_straight": "Main Straight",
+        "variante_del_rettifilo": "Variante del Rettifilo",
+        "curva_grande": "Curva Grande",
+        "variante_della_roggia": "Variante della Roggia",
+        "lesmo_1": "Lesmo 1",
+        "lesmo_2": "Lesmo 2",
+        "serraglio_straight": "Serraglio Straight",
+        "variante_ascari": "Variante Ascari",
+        "back_straight": "Back Straight",
+        "parabolica": "Parabolica",
+        "la_source": "La Source",
+        "eau_rouge": "Eau Rouge",
+        "raidillon": "Raidillon",
+        "kemmel_straight": "Kemmel Straight",
+        "les_combes": "Les Combes",
+        "bruxelles": "Bruxelles",
+        "pouhon": "Pouhon",
+        "blanchimont": "Blanchimont",
+        "bus_stop": "Bus Stop Chicane",
+        "copse": "Copse",
+        "maggots": "Maggots",
+        "becketts": "Becketts",
+        "chapel": "Chapel",
+        "hangar_straight": "Hangar Straight",
+        "stowe": "Stowe",
+        "vale": "Vale",
+        "club": "Club"
+      },
+      "events": {
+        "defense_success": "{{leader}} defends successfully against {{chaser}}!",
+        "overtake_chance": "{{chaser}} sees an opening on {{leader}}!"
+      },
+      "strategy": {
+        "neutral": "Neutral (Bal)",
+        "hotlap": "Hotlap (Speed++)",
+        "overtake": "Overtake (Pass++)",
+        "recharge": "Recharge (Slow)",
+        "clean": "Clean Line",
+        "defense": "Defensive (Block)",
+        "opportunity": "Opportunity (Risk)"
+      }
+    }
   }
 }
