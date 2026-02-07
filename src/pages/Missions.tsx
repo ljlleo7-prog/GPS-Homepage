@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useEconomy } from '../context/EconomyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, AlertCircle, Clock, XCircle, Plus } from 'lucide-react';
+import { PolicyInfo } from '../components/common/PolicyInfo';
 import { useTranslation } from 'react-i18next';
 
 interface Mission {
@@ -163,7 +164,11 @@ const Missions = () => {
     <div className="min-h-screen bg-background pt-24 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-12 text-center relative">
-          <h1 className="text-3xl font-bold font-mono text-white mb-4">{t('economy.missions.title')}</h1>
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <h1 className="text-3xl font-bold font-mono text-white">{t('economy.missions.title')}</h1>
+            <PolicyInfo titleKey="policies.mission_title" contentKey="policies.mission_content" />
+            <PolicyInfo titleKey="policies.token_rep_title" contentKey="policies.token_rep_content" />
+          </div>
           <p className="text-text-secondary">{t('economy.missions.subtitle')}</p>
           
           {wallet && wallet.reputation_balance > 70 && (

@@ -667,5 +667,20 @@
     "no_times_recorded": "No times recorded this month",
     "you": "You",
     "login_warning": "Please log in first!"
+  },
+  "policies": {
+    "click_for_info": "Click for policy info",
+    "market_title": "Market Policy",
+    "market_content": "Our Market allows you to trade tickets and support projects.\n\nPrices fluctuate based on demand. High-risk items like Driver Bets may result in total loss.\n\nAlways research before investing.",
+    "token_rep_title": "Token & Reputation Policy",
+    "token_rep_content": "Tokens are our internal currency for trading and rewards.\n\nReputation reflects your contribution and trust level. High reputation unlocks advanced features like creating campaigns.",
+    "mission_title": "Mission Policy",
+    "mission_content": "Complete missions to earn Tokens and Reputation.\n\nSubmissions are reviewed by admins. Quality work is rewarded; spam or low-effort submissions will be rejected.",
+    "betting_title": "Betting Policy",
+    "betting_content": "Driver Bets are high-risk binary options. You bet on a specific outcome (e.g., 'Piastri Wins').\n\nIf the event happens, 'YES' tickets pay out 100% of the pool (proportional to holdings), while 'NO' tickets become worthless, and vice versa.\n\nThere is no guaranteed return. Resolution is manually verified by the creator/admin.",
+    "minigame_title": "Minigame Policy",
+    "minigame_content": "Entry Cost: 1 Token per play.\n\nRewards:\n1. Instant: 5 Tokens for a valid score (60m cooldown).\n2. Monthly Championship: Top 10 players share the prize pool (Base 500 + 2 Tokens per play).\n\nAnti-Cheat: Reactions under 110ms are rejected.",
+    "fees_title": "Fees & Calculation",
+    "fees_content": "Market Fee: 2% on every peer-to-peer ticket trade.\n\nMinigame Fee: 1 Token entry fee contributes to the monthly prize pool.\n\nToken Supply: Earned via Missions (variable) and Daily Login. Burnt via fees and penalties."
   }
 }

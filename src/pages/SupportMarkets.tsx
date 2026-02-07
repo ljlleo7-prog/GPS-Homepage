@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, Shield, Trophy, AlertTriangle, Ticket, Plus, Trash2, XCircle } from 'lucide-react';
 import { TicketMarket } from '../components/economy/TicketMarket';
+import { PolicyInfo } from '../components/common/PolicyInfo';
 import { useTranslation } from 'react-i18next';
 
 interface RefundItem {
@@ -315,7 +316,12 @@ const SupportMarkets = () => {
     <div className="min-h-screen bg-background pt-24 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         <div className="mb-12 text-center relative">
-          <h1 className="text-3xl font-bold font-mono text-white mb-4">{t('economy.market.title')}</h1>
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <h1 className="text-3xl font-bold font-mono text-white">{t('economy.market.title')}</h1>
+            <PolicyInfo titleKey="policies.market_title" contentKey="policies.market_content" />
+            <PolicyInfo titleKey="policies.betting_title" contentKey="policies.betting_content" />
+            <PolicyInfo titleKey="policies.fees_title" contentKey="policies.fees_content" />
+          </div>
           <p className="text-text-secondary max-w-2xl mx-auto mb-6">
             {t('economy.market.subtitle')}
             <br />

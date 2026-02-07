@@ -4,6 +4,7 @@ import { useEconomy } from '../context/EconomyContext';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { Trophy, Clock, Users } from 'lucide-react';
+import { PolicyInfo } from '../components/common/PolicyInfo';
 import { useTranslation } from 'react-i18next';
 
 export default function Minigame() {
@@ -156,7 +157,10 @@ export default function Minigame() {
 
         {activeTab === 'GAME' ? (
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-8 text-f1-red">{t('minigame.title')}</h1>
+            <div className="flex items-center justify-center gap-2 mb-8">
+              <h1 className="text-4xl font-bold text-f1-red">{t('minigame.title')}</h1>
+              <PolicyInfo titleKey="policies.minigame_title" contentKey="policies.minigame_content" />
+            </div>
             <p className="text-gray-400 mb-12">
               {t('minigame.instructions')}
             </p>
