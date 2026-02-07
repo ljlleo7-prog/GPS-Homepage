@@ -14,6 +14,19 @@ interface InboxData {
   pending_tests: PendingTest[];
 }
 
+interface Mission {
+    id: string;
+    title: string;
+    description: string;
+    reward_min: number;
+    reward_max: number;
+    reward_rep_min: number;
+    reward_rep_max: number;
+    deadline: string | null;
+    status: string;
+    submission_count?: number; // Optional, to check if we can edit
+}
+
 interface PendingDev {
   id: string;
   username: string;
@@ -62,6 +75,24 @@ const DeveloperInbox = () => {
   const { developerStatus, approveDeveloperAccess, resolveDriverBet, approveTestPlayerRequest, declineTestPlayerRequest } = useEconomy();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  
+  // Mission Management State
+  const [missions, setMissions] = useState<Mission[]>([]);
+  const [showMissionModal, setShowMissionModal] = useState(false);
+  const [editingMissionId, setEditingMissionId] = useState<string | null>(null);
+  const [missionForm, setMissionForm] = useState({
+      title: '', description: '', 
+      minToken: 0, maxToken: 0, 
+      minRep: 0, maxRep: 0, 
+      deadline: ''
+  });
+
+  // Award Modal State
+  const [showAwardModal, setShowAwardModal] = useState(false);
+  const [selectedSubmission, setSelectedSubmission] = useState<PendingMission | null>(null);
+  const [selectedMissionDetails, setSelectedMissionDetails] = useState<Mission | null>(null);
+  const [awardForm, setAwardForm] = useState({ tokens: 0, rep: 0 });
+
   const [data, setData] = useState<InboxData>({
     pending_devs: [],
     pending_missions: [],
@@ -97,6 +128,151 @@ const DeveloperInbox = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchMissions = async () => {
+      const { data, error } = await supabase
+          .from('missions')
+          .select('*')
+          .neq('status', 'ARCHIVED')
+          .order('created_at', { ascending: false });
+      
+      if (data) {
+          // Check for pending submissions for each mission to control editability
+          // This is a bit N+1, but for a dev tool it's acceptable. 
+          // Better: use a view, but let's do simple counts.
+          const missionsWithCounts = await Promise.all(data.map(async (m) => {
+              const { count } = await supabase
+                  .from('mission_submissions')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('mission_id', m.id)
+                  .eq('status', 'PENDING');
+              return { ...m, submission_count: count || 0 };
+          }));
+          setMissions(missionsWithCounts);
+      }
+  };
+
+  useEffect(() => {
+      fetchMissions();
+  }, []);
+
+  const handleSaveMission = async () => {
+      try {
+          const payload = {
+              title: missionForm.title,
+              description: missionForm.description,
+              reward_min: missionForm.minToken,
+              reward_max: missionForm.maxToken,
+              reward_rep_min: missionForm.minRep,
+              reward_rep_max: missionForm.maxRep,
+              deadline: missionForm.deadline || null,
+              is_variable_reward: true, // Always true for this new system
+              creator_id: (await supabase.auth.getUser()).data.user?.id
+          };
+
+          if (editingMissionId) {
+              const { error } = await supabase
+                  .from('missions')
+                  .update(payload)
+                  .eq('id', editingMissionId);
+              if (error) throw error;
+          } else {
+              const { error } = await supabase.from('missions').insert(payload);
+              if (error) throw error;
+          }
+
+          setShowMissionModal(false);
+          setEditingMissionId(null);
+          setMissionForm({ title: '', description: '', minToken: 0, maxToken: 0, minRep: 0, maxRep: 0, deadline: '' });
+          fetchMissions();
+      } catch (error: any) {
+          alert('Error saving mission: ' + error.message);
+      }
+  };
+
+  const handleDeleteMission = async (id: string) => {
+      if (!confirm('Are you sure you want to delete this mission?')) return;
+      try {
+          const { error } = await supabase.from('missions').delete().eq('id', id);
+          if (error) throw error;
+          fetchMissions();
+      } catch (error: any) {
+          alert('Error deleting mission: ' + error.message);
+      }
+  };
+
+  const openEditMission = (mission: Mission) => {
+      if (mission.submission_count && mission.submission_count > 0) {
+          alert('Cannot edit mission with pending submissions.');
+          return;
+      }
+      setMissionForm({
+          title: mission.title,
+          description: mission.description,
+          minToken: mission.reward_min || 0,
+          maxToken: mission.reward_max || 0,
+          minRep: mission.reward_rep_min || 0,
+          maxRep: mission.reward_rep_max || 0,
+          deadline: mission.deadline ? new Date(mission.deadline).toISOString().split('T')[0] : ''
+      });
+      setEditingMissionId(mission.id);
+      setShowMissionModal(true);
+  };
+
+  const handlePrepareAward = async (submissionId: string) => {
+      try {
+          // Get submission to find mission_id
+          const { data: sub, error: subError } = await supabase
+              .from('mission_submissions')
+              .select('*, mission:missions(*)')
+              .eq('id', submissionId)
+              .single();
+          
+          if (subError) throw subError;
+          
+          // Find the submission in our local state to pass UI details
+          const localSub = data.pending_missions.find(p => p.id === submissionId);
+          
+          setSelectedSubmission(localSub || null);
+          setSelectedMissionDetails(sub.mission);
+          setAwardForm({ tokens: sub.mission.reward_min || 0, rep: sub.mission.reward_rep_min || 0 });
+          setShowAwardModal(true);
+      } catch (error: any) {
+          alert('Error preparing award: ' + error.message);
+      }
+  };
+
+  const handleSubmitAward = async () => {
+      if (!selectedSubmission || !selectedMissionDetails) return;
+      
+      // Validate
+      if (awardForm.tokens < (selectedMissionDetails.reward_min || 0) || awardForm.tokens > (selectedMissionDetails.reward_max || 0)) {
+          alert(`Tokens must be between ${selectedMissionDetails.reward_min} and ${selectedMissionDetails.reward_max}`);
+          return;
+      }
+      if (awardForm.rep < (selectedMissionDetails.reward_rep_min || 0) || awardForm.rep > (selectedMissionDetails.reward_rep_max || 0)) {
+          alert(`Reputation must be between ${selectedMissionDetails.reward_rep_min} and ${selectedMissionDetails.reward_rep_max}`);
+          return;
+      }
+
+      try {
+          const { error } = await supabase
+              .from('mission_submissions')
+              .update({
+                  status: 'APPROVED',
+                  payout_tokens: awardForm.tokens,
+                  payout_rep: awardForm.rep
+              })
+              .eq('id', selectedSubmission.id);
+
+          if (error) throw error;
+          
+          setShowAwardModal(false);
+          fetchInbox(); // Refresh inbox
+      } catch (error: any) {
+          alert('Error awarding submission: ' + error.message);
+      }
   };
 
   const handleApproveDev = async (id: string) => {
@@ -240,6 +416,72 @@ const DeveloperInbox = () => {
              <div className="text-center text-text-secondary py-12">{t('developer_inbox.loading')}</div>
         ) : (
             <div className="space-y-8">
+                {/* 0. Mission Management */}
+                <Section title="Mission Control" icon={<Trophy className="text-yellow-400" />} count={missions.length}>
+                    <div className="mb-4">
+                        <button 
+                            onClick={() => {
+                                setMissionForm({ title: '', description: '', minToken: 0, maxToken: 0, minRep: 0, maxRep: 0, deadline: '' });
+                                setEditingMissionId(null);
+                                setShowMissionModal(true);
+                            }} 
+                            className="bg-primary hover:bg-primary/80 text-black px-4 py-2 rounded font-bold text-sm transition-colors flex items-center gap-2"
+                        >
+                            <Trophy size={16} />
+                            Create New Mission
+                        </button>
+                    </div>
+                    {missions.length === 0 ? (
+                        <div className="text-text-secondary text-sm italic">No active missions.</div>
+                    ) : (
+                        <div className="grid gap-4">
+                            {missions.map(m => (
+                                <Card key={m.id}>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h3 className="font-bold text-white text-lg">{m.title}</h3>
+                                            <p className="text-sm text-text-secondary mb-2">{m.description}</p>
+                                            <div className="flex flex-wrap gap-3 text-xs font-mono">
+                                                <span className="bg-yellow-500/10 text-yellow-400 px-2 py-1 rounded border border-yellow-500/20">
+                                                    Tokens: {m.reward_min}-{m.reward_max}
+                                                </span>
+                                                <span className="bg-purple-500/10 text-purple-400 px-2 py-1 rounded border border-purple-500/20">
+                                                    Rep: {m.reward_rep_min}-{m.reward_rep_max}
+                                                </span>
+                                                {m.deadline && (
+                                                    <span className="bg-red-500/10 text-red-400 px-2 py-1 rounded border border-red-500/20">
+                                                        Due: {new Date(m.deadline).toLocaleDateString()}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {m.submission_count !== undefined && m.submission_count > 0 && (
+                                                <div className="text-xs text-blue-400 mt-2">
+                                                    {m.submission_count} pending submissions (Cannot Edit)
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={() => openEditMission(m)}
+                                                disabled={m.submission_count !== undefined && m.submission_count > 0}
+                                                className="px-3 py-1 bg-white/5 hover:bg-white/10 text-white text-xs rounded border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDeleteMission(m.id)}
+                                                className="px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs rounded border border-red-500/20"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                </Section>
+
                 {/* 1. Pending Developer Requests */}
                 <Section title={t('developer_inbox.pending_dev_requests')} icon={<UserIcon />} count={data.pending_devs.length}>
                     {data.pending_devs.length === 0 ? (
@@ -296,7 +538,7 @@ const DeveloperInbox = () => {
                                         </div>
                                         <div className="flex flex-col gap-2">
                                             <ActionButton 
-                                                onClick={() => handleApproveMission(sub.id)} 
+                                                onClick={() => handlePrepareAward(sub.id)} 
                                                 variant="approve"
                                                 label={t('common.approve')}
                                             />
@@ -428,6 +670,158 @@ const DeveloperInbox = () => {
                         </div>
                     )}
                 </Section>
+            </div>
+        )}
+
+        {/* Modals */}
+        {showMissionModal && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="bg-surface border border-white/10 rounded-lg p-6 max-w-lg w-full shadow-2xl"
+                >
+                    <h2 className="text-xl font-bold text-white mb-4">
+                        {editingMissionId ? 'Edit Mission' : 'Create New Mission'}
+                    </h2>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs text-text-secondary mb-1">Title</label>
+                            <input 
+                                type="text" 
+                                value={missionForm.title}
+                                onChange={e => setMissionForm({...missionForm, title: e.target.value})}
+                                className="w-full bg-black/30 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-text-secondary mb-1">Description</label>
+                            <textarea 
+                                value={missionForm.description}
+                                onChange={e => setMissionForm({...missionForm, description: e.target.value})}
+                                className="w-full bg-black/30 border border-white/10 rounded p-2 text-white focus:border-primary outline-none h-24"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs text-text-secondary mb-1">Min Tokens</label>
+                                <input 
+                                    type="number" 
+                                    value={missionForm.minToken}
+                                    onChange={e => setMissionForm({...missionForm, minToken: parseInt(e.target.value) || 0})}
+                                    className="w-full bg-black/30 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-text-secondary mb-1">Max Tokens</label>
+                                <input 
+                                    type="number" 
+                                    value={missionForm.maxToken}
+                                    onChange={e => setMissionForm({...missionForm, maxToken: parseInt(e.target.value) || 0})}
+                                    className="w-full bg-black/30 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs text-text-secondary mb-1">Min Rep</label>
+                                <input 
+                                    type="number" 
+                                    value={missionForm.minRep}
+                                    onChange={e => setMissionForm({...missionForm, minRep: parseInt(e.target.value) || 0})}
+                                    className="w-full bg-black/30 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-text-secondary mb-1">Max Rep</label>
+                                <input 
+                                    type="number" 
+                                    value={missionForm.maxRep}
+                                    onChange={e => setMissionForm({...missionForm, maxRep: parseInt(e.target.value) || 0})}
+                                    className="w-full bg-black/30 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs text-text-secondary mb-1">Deadline (Optional)</label>
+                            <input 
+                                type="date" 
+                                value={missionForm.deadline}
+                                onChange={e => setMissionForm({...missionForm, deadline: e.target.value})}
+                                className="w-full bg-black/30 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 mt-6">
+                            <button 
+                                onClick={() => setShowMissionModal(false)}
+                                className="px-4 py-2 text-text-secondary hover:text-white"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleSaveMission}
+                                className="px-4 py-2 bg-primary text-black font-bold rounded hover:bg-primary/80"
+                            >
+                                Save Mission
+                            </button>
+                        </div>
+                    </div>
+                </motion.div>
+            </div>
+        )}
+
+        {showAwardModal && selectedSubmission && selectedMissionDetails && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <motion.div 
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="bg-surface border border-white/10 rounded-lg p-6 max-w-md w-full shadow-2xl"
+                >
+                    <h2 className="text-xl font-bold text-white mb-4">Award Submission</h2>
+                    <div className="mb-4 p-3 bg-black/30 rounded border border-white/5 text-sm text-gray-300 max-h-32 overflow-y-auto">
+                        {selectedSubmission.content}
+                    </div>
+                    
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs text-text-secondary mb-1">
+                                Award Tokens ({selectedMissionDetails.reward_min} - {selectedMissionDetails.reward_max})
+                            </label>
+                            <input 
+                                type="number" 
+                                value={awardForm.tokens}
+                                onChange={e => setAwardForm({...awardForm, tokens: parseInt(e.target.value) || 0})}
+                                className="w-full bg-black/30 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-text-secondary mb-1">
+                                Award Reputation ({selectedMissionDetails.reward_rep_min} - {selectedMissionDetails.reward_rep_max})
+                            </label>
+                            <input 
+                                type="number" 
+                                value={awardForm.rep}
+                                onChange={e => setAwardForm({...awardForm, rep: parseInt(e.target.value) || 0})}
+                                className="w-full bg-black/30 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+                            />
+                        </div>
+                        
+                        <div className="flex justify-end gap-2 mt-6">
+                            <button 
+                                onClick={() => setShowAwardModal(false)}
+                                className="px-4 py-2 text-text-secondary hover:text-white"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleSubmitAward}
+                                className="px-4 py-2 bg-green-500 text-black font-bold rounded hover:bg-green-400"
+                            >
+                                Approve & Award
+                            </button>
+                        </div>
+                    </div>
+                </motion.div>
             </div>
         )}
       </div>

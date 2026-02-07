@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 export default function Minigame() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { playReactionGame, getMonthlyLeaderboard, getMonthlyPool } = useEconomy();
+  const { playReactionGame, getMonthlyLeaderboard, getMonthlyPool, wallet } = useEconomy();
   
   const [gameState, setGameState] = useState<'IDLE' | 'COUNTDOWN' | 'WAITING_FOR_GREEN' | 'GO' | 'FINISHED' | 'FALSE_START'>('IDLE');
   const [lightsOn, setLightsOn] = useState(0); // 0 to 5
@@ -53,6 +53,12 @@ export default function Minigame() {
         setMessage(t('minigame.login_warning'));
         return;
     }
+
+    if (wallet && wallet.token_balance < 1) {
+        setMessage(t('minigame.cost_warning') || "Insufficient tokens (1 required)");
+        return;
+    }
+
     setGameState('COUNTDOWN');
     setLightsOn(0);
     setReactionTime(null);
