@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useEconomy } from '../context/EconomyContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, AlertCircle, Clock, XCircle, Plus } from 'lucide-react';
+import { CheckCircle, AlertCircle, Clock, XCircle, Plus, Trash2, Edit2 } from 'lucide-react';
 import { PolicyInfo } from '../components/common/PolicyInfo';
 import { useTranslation } from 'react-i18next';
 
@@ -11,16 +11,15 @@ interface Mission {
   id: string;
   title: string;
   description: string;
-  reward_tokens: number;
-  reward_rep: number;
   is_variable_reward: boolean;
-  reward_min?: number;
-  reward_max?: number;
-  reward_rep_min?: number;
-  reward_rep_max?: number;
+  reward_min: number;
+  reward_max: number;
+  reward_rep_min: number;
+  reward_rep_max: number;
   deadline?: string;
   type: string;
   status: string;
+  creator_id: string;
 }
 
 interface Submission {
@@ -36,7 +35,7 @@ interface Submission {
 const Missions = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { wallet, createUserCampaign } = useEconomy();
+  const { wallet, developerStatus } = useEconomy();
   const [missions, setMissions] = useState<Mission[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,6 +48,10 @@ const Missions = () => {
   const [newMissionDesc, setNewMissionDesc] = useState('');
   const [newRewardMin, setNewRewardMin] = useState('');
   const [newRewardMax, setNewRewardMax] = useState('');
+  const [newRewardRepMin, setNewRewardRepMin] = useState('');
+  const [newRewardRepMax, setNewRewardRepMax] = useState('');
+  const [newDeadline, setNewDeadline] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -129,29 +132,131 @@ const Missions = () => {
     }
   };
 
+  const openEditModal = async (mission: Mission) => {
+    // Check pending submissions
+    const { count } = await supabase
+      .from('mission_submissions')
+      .select('*', { count: 'exact', head: true })
+      .eq('mission_id', mission.id)
+      .eq('status', 'PENDING');
+    
+    if (count && count > 0) {
+      alert("Cannot edit mission with pending submissions.");
+      return;
+    }
+
+    setEditingId(mission.id);
+    setNewMissionTitle(mission.title);
+    setNewMissionDesc(mission.description);
+    setNewRewardMin(mission.reward_min?.toString() || '0');
+    setNewRewardMax(mission.reward_max?.toString() || '0');
+    setNewRewardRepMin(mission.reward_rep_min?.toString() || '0');
+    setNewRewardRepMax(mission.reward_rep_max?.toString() || '0');
+    setNewDeadline(mission.deadline ? new Date(mission.deadline).toISOString().split('T')[0] : '');
+    setShowCreateModal(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this mission?")) return;
+    const { error } = await supabase.from('missions').delete().eq('id', id);
+    if (error) {
+      alert("Error deleting mission: " + error.message);
+    } else {
+      fetchData();
+    }
+  };
+
+  const validateRewardLimits = () => {
+    const repMax = parseInt(newRewardRepMax) || 0;
+    
+    // Check for non-developers
+    if (developerStatus !== 'APPROVED') {
+      if (repMax > 5) {
+        alert("Community members cannot set reputation reward upper bound greater than 5.");
+        return false;
+      }
+    }
+    
+    // Basic logical checks
+    if (parseInt(newRewardMin) > parseInt(newRewardMax)) {
+      alert("Min Token Reward cannot be greater than Max Token Reward");
+      return false;
+    }
+    if (parseInt(newRewardRepMin) > repMax) {
+      alert("Min Rep Reward cannot be greater than Max Rep Reward");
+      return false;
+    }
+
+    return true;
+  };
+
   const handleCreateMission = async () => {
     if (!newMissionTitle || !newMissionDesc || !newRewardMax) return;
-    setCreating(true);
-    const result = await createUserCampaign(
-      'MISSION',
-      newMissionTitle,
-      newMissionDesc,
-      parseInt(newRewardMin) || 0,
-      parseInt(newRewardMax) || 0
-    );
+    
+    if (!validateRewardLimits()) return;
 
-    if (result.success) {
-      alert(t('economy.missions.launched_success'));
-      setShowCreateModal(false);
-      setNewMissionTitle('');
-      setNewMissionDesc('');
-      setNewRewardMin('');
-      setNewRewardMax('');
-      fetchData();
+    setCreating(true);
+
+    if (editingId) {
+      // Update Mission
+      const { error } = await supabase
+        .from('missions')
+        .update({
+          title: newMissionTitle,
+          description: newMissionDesc,
+          reward_min: parseInt(newRewardMin) || 0,
+          reward_max: parseInt(newRewardMax) || 0,
+          reward_rep_min: parseInt(newRewardRepMin) || 0,
+          reward_rep_max: parseInt(newRewardRepMax) || 0,
+          deadline: newDeadline ? new Date(newDeadline).toISOString() : null
+        })
+        .eq('id', editingId);
+      
+      if (error) {
+        alert("Error updating mission: " + error.message);
+      } else {
+        alert("Mission updated successfully");
+        setShowCreateModal(false);
+        resetForm();
+        fetchData();
+      }
     } else {
-      alert(result.message);
+      // Create Mission
+      const { error } = await supabase.from('missions').insert({
+        title: newMissionTitle,
+        description: newMissionDesc,
+        reward_min: parseInt(newRewardMin) || 0,
+        reward_max: parseInt(newRewardMax) || 0,
+        reward_rep_min: parseInt(newRewardRepMin) || 0,
+        reward_rep_max: parseInt(newRewardRepMax) || 0,
+        deadline: newDeadline ? new Date(newDeadline).toISOString() : null,
+        creator_id: user?.id,
+        status: 'ACTIVE',
+        type: 'MISSION',
+        is_variable_reward: true
+      });
+
+      if (error) {
+        alert("Error creating mission: " + error.message);
+      } else {
+        alert(t('economy.missions.launched_success'));
+        setShowCreateModal(false);
+        resetForm();
+        fetchData();
+      }
     }
     setCreating(false);
+  };
+
+  const resetForm = () => {
+    setNewMissionTitle('');
+    setNewMissionDesc('');
+    setNewRewardMin('');
+    setNewRewardMax('');
+    setNewRewardRepMin('');
+    setNewRewardRepMax('');
+    setNewDeadline('');
+    setEditingId(null);
   };
 
   const getMissionSubmissions = (missionId: string) => {
@@ -218,31 +323,39 @@ const Missions = () => {
                            {isExpired(mission.deadline) ? 'Expired' : `Deadline: ${new Date(mission.deadline).toLocaleDateString()}`}
                         </span>
                       )}
+                      {user && user.id === mission.creator_id && (
+                        <div className="flex items-center gap-2 ml-4">
+                          <button 
+                            onClick={() => openEditModal(mission)}
+                            className="p-1 text-text-secondary hover:text-primary transition-colors"
+                            title="Edit Mission"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(mission.id)}
+                            className="p-1 text-text-secondary hover:text-red-500 transition-colors"
+                            title="Delete Mission"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <p className="text-text-secondary text-sm mb-4">{mission.description}</p>
                   </div>
                   <div className="text-right">
-                    {mission.is_variable_reward ? (
                        <div className="flex flex-col items-end">
                          <div className="text-primary font-bold font-mono">{t('economy.missions.variable_reward')}</div>
                          <div className="text-xs text-text-secondary">
                            {mission.reward_min}-{mission.reward_max} Tokens
                          </div>
-                         {mission.reward_rep_max && mission.reward_rep_max > 0 && (
+                         {(mission.reward_rep_max > 0 || mission.reward_rep_min > 0) && (
                             <div className="text-xs text-text-secondary">
                               {mission.reward_rep_min}-{mission.reward_rep_max} Rep
                             </div>
                          )}
-                         <div className="text-sm text-green-400 font-mono mt-1">
-                           {t('economy.missions.current_reward', { amount: mission.reward_tokens })}
-                         </div>
                        </div>
-                    ) : (
-                      <>
-                        <div className="text-primary font-bold font-mono">+{mission.reward_tokens} {t('economy.wallet.tokens')}</div>
-                        <div className="text-secondary font-bold font-mono">+{mission.reward_rep} {t('economy.wallet.rep')}</div>
-                      </>
-                    )}
                   </div>
                 </div>
 
@@ -321,9 +434,11 @@ const Missions = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-surface border border-white/20 rounded-lg p-6 max-w-md w-full"
+              className="bg-surface border border-white/20 rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
             >
-              <h3 className="text-xl font-bold text-white mb-4">{t('economy.missions.create_modal.title')}</h3>
+              <h3 className="text-xl font-bold text-white mb-4">
+                {editingId ? 'Edit Mission' : t('economy.missions.create_modal.title')}
+              </h3>
               <div className="space-y-4 mb-4">
                 <div>
                   <label className="block text-xs text-text-secondary mb-1">{t('economy.missions.create_modal.name_label')}</label>
@@ -345,7 +460,7 @@ const Missions = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-text-secondary mb-1">{t('economy.missions.create_modal.min_label')}</label>
+                    <label className="block text-xs text-text-secondary mb-1">Min Token Reward</label>
                     <input
                       type="number"
                       className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
@@ -354,7 +469,7 @@ const Missions = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-text-secondary mb-1">{t('economy.missions.create_modal.max_label')}</label>
+                    <label className="block text-xs text-text-secondary mb-1">Max Token Reward</label>
                     <input
                       type="number"
                       className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
@@ -363,10 +478,42 @@ const Missions = () => {
                     />
                   </div>
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Min Rep Reward</label>
+                    <input
+                      type="number"
+                      className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                      value={newRewardRepMin}
+                      onChange={(e) => setNewRewardRepMin(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-1">Max Rep Reward</label>
+                    <input
+                      type="number"
+                      className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                      value={newRewardRepMax}
+                      onChange={(e) => setNewRewardRepMax(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-text-secondary mb-1">Deadline</label>
+                  <input
+                    type="date"
+                    className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                    value={newDeadline}
+                    onChange={(e) => setNewDeadline(e.target.value)}
+                  />
+                </div>
               </div>
               <div className="flex space-x-3">
                 <button
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    resetForm();
+                  }}
                   className="flex-1 bg-white/10 text-white py-2 rounded hover:bg-white/20"
                 >
                   {t('economy.missions.create_modal.cancel')}
@@ -376,7 +523,7 @@ const Missions = () => {
                   disabled={creating}
                   className="flex-1 bg-primary text-background font-bold py-2 rounded hover:bg-primary/90"
                 >
-                  {creating ? t('economy.missions.create_modal.launching') : t('economy.missions.create_modal.submit')}
+                  {creating ? (editingId ? 'Updating...' : t('economy.missions.create_modal.launching')) : (editingId ? 'Update Mission' : t('economy.missions.create_modal.submit'))}
                 </button>
               </div>
             </motion.div>
