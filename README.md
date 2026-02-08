@@ -1,57 +1,84 @@
-# React + TypeScript + Vite
+# Geeks Production Studio (GPS) Homepage
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Official homepage for Geeks Production Studio, a modern web platform featuring a gamified community economy, mission systems, and integrated support markets. Built with React, Vite, and Supabase.
 
-Currently, two official plugins are available:
+## 🚀 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 💎 Economy System
+- **Dual Currency**: 
+  - **Tokens (TKN)**: Transferable currency for trading and rewards.
+  - **Reputation (REP)**: Non-transferable score tracking community contribution.
+- **Wallet**: Integrated wallet system with real-time balance tracking.
+- **Ledger**: Append-only audit trail for all transactions.
+- **Daily Login Bonus**: Earn tokens daily based on your current reputation tier.
 
-## Expanding the ESLint configuration
+### 🎮 Gamification & Missions
+- **Mission Center**: Complete community tasks (Feedback, Playtests, Ideas) to earn rewards.
+- **Variable Rewards**: Dynamic token rewards with developer-authorized payouts.
+- **Reputation Gating**: 
+  - **>30 REP**: Access to Missions.
+  - **>50 REP**: Access to Support Markets and Ticket Trading.
+  - **>70 REP**: Ability to launch User Campaigns and create markets.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 📈 Markets
+- **Support Markets**: Invest in community outcomes via Bonds, Index Funds, and Milestone instruments.
+- **Ticket Market**: Peer-to-peer trading of outcome tickets with atomic transactions and password protection.
+- **User Campaigns**: High-reputation users can launch their own betting markets or missions.
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+### 🌐 Community & Content
+- **Bilingual Support**: Full English and Chinese (Simplified) localization.
+- **Forum**: Community discussions with developer-sponsored rewards (Rep > 50 to post).
+- **News & Updates**: Integrated news feed with comment system.
+- **SSO**: Cross-subdomain Single Sign-On for seamless access across DeltaDash and other GPS services.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🛠 Tech Stack
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- **Frontend**: React 18, Vite, TypeScript
+- **Styling**: Tailwind CSS, Framer Motion, Lucide React
+- **Backend / Database**: Supabase (PostgreSQL)
+- **Auth**: Supabase Auth with Custom SSO
+- **State Management**: Zustand, React Context
+- **Internationalization**: i18next
 
-export default tseslint.config({
-  extends: [
-    // other configs...
-    // Enable lint rules for React
-    reactX.configs['recommended-typescript'],
-    // Enable lint rules for React DOM
-    reactDom.configs.recommended,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+## 📦 Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/gps-homepage.git
+   cd gps-homepage
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Environment Setup**
+   Create a `.env` file in the root directory with your Supabase credentials:
+   ```env
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+4. **Run Development Server**
+   ```bash
+   npm run dev
+   ```
+
+## 🗄️ Database Setup
+
+The project uses Supabase as the backend. SQL migrations are located in the `supabase/migrations` directory.
+
+Key schemas include:
+- `wallets`, `ledger_entries` (Economy)
+- `missions`, `submissions` (Mission Control)
+- `support_instruments`, `positions` (Markets)
+- `forum_posts`, `forum_comments` (Community)
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+© 2026 Geeks Production Studio. All Rights Reserved.

@@ -9,6 +9,7 @@ export interface DriverStats {
   daily_dev_accumulated: number;
   last_training_update: string;
   training_mode: 'rest' | 'light' | 'intense';
+  focused_skills: string[]; // e.g. ['acceleration', 'braking']
 }
 
 export type TrackNode = {
@@ -34,12 +35,14 @@ export interface RaceState {
         speed: number;    // km/h
         battery: number;  // %
         last_node_id: number;
+        lateral_offset: number; // -1 (Inside) to 1 (Outside)
     };
     p2: {
         distance: number;
         speed: number;
         battery: number;
         last_node_id: number;
+        lateral_offset: number;
     };
     finished: boolean;
     winner_id: string | null;

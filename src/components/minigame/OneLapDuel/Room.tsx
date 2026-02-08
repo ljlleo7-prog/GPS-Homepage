@@ -91,6 +91,20 @@ export default function Room({ roomId, driver, onLeave }: Props) {
     };
   }, [roomId]);
 
+  // Watch for Finish
+  useEffect(() => {
+    if (raceState?.finished && raceState.winner_id === user?.id) {
+        setToast({ type: 'success', msg: t('minigame_onelapduel.room.victory_reward') || 'Victory! +5 Tokens & +25 Points' });
+        
+        // Refresh driver stats (points/wins updated by trigger)
+        setTimeout(() => {
+            // Optional: trigger a refresh if we had a callback
+        }, 2000);
+    } else if (raceState?.finished && raceState.winner_id !== user?.id && raceState.winner_id) {
+        setToast({ type: 'error', msg: t('minigame_onelapduel.room.defeat_reward') || 'Defeat. +10 Points for finishing.' });
+    }
+  }, [raceState?.finished, raceState?.winner_id, user?.id]);
+
   const fetchRoomDetails = async () => {
     const { data: roomData, error: roomError } = await supabase.from('one_lap_rooms').select('*').eq('id', roomId).single();
     if (roomError) console.error('Error fetching room:', roomError);
@@ -119,8 +133,8 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                 const lastLog = logs[logs.length - 1];
                 setRaceState({
                     time: lastLog.time,
-                    p1: { distance: lastLog.p1_dist, speed: lastLog.p1_speed, battery: lastLog.p1_battery, last_node_id: lastLog.nodeId },
-                    p2: { distance: lastLog.p2_dist, speed: lastLog.p2_speed, battery: lastLog.p2_battery, last_node_id: lastLog.nodeId },
+                    p1: { distance: lastLog.p1_dist, speed: lastLog.p1_speed, battery: lastLog.p1_battery, last_node_id: lastLog.nodeId, lateral_offset: 0 },
+                    p2: { distance: lastLog.p2_dist, speed: lastLog.p2_speed, battery: lastLog.p2_battery, last_node_id: lastLog.nodeId, lateral_offset: 0 },
                     finished: true,
                     winner_id: raceData.winner_id,
                     logs: logs
@@ -145,6 +159,11 @@ export default function Room({ roomId, driver, onLeave }: Props) {
         
         const myPlayer = processedPlayers.find((p: any) => p.user_id === user?.id);
         if (myPlayer) {
+            // Only update local ready state if it matches server to avoid jitter, 
+            // BUT we trust server as source of truth.
+            // If we just clicked ready, we might want to ignore a stale fetch?
+            // For now, let's log it.
+            // console.log('Synced Ready State:', myPlayer.is_ready);
             setIsReady(myPlayer.is_ready);
             if (myPlayer.strategy) {
                 setStrategy(myPlayer.strategy);
@@ -280,10 +299,23 @@ export default function Room({ roomId, driver, onLeave }: Props) {
 
   const toggleReady = async () => {
     if (!user) return;
+    
+    // Safety check: am I in the room?
+    const myPlayer = players.find(p => p.user_id === user.id);
+    if (!myPlayer) {
+        showToast('Error: You are not in this room.', 'error');
+        return;
+    }
+
     const newReady = !isReady;
     setIsReady(newReady);
     
-    await supabase
+    // Optimistic update
+    setPlayers(prev => prev.map(p => 
+        p.user_id === user.id ? { ...p, is_ready: newReady } : p
+    ));
+    
+    const { error } = await supabase
         .from('one_lap_room_players')
         .update({ 
             is_ready: newReady,
@@ -291,6 +323,14 @@ export default function Room({ roomId, driver, onLeave }: Props) {
         })
         .eq('room_id', roomId)
         .eq('user_id', user.id);
+
+    if (error) {
+        console.error('Error toggling ready:', error);
+        showToast('Failed to update status. Please try again.', 'error');
+        // Revert optimistic update
+        setIsReady(!newReady);
+        fetchRoomDetails();
+    }
   };
 
   const handleExit = async () => {
@@ -304,8 +344,22 @@ export default function Room({ roomId, driver, onLeave }: Props) {
     onLeave();
   };
 
+  const handleJoin = async () => {
+    if (!user) return;
+    const { error } = await supabase
+      .from('one_lap_room_players')
+      .insert([{ room_id: roomId, user_id: user.id, is_ready: false }]);
+    
+    if (error) {
+        console.error('Join error:', error);
+        showToast('Failed to join room', 'error');
+    } else {
+        fetchRoomDetails();
+    }
+  };
+
   const isRacing = !!raceState;
-  const amIHost = room?.created_by === user?.id;
+  const myPlayer = players.find(p => p.user_id === user?.id);
   
   return (
     <div>
@@ -353,24 +407,40 @@ export default function Room({ roomId, driver, onLeave }: Props) {
         // Real-time Race Visualization
         <div className="bg-black p-6 rounded-lg border border-white/10 relative">
             {/* Track Progress */}
-            <div className="relative h-24 bg-neutral-900 rounded-xl mb-8 border border-white/5 overflow-hidden">
-                <div className="absolute top-1/2 left-4 right-4 h-1 bg-white/10 -translate-y-1/2 rounded-full" />
+            <div className="relative h-32 bg-neutral-900 rounded-xl mb-8 border border-white/5 overflow-hidden group">
+                {/* Track Surface & Racing Lines Guide */}
+                <div className="absolute inset-0 flex flex-col">
+                     <div className="flex-1 border-b border-white/5 bg-white/5 flex items-center px-2 text-[10px] text-white/20">Outside (Opportunity)</div>
+                     <div className="flex-1 border-b border-dashed border-white/10 flex items-center px-2 text-[10px] text-white/20">Center (Clean)</div>
+                     <div className="flex-1 bg-white/5 flex items-center px-2 text-[10px] text-white/20">Inside (Defense)</div>
+                </div>
+
+                {/* Start/Finish Line */}
+                <div className="absolute top-0 bottom-0 left-[5%] w-0.5 bg-white/20" />
+                <div className="absolute top-0 bottom-0 right-[5%] w-0.5 bg-checkerboard opacity-50" />
+
                 {/* Cars */}
                 {players.map((p, idx) => {
                     const pState = idx === 0 ? raceState.p1 : raceState.p2;
                     const progress = (pState.distance / trackLength) * 100;
+                    const lateral = pState.lateral_offset ?? 0; // -1 to 1
+
                     return (
                         <motion.div 
                             key={p.user_id}
-                            className={`absolute top-1/2 -translate-y-1/2 z-${20-idx} flex flex-col items-center`}
-                            animate={{ left: `${Math.min(95, Math.max(5, progress))}%` }}
+                            className={`absolute z-${20-idx} flex flex-col items-center w-20`}
+                            animate={{ 
+                                left: `${Math.min(95, Math.max(5, progress))}%`,
+                                top: `${50 + (lateral * 35)}%`
+                            }}
                             transition={{ ease: "linear", duration: 1 }}
-                            style={{ marginTop: idx === 1 ? '20px' : '-20px' }}
+                            style={{ x: '-50%', y: '-50%' }}
                         >
-                             <div className={`w-8 h-4 ${idx===0 ? 'bg-blue-500' : 'bg-orange-500'} rounded-sm border border-white/50 relative`}>
+                             <div className={`w-10 h-5 ${idx===0 ? 'bg-blue-500' : 'bg-orange-500'} rounded shadow-lg border border-white/50 relative flex items-center justify-center`}>
                                 <div className="absolute -right-1 top-0 bottom-0 w-1 bg-black/20" />
+                                <span className="text-[8px] font-black text-white/90">{pState.speed.toFixed(0)}</span>
                             </div>
-                            <div className={`mt-1 text-[10px] font-bold ${idx===0 ? 'text-blue-400' : 'text-orange-400'} whitespace-nowrap`}>
+                            <div className={`mt-1 text-[10px] font-bold ${idx===0 ? 'text-blue-400' : 'text-orange-400'} whitespace-nowrap bg-black/50 px-1 rounded`}>
                                 {p.profiles?.username}
                             </div>
                         </motion.div>
@@ -503,13 +573,22 @@ export default function Room({ roomId, driver, onLeave }: Props) {
       
       {!isRacing && (
         <div className="flex justify-center mt-8">
-             <button 
-                 onClick={toggleReady}
-                 className={`px-12 py-4 rounded-full text-xl font-bold transition-all transform hover:scale-105
-                     ${isReady ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-green-500 text-black hover:bg-green-400'}`}
-             >
-                 {isReady ? t('minigame_onelapduel.room.cancel_ready') : t('minigame_onelapduel.room.ready_button')}
-             </button>
+             {!myPlayer ? (
+                 <button 
+                     onClick={handleJoin}
+                     className="px-12 py-4 rounded-full text-xl font-bold bg-white text-black hover:bg-gray-200 transition-all transform hover:scale-105"
+                 >
+                     {t('minigame_onelapduel.lobby.join_race') || 'Join Race'}
+                 </button>
+             ) : (
+                 <button 
+                     onClick={toggleReady}
+                     className={`px-12 py-4 rounded-full text-xl font-bold transition-all transform hover:scale-105
+                         ${isReady ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-green-500 text-black hover:bg-green-400'}`}
+                 >
+                     {isReady ? t('minigame_onelapduel.room.cancel_ready') : t('minigame_onelapduel.room.ready_button')}
+                 </button>
+             )}
         </div>
       )}
     </div>

@@ -54,7 +54,7 @@ export default function ReactionGame() {
     }
 
     if (wallet && wallet.token_balance < 1) {
-        setMessage(t('minigame.cost_warning') || "Insufficient tokens (1 required)");
+        setMessage(t('minigame.cost_warning'));
         return;
     }
 

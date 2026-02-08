@@ -112,16 +112,31 @@ const DeveloperInbox = () => {
     try {
       console.log('Fetching developer inbox...');
       const { data: result, error } = await supabase.rpc('get_developer_inbox');
-      if (error) throw error;
+      
+      if (error) {
+        console.error('RPC Error:', error);
+        alert(`Error fetching inbox: ${error.message}`);
+        throw error;
+      }
+      
       console.log('Inbox result:', result);
-      if (result && result.success) {
-        setData({
-          pending_devs: result.pending_devs,
-          pending_missions: result.pending_missions,
-          active_bets: result.active_bets,
-          pending_acks: result.pending_acks,
-          pending_tests: result.pending_tests || []
-        });
+      
+      if (result) {
+        if (result.success) {
+          setData({
+            pending_devs: result.pending_devs,
+            pending_missions: result.pending_missions,
+            active_bets: result.active_bets,
+            pending_acks: result.pending_acks,
+            pending_tests: result.pending_tests || []
+          });
+        } else {
+          console.error('Inbox fetch failed logically:', result.message);
+          // Show alert for logical failures (e.g. Unauthorized or RPC internal error)
+          if (result.message) {
+             alert(`Inbox Error: ${result.message}`);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching inbox:', error);
@@ -187,24 +202,24 @@ const DeveloperInbox = () => {
           setMissionForm({ title: '', description: '', minToken: 0, maxToken: 0, minRep: 0, maxRep: 0, deadline: '' });
           fetchMissions();
       } catch (error: any) {
-          alert('Error saving mission: ' + error.message);
+          alert(t('developer.inbox.mission_control.error_save', { error: error.message }));
       }
   };
 
   const handleDeleteMission = async (id: string) => {
-      if (!confirm('Are you sure you want to delete this mission?')) return;
+      if (!confirm(t('developer.inbox.mission_control.confirm_delete'))) return;
       try {
           const { error } = await supabase.from('missions').delete().eq('id', id);
           if (error) throw error;
           fetchMissions();
       } catch (error: any) {
-          alert('Error deleting mission: ' + error.message);
+          alert(t('developer.inbox.mission_control.error_delete', { error: error.message }));
       }
   };
 
   const openEditMission = (mission: Mission) => {
       if (mission.submission_count && mission.submission_count > 0) {
-          alert('Cannot edit mission with pending submissions.');
+          alert(t('developer.inbox.mission_control.error_edit_pending'));
           return;
       }
       setMissionForm({
@@ -239,7 +254,7 @@ const DeveloperInbox = () => {
           setAwardForm({ tokens: sub.mission.reward_min || 0, rep: sub.mission.reward_rep_min || 0 });
           setShowAwardModal(true);
       } catch (error: any) {
-          alert('Error preparing award: ' + error.message);
+          alert(t('developer.inbox.mission_control.error_prepare_award', { error: error.message }));
       }
   };
 
@@ -248,11 +263,11 @@ const DeveloperInbox = () => {
       
       // Validate
       if (awardForm.tokens < (selectedMissionDetails.reward_min || 0) || awardForm.tokens > (selectedMissionDetails.reward_max || 0)) {
-          alert(`Tokens must be between ${selectedMissionDetails.reward_min} and ${selectedMissionDetails.reward_max}`);
+          alert(t('developer.inbox.mission_control.error_tokens_range', { min: selectedMissionDetails.reward_min, max: selectedMissionDetails.reward_max }));
           return;
       }
       if (awardForm.rep < (selectedMissionDetails.reward_rep_min || 0) || awardForm.rep > (selectedMissionDetails.reward_rep_max || 0)) {
-          alert(`Reputation must be between ${selectedMissionDetails.reward_rep_min} and ${selectedMissionDetails.reward_rep_max}`);
+          alert(t('developer.inbox.mission_control.error_rep_range', { min: selectedMissionDetails.reward_rep_min, max: selectedMissionDetails.reward_rep_max }));
           return;
       }
 
@@ -271,22 +286,22 @@ const DeveloperInbox = () => {
           setShowAwardModal(false);
           fetchInbox(); // Refresh inbox
       } catch (error: any) {
-          alert('Error awarding submission: ' + error.message);
+          alert(t('developer.inbox.mission_control.error_award', { error: error.message }));
       }
   };
 
   const handleApproveDev = async (id: string) => {
-    if (!confirm('Approve this user as developer?')) return;
+    if (!confirm(t('developer.inbox.confirms.approve_dev'))) return;
     const result = await approveDeveloperAccess(id);
     if (result.success) {
       fetchInbox();
     } else {
-      alert(result.message || 'Failed to approve');
+      alert(result.message || t('developer.inbox.alerts.approve_failed'));
     }
   };
 
   const handleDeclineDev = async (id: string) => {
-    if (!confirm('Decline this developer request?')) return;
+    if (!confirm(t('developer.inbox.confirms.decline_dev'))) return;
     try {
         const { data, error } = await supabase.rpc('decline_developer_access', {
             target_user_id: id
@@ -297,12 +312,12 @@ const DeveloperInbox = () => {
         
         fetchInbox();
     } catch (error: any) {
-        alert(error.message || 'Failed to decline');
+        alert(error.message || t('developer.inbox.alerts.decline_failed'));
     }
   };
 
   const handleApproveMission = async (id: string) => {
-    if (!confirm('Approve this mission submission?')) return;
+    if (!confirm(t('developer.inbox.confirms.approve_mission'))) return;
     try {
         // Assuming mission_submissions table has a status column
         // We might need to trigger payout too. The trigger 'process_mission_payout' handles it on update.
@@ -314,12 +329,12 @@ const DeveloperInbox = () => {
         if (error) throw error;
         fetchInbox();
     } catch (error: any) {
-        alert(error.message || 'Failed to approve mission');
+        alert(error.message || t('developer.inbox.alerts.approve_mission_failed'));
     }
   };
 
   const handleRejectMission = async (id: string) => {
-    if (!confirm('Reject this mission submission?')) return;
+    if (!confirm(t('developer.inbox.confirms.reject_mission'))) return;
     try {
         const { error } = await supabase
             .from('mission_submissions')
@@ -329,12 +344,12 @@ const DeveloperInbox = () => {
         if (error) throw error;
         fetchInbox();
     } catch (error: any) {
-        alert(error.message || 'Failed to reject mission');
+        alert(error.message || t('developer.inbox.alerts.reject_mission_failed'));
     }
   };
 
   const handleResolveBetAction = async (id: string, side: 'A' | 'B') => {
-      const proofUrl = prompt('Enter proof URL (optional):', 'https://example.com');
+      const proofUrl = prompt(t('developer.inbox.prompts.proof_url'), 'https://example.com');
       if (proofUrl === null) return; // Cancelled
 
       const result = await resolveDriverBet(id, side, proofUrl);
@@ -346,7 +361,7 @@ const DeveloperInbox = () => {
   };
 
   const handleAcknowledgePost = async (id: string) => {
-      if (!confirm('Mark this post as acknowledged?')) return;
+      if (!confirm(t('developer.inbox.confirms.acknowledge_post'))) return;
       try {
           const { error } = await supabase
             .from('forum_posts')
@@ -356,27 +371,27 @@ const DeveloperInbox = () => {
           if (error) throw error;
           fetchInbox();
       } catch (error: any) {
-          alert(error.message || 'Failed to acknowledge');
+          alert(error.message || t('developer.inbox.alerts.acknowledge_failed'));
       }
   };
 
   const handleApproveTest = async (id: string) => {
-    if (!confirm('Approve this test player? They will receive +20 Rep.')) return;
+    if (!confirm(t('developer.inbox.confirms.approve_test'))) return;
     const result = await approveTestPlayerRequest(id);
     if (result.success) {
       fetchInbox();
     } else {
-      alert(result.message || 'Failed to approve');
+      alert(result.message || t('developer.inbox.alerts.approve_failed'));
     }
   };
 
   const handleDeclineTest = async (id: string) => {
-    if (!confirm('Decline this request?')) return;
+    if (!confirm(t('developer.inbox.confirms.decline_test'))) return;
     const result = await declineTestPlayerRequest(id);
     if (result.success) {
       fetchInbox();
     } else {
-      alert(result.message || 'Failed to decline');
+      alert(result.message || t('developer.inbox.alerts.decline_failed'));
     }
   };
 
@@ -385,8 +400,8 @@ const DeveloperInbox = () => {
           <div className="min-h-screen bg-background pt-24 text-center text-white">
               <div className="max-w-md mx-auto p-6 bg-surface border border-red-500/30 rounded-lg">
                   <Shield size={48} className="mx-auto text-red-500 mb-4" />
-                  <h2 className="text-xl font-bold mb-2">{t('developer_inbox.access_denied')}</h2>
-                  <p className="text-text-secondary">{t('developer_inbox.must_be_developer')}</p>
+                  <h2 className="text-xl font-bold mb-2">{t('developer.inbox.access_denied')}</h2>
+                  <p className="text-text-secondary">{t('developer.inbox.access_denied_desc')}</p>
               </div>
           </div>
       );
@@ -402,22 +417,22 @@ const DeveloperInbox = () => {
         >
           <h1 className="text-3xl font-bold font-mono text-white flex items-center gap-3">
             <Shield className="text-cyan-400" />
-            {t('developer_inbox.title')}
+            {t('developer.inbox.title')}
           </h1>
           <button 
             onClick={fetchInbox}
             className="px-4 py-2 bg-white/5 border border-white/10 rounded hover:bg-white/10 text-sm font-mono text-text-secondary"
           >
-            {t('developer_inbox.refresh')}
+            {t('developer.inbox.refresh')}
           </button>
         </motion.div>
 
         {loading ? (
-             <div className="text-center text-text-secondary py-12">{t('developer_inbox.loading')}</div>
+             <div className="text-center text-text-secondary py-12">{t('developer.inbox.loading')}</div>
         ) : (
             <div className="space-y-8">
                 {/* 0. Mission Management */}
-                <Section title="Mission Control" icon={<Trophy className="text-yellow-400" />} count={missions.length}>
+                <Section title={t('developer.inbox.mission_control.title')} icon={<Trophy className="text-yellow-400" />} count={missions.length}>
                     <div className="mb-4">
                         <button 
                             onClick={() => {
@@ -428,11 +443,11 @@ const DeveloperInbox = () => {
                             className="bg-primary hover:bg-primary/80 text-black px-4 py-2 rounded font-bold text-sm transition-colors flex items-center gap-2"
                         >
                             <Trophy size={16} />
-                            Create New Mission
+                            {t('developer.inbox.mission_control.create_btn')}
                         </button>
                     </div>
                     {missions.length === 0 ? (
-                        <div className="text-text-secondary text-sm italic">No active missions.</div>
+                        <div className="text-text-secondary text-sm italic">{t('developer.inbox.mission_control.no_active')}</div>
                     ) : (
                         <div className="grid gap-4">
                             {missions.map(m => (
@@ -443,20 +458,20 @@ const DeveloperInbox = () => {
                                             <p className="text-sm text-text-secondary mb-2">{m.description}</p>
                                             <div className="flex flex-wrap gap-3 text-xs font-mono">
                                                 <span className="bg-yellow-500/10 text-yellow-400 px-2 py-1 rounded border border-yellow-500/20">
-                                                    Tokens: {m.reward_min}-{m.reward_max}
+                                                    {t('developer.inbox.mission_control.tokens')}: {m.reward_min}-{m.reward_max}
                                                 </span>
                                                 <span className="bg-purple-500/10 text-purple-400 px-2 py-1 rounded border border-purple-500/20">
-                                                    Rep: {m.reward_rep_min}-{m.reward_rep_max}
+                                                    {t('developer.inbox.mission_control.rep')}: {m.reward_rep_min}-{m.reward_rep_max}
                                                 </span>
                                                 {m.deadline && (
                                                     <span className="bg-red-500/10 text-red-400 px-2 py-1 rounded border border-red-500/20">
-                                                        Due: {new Date(m.deadline).toLocaleDateString()}
+                                                        {t('developer.inbox.mission_control.due')}: {new Date(m.deadline).toLocaleDateString()}
                                                     </span>
                                                 )}
                                             </div>
                                             {m.submission_count !== undefined && m.submission_count > 0 && (
                                                 <div className="text-xs text-blue-400 mt-2">
-                                                    {m.submission_count} pending submissions (Cannot Edit)
+                                                    {t('developer.inbox.mission_control.pending_submissions', { count: m.submission_count })}
                                                 </div>
                                             )}
                                         </div>
@@ -466,13 +481,13 @@ const DeveloperInbox = () => {
                                                 disabled={m.submission_count !== undefined && m.submission_count > 0}
                                                 className="px-3 py-1 bg-white/5 hover:bg-white/10 text-white text-xs rounded border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
-                                                Edit
+                                                {t('developer.inbox.mission_control.edit')}
                                             </button>
                                             <button 
                                                 onClick={() => handleDeleteMission(m.id)}
                                                 className="px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs rounded border border-red-500/20"
                                             >
-                                                Delete
+                                                {t('developer.inbox.mission_control.delete')}
                                             </button>
                                         </div>
                                     </div>
@@ -483,19 +498,19 @@ const DeveloperInbox = () => {
                 </Section>
 
                 {/* 1. Pending Developer Requests */}
-                <Section title={t('developer_inbox.pending_dev_requests')} icon={<UserIcon />} count={data.pending_devs.length}>
-                    {data.pending_devs.length === 0 ? (
-                        <EmptyState message={t('developer_inbox.no_pending_dev_requests')} />
-                    ) : (
-                        <div className="grid gap-4">
-                            {data.pending_devs.map(dev => (
-                                <Card key={dev.id}>
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <h3 className="font-bold text-white text-lg">{dev.username}</h3>
-                                            <p className="text-sm text-text-secondary">{t('developer_inbox.full_name')}: {dev.full_name}</p>
-                                            <p className="text-xs text-text-secondary mt-1">{t('developer_inbox.requested')}: {new Date(dev.created_at).toLocaleDateString(i18n.language)}</p>
-                                        </div>
+                <Section title={t('developer.inbox.sections.dev_requests')} icon={<UserIcon />} count={data.pending_devs.length}>
+          {data.pending_devs.length === 0 ? (
+            <EmptyState message={t('developer.inbox.empty.dev_requests')} />
+          ) : (
+            <div className="grid gap-4">
+              {data.pending_devs.map(dev => (
+                <Card key={dev.id}>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-bold text-white text-lg">{dev.username}</h3>
+                      <p className="text-sm text-text-secondary">{t('developer.inbox.full_name')}: {dev.full_name}</p>
+                      <p className="text-xs text-text-secondary mt-1">{t('developer.inbox.requested')}: {new Date(dev.created_at).toLocaleDateString(i18n.language)}</p>
+                    </div>
                                         <div className="flex gap-2">
                                             <ActionButton 
                                                 onClick={() => handleApproveDev(dev.id)} 
@@ -516,9 +531,9 @@ const DeveloperInbox = () => {
                 </Section>
 
                 {/* 2. Pending Mission Submissions */}
-                <Section title={t('developer_inbox.pending_mission_submissions')} icon={<TrophyIcon />} count={data.pending_missions.length}>
+                <Section title={t('developer.inbox.sections.mission_submissions')} icon={<TrophyIcon />} count={data.pending_missions.length}>
                     {data.pending_missions.length === 0 ? (
-                        <EmptyState message={t('developer_inbox.no_pending_mission_submissions')} />
+                        <EmptyState message={t('developer.inbox.empty.mission_submissions')} />
                     ) : (
                         <div className="grid gap-4">
                             {data.pending_missions.map(sub => (
@@ -527,7 +542,7 @@ const DeveloperInbox = () => {
                                         <div className="flex-1 mr-4">
                                             <div className="flex items-center gap-2 mb-2">
                                                 <span className="bg-primary/20 text-primary text-xs px-2 py-0.5 rounded border border-primary/30 font-mono">
-                                                    {t('developer_inbox.mission_tag')}
+                                                    {t('developer.inbox.actions.mission_tag')}
                                                 </span>
                                                 <h3 className="font-bold text-white">{sub.mission_title}</h3>
                                             </div>
@@ -556,39 +571,41 @@ const DeveloperInbox = () => {
                 </Section>
 
                 {/* 3. Active Driver Bets (Resolution Needed) */}
-                <Section title={t('developer_inbox.active_driver_bets')} icon={<AlertTriangleIcon />} count={data.active_bets.length}>
+                <Section title={t('developer.inbox.sections.active_bets')} icon={<AlertTriangleIcon />} count={data.active_bets.length}>
                      {data.active_bets.length === 0 ? (
-                        <EmptyState message={t('developer_inbox.no_active_bets')} />
+                        <EmptyState message={t('developer.inbox.empty.active_bets')} />
                     ) : (
                         <div className="grid gap-4">
                             {data.active_bets.map(bet => (
                                 <Card key={bet.id}>
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <span className="bg-secondary/20 text-secondary text-xs px-2 py-0.5 rounded border border-secondary/30 font-mono">
-                                                    {t('developer_inbox.driver_bet_tag')}
-                                            </span>
-                                            <h3 className="font-bold text-white">{bet.title}</h3>
-                                        </div>
-                                        <p className="text-sm text-text-secondary mb-2">{t('common.by')} <span className="text-white">{bet.creator_name || t('common.unknown')}</span></p>
-                                        <p className="text-sm text-text-secondary mb-2">{bet.description}</p>
-                                        <p className="text-xs text-text-secondary">{t('developer_inbox.end_date')}: {new Date(bet.official_end_date).toLocaleDateString(i18n.language)}</p>
-                                    </div>
-                                        <div className="flex flex-col gap-2 min-w-[140px]">
-                                            <span className="text-xs text-center text-text-secondary mb-1">{t('developer_inbox.declare_winner')}:</span>
-                                            <button 
-                                                onClick={() => handleResolveBetAction(bet.id, 'A')}
-                                                className="px-3 py-1.5 bg-green-500/10 border border-green-500/30 text-green-400 rounded hover:bg-green-500/20 text-xs font-mono"
-                                            >
-                                                {t('developer_inbox.side_a')}: {bet.side_a_name}
-                                            </button>
-                                            <button 
-                                                onClick={() => handleResolveBetAction(bet.id, 'B')}
-                                                className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded hover:bg-red-500/20 text-xs font-mono"
-                                            >
-                                                {t('developer_inbox.side_b')}: {bet.side_b_name}
-                                            </button>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded border border-red-500/30 font-mono">
+                                                    {t('developer.inbox.actions.driver_bet_tag')}
+                                                </span>
+                                                <h3 className="font-bold text-white text-lg">{bet.title}</h3>
+                                            </div>
+                                            <p className="text-sm text-text-secondary mb-2">{bet.description}</p>
+                                            <p className="text-xs text-text-secondary">{t('developer.inbox.end_date')}: {new Date(bet.official_end_date).toLocaleDateString(i18n.language)}</p>
+                                            
+                                            <div className="mt-3 p-3 bg-black/30 rounded border border-white/5">
+                                                <span className="text-xs text-center text-text-secondary mb-1">{t('developer.inbox.declare_winner')}:</span>
+                                                <div className="flex gap-2 mt-2">
+                                                    <button 
+                                                        onClick={() => handleResolveBetAction(bet.id, 'A')}
+                                                        className="flex-1 bg-red-900/50 hover:bg-red-800/50 border border-red-700 text-red-200 text-xs py-1 px-2 rounded transition-colors"
+                                                    >
+                                                        {t('developer.inbox.actions.side_a')}: {bet.side_a_name}
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleResolveBetAction(bet.id, 'B')}
+                                                        className="flex-1 bg-blue-900/50 hover:bg-blue-800/50 border border-blue-700 text-blue-200 text-xs py-1 px-2 rounded transition-colors"
+                                                    >
+                                                        {t('developer.inbox.actions.side_b')}: {bet.side_b_name}
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </Card>
@@ -598,27 +615,32 @@ const DeveloperInbox = () => {
                 </Section>
 
                 {/* 4. Forum Acknowledgements */}
-                <Section title={t('developer_inbox.forum_acknowledgements')} icon={<MessageSquareIcon />} count={data.pending_acks.length}>
+                <Section title={t('developer.inbox.sections.forum_acks')} icon={<MessageSquareIcon />} count={data.pending_acks.length}>
                     {data.pending_acks.length === 0 ? (
-                        <EmptyState message={t('developer_inbox.no_pending_acknowledgements')} />
+                        <EmptyState message={t('developer.inbox.empty.forum_acks')} />
                     ) : (
                         <div className="grid gap-4">
                             {data.pending_acks.map(ack => (
                                 <Card key={ack.id}>
                                     <div className="flex justify-between items-center">
                                         <div>
-                                            <h3 className="font-bold text-white text-lg mb-1">{ack.title}</h3>
-                                            <p className="text-sm text-text-secondary">
-                                                {t('developer_inbox.request_by')} <span className="text-white">{ack.author_name}</span> • {new Date(ack.created_at).toLocaleDateString(i18n.language)}
-                                            </p>
-                                            <a href={`/community?post=${ack.id}`} target="_blank" rel="noreferrer" className="text-primary text-xs hover:underline flex items-center gap-1 mt-2">
-                                                {t('developer_inbox.view_post')} <ExternalLink size={12} />
-                                            </a>
+                                            <h3 className="font-bold text-white text-lg">{ack.title}</h3>
+                                            <div className="flex items-center gap-2 text-xs text-text-secondary mt-1">
+                                                {t('developer.inbox.actions.by')} <span className="text-white">{ack.author_name}</span> • {new Date(ack.created_at).toLocaleDateString(i18n.language)}
+                                                <a 
+                                                    href={`/forum/post/${ack.id}`} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-1 text-primary hover:underline ml-2"
+                                                >
+                                                    {t('developer.inbox.actions.view_post')} <ExternalLink size={12} />
+                                                </a>
+                                            </div>
                                         </div>
                                         <ActionButton 
                                             onClick={() => handleAcknowledgePost(ack.id)} 
-                                            variant="neutral"
-                                            label={t('developer_inbox.acknowledge')}
+                                            variant="approve"
+                                            label={t('developer.inbox.actions.acknowledge')}
                                         />
                                     </div>
                                 </Card>
@@ -627,29 +649,27 @@ const DeveloperInbox = () => {
                     )}
                 </Section>
                 {/* 5. Pending Test Player Requests */}
-                <Section title={t('developer_inbox.test_player_requests')} icon={<Gamepad2 size={20} className="text-blue-400" />} count={data.pending_tests.length}>
+                <Section title={t('developer.inbox.sections.test_requests')} icon={<Gamepad2 size={20} className="text-blue-400" />} count={data.pending_tests.length}>
                     {data.pending_tests.length === 0 ? (
-                        <EmptyState message={t('developer_inbox.no_pending_test_player_requests')} />
+                        <EmptyState message={t('developer.inbox.empty.test_requests')} />
                     ) : (
                         <div className="grid gap-4">
                             {data.pending_tests.map(req => (
                                 <Card key={req.id}>
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 mr-4">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded border border-blue-500/30 font-mono">
-                                                    {t('developer_inbox.tester_tag')}
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="bg-purple-500/20 text-purple-400 text-xs px-2 py-0.5 rounded border border-purple-500/30 font-mono">
+                                                    {t('developer.inbox.actions.tester_tag')}
                                                 </span>
-                                                <h3 className="font-bold text-white">{req.program}</h3>
+                                                <h3 className="font-bold text-white text-lg">{req.program}</h3>
                                             </div>
-                                            <p className="text-sm text-text-secondary mb-1">
-                                              {t('developer_inbox.user')}: <span className="text-white">{req.user_name}</span> ({req.identifiable_name})
-                                            </p>
-                                            <p className="text-xs text-text-secondary mb-3">
-                                              {t('developer_inbox.email')}: {req.user_email} • {new Date(req.created_at).toLocaleDateString(i18n.language)}
-                                            </p>
-                                            <div className="bg-black/30 p-3 rounded border border-white/5 text-sm text-gray-300">
-                                                {req.progress_description}
+                                            <div className="mt-2 text-sm text-gray-300 space-y-1">
+                                              <p>{t('developer.inbox.labels.user')}: <span className="text-white">{req.user_name}</span> ({req.identifiable_name})</p>
+                                              
+                                              <p className="mt-2 bg-black/20 p-2 rounded border border-white/5 italic">"{req.progress_description}"</p>
+                                              
+                                              <p>{t('developer.inbox.labels.email')}: {req.user_email} • {new Date(req.created_at).toLocaleDateString(i18n.language)}</p>
                                             </div>
                                         </div>
                                         <div className="flex flex-col gap-2">
@@ -682,11 +702,11 @@ const DeveloperInbox = () => {
                     className="bg-surface border border-white/10 rounded-lg p-6 max-w-lg w-full shadow-2xl"
                 >
                     <h2 className="text-xl font-bold text-white mb-4">
-                        {editingMissionId ? 'Edit Mission' : 'Create New Mission'}
+                        {editingMissionId ? t('developer.inbox.mission_control.edit_mission') : t('developer.inbox.mission_control.create_mission')}
                     </h2>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-xs text-text-secondary mb-1">Title</label>
+                            <label className="block text-xs text-text-secondary mb-1">{t('developer.inbox.mission_control.form.title')}</label>
                             <input 
                                 type="text" 
                                 value={missionForm.title}
@@ -695,7 +715,7 @@ const DeveloperInbox = () => {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs text-text-secondary mb-1">Description</label>
+                            <label className="block text-xs text-text-secondary mb-1">{t('developer.inbox.mission_control.form.description')}</label>
                             <textarea 
                                 value={missionForm.description}
                                 onChange={e => setMissionForm({...missionForm, description: e.target.value})}
@@ -704,7 +724,7 @@ const DeveloperInbox = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs text-text-secondary mb-1">Min Tokens</label>
+                                <label className="block text-xs text-text-secondary mb-1">{t('developer.inbox.mission_control.form.min_tokens')}</label>
                                 <input 
                                     type="number" 
                                     value={missionForm.minToken}
@@ -713,7 +733,7 @@ const DeveloperInbox = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs text-text-secondary mb-1">Max Tokens</label>
+                                <label className="block text-xs text-text-secondary mb-1">{t('developer.inbox.mission_control.form.max_tokens')}</label>
                                 <input 
                                     type="number" 
                                     value={missionForm.maxToken}
@@ -724,7 +744,7 @@ const DeveloperInbox = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs text-text-secondary mb-1">Min Rep</label>
+                                <label className="block text-xs text-text-secondary mb-1">{t('developer.inbox.mission_control.form.min_rep')}</label>
                                 <input 
                                     type="number" 
                                     value={missionForm.minRep}
@@ -733,7 +753,7 @@ const DeveloperInbox = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs text-text-secondary mb-1">Max Rep</label>
+                                <label className="block text-xs text-text-secondary mb-1">{t('developer.inbox.mission_control.form.max_rep')}</label>
                                 <input 
                                     type="number" 
                                     value={missionForm.maxRep}
@@ -743,7 +763,7 @@ const DeveloperInbox = () => {
                             </div>
                         </div>
                         <div>
-                            <label className="block text-xs text-text-secondary mb-1">Deadline (Optional)</label>
+                            <label className="block text-xs text-text-secondary mb-1">{t('developer.inbox.mission_control.form.deadline')}</label>
                             <input 
                                 type="date" 
                                 value={missionForm.deadline}
@@ -756,13 +776,13 @@ const DeveloperInbox = () => {
                                 onClick={() => setShowMissionModal(false)}
                                 className="px-4 py-2 text-text-secondary hover:text-white"
                             >
-                                Cancel
+                                {t('developer.inbox.mission_control.cancel')}
                             </button>
                             <button 
                                 onClick={handleSaveMission}
                                 className="px-4 py-2 bg-primary text-black font-bold rounded hover:bg-primary/80"
                             >
-                                Save Mission
+                                {t('developer.inbox.mission_control.save_mission')}
                             </button>
                         </div>
                     </div>
@@ -777,7 +797,7 @@ const DeveloperInbox = () => {
                     animate={{ scale: 1, opacity: 1 }}
                     className="bg-surface border border-white/10 rounded-lg p-6 max-w-md w-full shadow-2xl"
                 >
-                    <h2 className="text-xl font-bold text-white mb-4">Award Submission</h2>
+                    <h2 className="text-xl font-bold text-white mb-4">{t('developer.inbox.mission_control.award_submission_title')}</h2>
                     <div className="mb-4 p-3 bg-black/30 rounded border border-white/5 text-sm text-gray-300 max-h-32 overflow-y-auto">
                         {selectedSubmission.content}
                     </div>
@@ -785,7 +805,7 @@ const DeveloperInbox = () => {
                     <div className="space-y-4">
                         <div>
                             <label className="block text-xs text-text-secondary mb-1">
-                                Award Tokens ({selectedMissionDetails.reward_min} - {selectedMissionDetails.reward_max})
+                                {t('developer.inbox.mission_control.award_tokens')} ({selectedMissionDetails.reward_min} - {selectedMissionDetails.reward_max})
                             </label>
                             <input 
                                 type="number" 
@@ -796,7 +816,7 @@ const DeveloperInbox = () => {
                         </div>
                         <div>
                             <label className="block text-xs text-text-secondary mb-1">
-                                Award Reputation ({selectedMissionDetails.reward_rep_min} - {selectedMissionDetails.reward_rep_max})
+                                {t('developer.inbox.mission_control.award_rep')} ({selectedMissionDetails.reward_rep_min} - {selectedMissionDetails.reward_rep_max})
                             </label>
                             <input 
                                 type="number" 
@@ -811,13 +831,13 @@ const DeveloperInbox = () => {
                                 onClick={() => setShowAwardModal(false)}
                                 className="px-4 py-2 text-text-secondary hover:text-white"
                             >
-                                Cancel
+                                {t('developer.inbox.mission_control.cancel')}
                             </button>
                             <button 
                                 onClick={handleSubmitAward}
                                 className="px-4 py-2 bg-green-500 text-black font-bold rounded hover:bg-green-400"
                             >
-                                Approve & Award
+                                {t('developer.inbox.mission_control.approve_award')}
                             </button>
                         </div>
                     </div>

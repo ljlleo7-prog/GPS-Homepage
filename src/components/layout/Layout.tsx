@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
+import UsernameSetupModal from '../common/UsernameSetupModal';
 
 const Layout = () => {
   return (
@@ -9,6 +10,7 @@ const Layout = () => {
       <div className="bg-yellow-500/20 border-b border-yellow-500/20 text-yellow-200 text-xs py-1 px-4 text-center font-mono">
         DISCLAIMER: This is a simulation. Tokens and Reputation have NO real-world monetary value. For community engagement only.
       </div>
+      <UsernameSetupModal />
       <main className="flex-grow pt-0">
         <Outlet />
       </main>

@@ -1,4 +1,7 @@
 {
+  "common": {
+    "skip_for_now": "暂时跳过"
+  },
   "navbar": {
     "home": "首页",
     "news": "动态",
@@ -175,6 +178,19 @@
       "existing_user": "已有 ID？",
       "login_link": "访问系统",
       "error_username": "用户名至少需要 3 个字符"
+    },
+    "username_setup": {
+      "title": "设置个人资料",
+      "subtitle": "请选择一个用户名以继续。这将是您在平台上的唯一身份。",
+      "apology": "我们要向您表达诚挚的歉意。最近的系统更新导致用户资料重置。别担心，您的钱包余额已保留。",
+      "username_label": "用户名",
+      "username_placeholder": "输入您的用户名",
+      "helper_text": "3-20个字符，仅限字母、数字和下划线。",
+      "submit": "设置用户名",
+      "loading": "保存中...",
+      "success": "用户名设置成功！",
+      "error_taken": "用户名已被占用",
+      "error_generic": "更新用户名失败"
     }
   },
   "contact": {
@@ -520,7 +536,59 @@
     "est_prize": "预计奖金",
     "no_times_recorded": "本月暂无记录",
     "you": "您",
-    "login_warning": "请先登录！"
+    "login_warning": "请先登录！",
+    "cost_warning": "代币不足（需要 1 个）"
+  },
+  "minigame_onelapduel": {
+    "room": {
+      "track_monza": "蒙扎",
+      "lap": "圈",
+      "room_id": "房间号：",
+      "exit": "退出",
+      "race_starting": "比赛即将开始...",
+      "strategy_limit": "该赛段策略已锁定！",
+      "victory_reward": "胜利！+5 代币 & +25 积分",
+      "defeat_reward": "惜败。+10 完赛积分。",
+      "ready_button": "准备",
+      "cancel_ready": "取消准备",
+      "ready_status": "已准备",
+      "preparing_status": "准备中...",
+      "waiting_opponent": "等待对手加入..."
+    },
+    "dashboard": {
+      "prize_pool": "奖金池",
+      "prize_pool_gain": "每场比赛 +2 TKN",
+      "focus": "专注",
+      "stats_title": "车手数据",
+      "skills": {
+        "acceleration": "加速能力",
+        "braking": "刹车能力",
+        "cornering": "过弯能力",
+        "ers_efficiency": "ERS 效率",
+        "decision_making": "决策能力",
+        "morale": "士气"
+      },
+      "morale_high_desc": "高士气提升表现！",
+      "morale_low_desc": "低士气影响反应。",
+      "training_schedule": "训练计划",
+      "training_modes": {
+        "rest": {
+          "label": "休息日",
+          "desc": "恢复士气，降低疲劳。",
+          "impact": "+10 士气, -5 疲劳"
+        },
+        "light": {
+          "label": "轻度训练",
+          "desc": "保持技能，疲劳度低。",
+          "impact": "+0.1 技能, +2 疲劳"
+        },
+        "intense": {
+          "label": "高强度训练",
+          "desc": "快速提升技能，但疲劳度高。",
+          "impact": "+0.3 技能, +10 疲劳"
+        }
+      }
+    }
   },
   "policies": {
     "click_for_info": "点击查看政策信息",
@@ -697,5 +765,164 @@
         "opportunity": "激进 (风险)"
       }
     }
+  },
+  "developer": {
+    "inbox": {
+      "title": "开发者收件箱",
+      "refresh": "刷新",
+      "access_denied": "访问被拒绝",
+      "access_denied_desc": "您必须是经过批准的开发者才能查看此页面。",
+      "must_be_developer": "您必须是经过批准的开发者才能查看此页面。",
+      "loading": "正在加载收件箱数据...",
+      "full_name": "全名",
+      "requested": "申请时间",
+      "end_date": "结束日期",
+      "declare_winner": "宣布获胜者",
+      "mission_control": {
+        "title": "任务控制中心",
+        "create_btn": "创建新任务",
+        "no_active": "暂无活跃任务。",
+        "tokens": "代币",
+        "rep": "声望",
+        "due": "截止",
+        "pending_submissions": "{{count}} 个待处理提交（不可编辑）",
+        "edit": "编辑",
+        "delete": "删除",
+        "confirm_delete": "您确定要删除此任务吗？",
+        "error_save": "保存任务出错：{{error}}",
+        "error_delete": "删除任务出错：{{error}}",
+        "error_edit_pending": "无法编辑有待处理提交的任务。",
+        "error_prepare_award": "准备奖励出错：{{error}}",
+        "error_tokens_range": "代币必须在 {{min}} 和 {{max}} 之间",
+        "error_rep_range": "声望必须在 {{min}} 和 {{max}} 之间",
+        "error_award": "奖励提交时出错：{{error}}",
+        "edit_mission": "编辑任务",
+        "create_mission": "创建新任务",
+        "form": {
+          "title": "标题",
+          "description": "描述",
+          "min_tokens": "最小代币",
+          "max_tokens": "最大代币",
+          "min_rep": "最小声望",
+          "max_rep": "最大声望",
+          "deadline": "截止日期 (可选)"
+        },
+        "cancel": "取消",
+        "save_mission": "保存任务",
+        "award_submission_title": "奖励提交",
+        "award_tokens": "奖励代币",
+        "award_rep": "奖励声望",
+        "approve_award": "批准并奖励"
+      },
+      "sections": {
+        "dev_requests": "待处理开发者申请",
+        "mission_submissions": "待处理任务提交",
+        "active_bets": "活跃车手博弈（需结算）",
+        "forum_acks": "论坛确认",
+        "test_requests": "测试玩家申请"
+      },
+      "empty": {
+        "dev_requests": "无待处理开发者申请",
+        "mission_submissions": "无待处理任务提交",
+        "active_bets": "无需要结算的活跃博弈",
+        "forum_acks": "无待处理确认",
+        "test_requests": "无待处理测试玩家申请"
+      },
+      "actions": {
+        "approve": "批准",
+        "decline": "拒绝",
+        "reject": "驳回",
+        "acknowledge": "确认",
+        "view_post": "查看帖子",
+        "declare_winner": "宣布获胜者：",
+        "mission_tag": "任务",
+        "driver_bet_tag": "车手博弈",
+        "side_a": "A方",
+        "side_b": "B方",
+        "by": "提交者",
+        "unknown": "未知",
+        "tester_tag": "测试员"
+      },
+      "labels": {
+        "user": "用户",
+        "email": "邮箱"
+      },
+      "confirms": {
+        "approve_dev": "批准此用户为开发者？",
+        "decline_dev": "拒绝此开发者申请？",
+        "approve_mission": "批准此任务提交？",
+        "reject_mission": "驳回此任务提交？",
+        "acknowledge_post": "标记此帖子为已确认？",
+        "approve_test": "批准此测试玩家？他们将获得 +20 声望。",
+        "decline_test": "拒绝此请求？"
+      },
+      "prompts": {
+        "proof_url": "输入证明 URL（可选）："
+      }
+    },
+    "test_request": {
+      "title": "申请测试玩家权限",
+      "info": "获得批准的测试人员将获得 +20 声望并免费访问所选程序。",
+      "labels": {
+        "identifiable_name": "可识别名称",
+        "program": "测试程序",
+        "progress": "当前进度"
+      },
+      "placeholders": {
+        "identifiable_name": "例如：微信昵称",
+        "progress": "简要描述您的当前进度或想要测试的原因..."
+      },
+      "submit": "提交申请",
+      "alerts": {
+        "success": "申请提交成功！",
+        "failed": "提交申请失败",
+        "error": "发生意外错误"
+      }
+    }
+  },
+  "minigame": {
+    "title": "围场俱乐部",
+    "subtitle": "选择你的挑战",
+    "back": "返回游戏列表",
+    "reaction": {
+      "title": "F1 反应测试",
+      "desc": "挑战五盏红灯。你能击败 F1 车手的反应时间吗？",
+      "tag_pool": "月度奖池",
+      "tag_live": "进行中"
+    },
+    "duel": {
+      "title": "单圈决斗 (2026)",
+      "desc": "策略性 1v1 竞速。管理 ERS，选择赛车线，培养你的车手。",
+      "tag_strat": "策略模拟",
+      "tag_new": "新"
+    },
+    "instructions": "五盏红灯熄灭时点击任意位置！",
+    "login_to_save": "登录以保存成绩并参与竞争。",
+    "start_game": "开始游戏 (1 代币)",
+    "wait_for_it": "等待...",
+    "click": "点击！",
+    "jump_start": "抢跑！",
+    "jump_start_message": "你点击太早了 (低于 110ms)。",
+    "try_again": "重试",
+    "verifying": "验证中...",
+    "great_job": "干得好！",
+    "save_failed": "保存失败",
+    "tokens_earned": "代币",
+    "play_again": "再玩一次 (1 代币)",
+    "play_game": "开始游戏",
+    "monthly_leaderboard": "月度排行榜",
+    "monthly_championship": "月度锦标赛",
+    "championship_description": "展示你的反应速度。每次尝试消耗 1 代币。部分费用进入月度奖池。",
+    "total_plays": "总游玩次数",
+    "prize_pool": "奖池",
+    "current_record": "当前记录",
+    "rank": "排名",
+    "pilot": "车手",
+    "reaction_time": "反应时间",
+    "est_prize": "预计奖金",
+    "no_times_recorded": "本月暂无记录",
+    "you": "你",
+    "login_warning": "请先登录！",
+    "cost_warning": "代币不足 (需要 1 个)"
   }
 }

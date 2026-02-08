@@ -23,6 +23,7 @@ interface EconomyContextType {
   ledger: LedgerEntry[];
   loading: boolean;
   developerStatus: 'NONE' | 'PENDING' | 'APPROVED';
+  username: string | null;
   refreshEconomy: () => Promise<void>;
   enterPosition: (instrumentId: string, amount: number) => Promise<{ success: boolean; message?: string }>;
   createTicketListing: (ticketId: string, quantity: number, price: number, password: string) => Promise<{ success: boolean; message?: string }>;
@@ -75,6 +76,7 @@ const EconomyContext = createContext<EconomyContextType>({
   ledger: [],
   loading: true,
   developerStatus: 'NONE',
+  username: null,
   refreshEconomy: async () => {},
   enterPosition: async () => ({ success: false }),
   createTicketListing: async () => ({ success: false }),
@@ -102,6 +104,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [developerStatus, setDeveloperStatus] = useState<'NONE' | 'PENDING' | 'APPROVED'>('NONE');
+  const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refreshEconomy = async () => {
@@ -109,6 +112,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       setWallet(null);
       setLedger([]);
       setDeveloperStatus('NONE');
+      setUsername(null);
       setLoading(false);
       return;
     }
@@ -139,15 +143,16 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       if (walletError) throw walletError;
       setWallet(walletData);
 
-      // Fetch Profile for Developer Status
+      // Fetch Profile for Developer Status and Username
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('developer_status')
+        .select('developer_status, username')
         .eq('id', user.id)
         .single();
       
       if (!profileError && profileData) {
         setDeveloperStatus(profileData.developer_status as any || 'NONE');
+        setUsername(profileData.username);
       }
 
       // Fetch Ledger
@@ -543,13 +548,14 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
   };
 
   return (
-    <EconomyContext.Provider value={{ 
-      wallet, 
-      ledger, 
-      loading, 
+    <EconomyContext.Provider value={{
+      wallet,
+      ledger,
+      loading,
       developerStatus,
-      refreshEconomy, 
-      enterPosition, 
+      username,
+      refreshEconomy,
+      enterPosition,
       createTicketListing, 
       purchaseTicketListing,
       claimDailyBonus,

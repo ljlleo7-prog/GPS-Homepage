@@ -1,4 +1,7 @@
 {
+  "common": {
+    "skip_for_now": "Skip for now"
+  },
   "navbar": {
     "home": "Home",
     "news": "News",
@@ -175,6 +178,19 @@
       "existing_user": "Already have an ID?",
       "login_link": "Access System",
       "error_username": "Username must be at least 3 characters long"
+    },
+    "username_setup": {
+      "title": "Setup Profile",
+      "subtitle": "Please choose a username to continue. This will be your unique identity across the platform.",
+      "apology": "We sincerely apologize for the inconvenience. A recent system update required a reset of user profiles. Your wallet balance has been preserved.",
+      "username_label": "Username",
+      "username_placeholder": "Enter your username",
+      "helper_text": "3-20 characters, letters, numbers, and underscores only.",
+      "submit": "Set Username",
+      "loading": "Saving...",
+      "success": "Username set successfully!",
+      "error_taken": "Username is already taken",
+      "error_generic": "Failed to update username"
     }
   },
   "contact": {
@@ -581,6 +597,21 @@
     "you": "YOU"
   },
   "minigame_onelapduel": {
+    "room": {
+      "track_monza": "Monza",
+      "lap": "Lap",
+      "room_id": "Room ID:",
+      "exit": "Exit",
+      "race_starting": "Race Starting...",
+      "strategy_limit": "Strategy Locked!",
+      "victory_reward": "Victory! +5 Tokens & +25 Points",
+      "defeat_reward": "Defeat. +10 Points.",
+      "ready_button": "Ready",
+      "cancel_ready": "Cancel Ready",
+      "ready_status": "READY",
+      "preparing_status": "PREPARING",
+      "waiting_opponent": "Waiting for opponent..."
+    },
     "nav": {
       "driver_hq": "Driver HQ",
       "race_lobby": "Race Lobby",
@@ -593,6 +624,9 @@
       "login_required": "Please login to start the game."
     },
     "dashboard": {
+      "prize_pool": "Prize Pool",
+      "prize_pool_gain": "+2 TKN per race",
+      "focus": "Focus",
       "stats_title": "Driver Stats",
       "training_schedule": "Training Schedule",
       "training_modes": {
@@ -678,6 +712,9 @@
       "ready_status": "READY",
       "preparing_status": "PREPARING",
       "race_starting": "Race Starting...",
+      "strategy_limit": "Strategy Locked for this Sector!",
+      "victory_reward": "Victory! +5 Tokens & +25 Points",
+      "defeat_reward": "Defeat. +10 Points for finishing.",
       "gap": "Gap:",
       "player_1": "Player 1",
       "player_2": "Player 2",
@@ -689,6 +726,7 @@
       "return_lobby": "Return to Lobby",
       "race_strategy": "Race Strategy",
       "confirm_strategy": "Confirm Strategy",
+      "ready_button": "READY",
       "ers_mode": "ERS Mode",
       "racing_line": "Racing Line",
       "track_type": {
@@ -751,6 +789,42 @@
       "requested": "Requested",
       "end_date": "End Date",
       "declare_winner": "Declare Winner",
+      "mission_control": {
+        "title": "Mission Control",
+        "create_btn": "Create New Mission",
+        "no_active": "No active missions.",
+        "tokens": "Tokens",
+        "rep": "Rep",
+        "due": "Due",
+        "pending_submissions": "{{count}} pending submissions (Cannot Edit)",
+        "edit": "Edit",
+        "delete": "Delete",
+        "cancel": "Cancel",
+        "save_mission": "Save Mission",
+        "award_submission_title": "Award Submission",
+        "award_tokens": "Award Tokens",
+        "award_rep": "Award Reputation",
+        "approve_award": "Approve & Award",
+        "confirm_delete": "Are you sure you want to delete this mission?",
+        "error_save": "Error saving mission: {{error}}",
+        "error_delete": "Error deleting mission: {{error}}",
+        "error_edit_pending": "Cannot edit mission with pending submissions.",
+        "error_prepare_award": "Error preparing award: {{error}}",
+        "error_tokens_range": "Tokens must be between {{min}} and {{max}}",
+        "error_rep_range": "Reputation must be between {{min}} and {{max}}",
+        "error_award": "Error awarding submission: {{error}}",
+        "edit_mission": "Edit Mission",
+        "create_mission": "Create New Mission",
+        "form": {
+          "title": "Title",
+          "description": "Description",
+          "min_tokens": "Min Tokens",
+          "max_tokens": "Max Tokens",
+          "min_rep": "Min Rep",
+          "max_rep": "Max Rep",
+          "deadline": "Deadline (Optional)"
+        }
+      },
       "access_denied": "Access Denied",
       "access_denied_desc": "You must be an approved developer to view this page.",
       "loading": "Loading inbox data...",
@@ -774,7 +848,18 @@
         "reject": "Reject",
         "acknowledge": "Acknowledge",
         "view_post": "View Post",
-        "declare_winner": "Declare Winner:"
+        "declare_winner": "Declare Winner:",
+        "mission_tag": "MISSION",
+        "driver_bet_tag": "DRIVER BET",
+        "side_a": "Side A",
+        "side_b": "Side B",
+        "by": "by",
+        "unknown": "Unknown",
+        "tester_tag": "TESTER"
+      },
+      "labels": {
+        "user": "User",
+        "email": "Email"
       },
       "confirms": {
         "approve_dev": "Approve this user as developer?",
@@ -787,6 +872,13 @@
       },
       "prompts": {
         "proof_url": "Enter proof URL (optional):"
+      },
+      "alerts": {
+        "approve_failed": "Failed to approve",
+        "decline_failed": "Failed to decline",
+        "approve_mission_failed": "Failed to approve mission",
+        "reject_mission_failed": "Failed to reject mission",
+        "acknowledge_failed": "Failed to acknowledge"
       }
     },
     "test_request": {
@@ -815,7 +907,21 @@
     "cancel": "Cancel"
   },
   "minigame": {
-    "title": "F1 Reaction Test",
+    "title": "PADDOCK CLUB",
+    "subtitle": "Select your challenge",
+    "back": "Back to Games",
+    "reaction": {
+      "title": "F1 Reaction Test",
+      "desc": "Test your reflexes against the 5 red lights. Can you beat an F1 driver's reaction time?",
+      "tag_pool": "MONTHLY PRIZE POOL",
+      "tag_live": "LIVE"
+    },
+    "duel": {
+      "title": "One-Lap Duel (2026)",
+      "desc": "Strategic 1v1 racing. Manage ERS, choose racing lines, and develop your driver.",
+      "tag_strat": "STRATEGY SIMULATION",
+      "tag_new": "NEW"
+    },
     "instructions": "Click anywhere when the five red lights go out!",
     "login_to_save": "Log in to save your score and compete.",
     "start_game": "Start Game (1 Token)",
@@ -842,7 +948,8 @@
     "est_prize": "Est. Prize",
     "no_times_recorded": "No times recorded this month",
     "you": "You",
-    "login_warning": "Please log in first!"
+    "login_warning": "Please log in first!",
+    "cost_warning": "Insufficient tokens (1 required)"
   },
   "policies": {
     "click_for_info": "Click for info",
@@ -859,23 +966,7 @@
     "minigame_title": "Minigame Policy",
     "minigame_content": "Minigames are for entertainment. Spamming or using bots to farm rewards is prohibited and will result in a ban."
   },
-  "minigame": {
-    "title": "PADDOCK CLUB",
-    "subtitle": "Select your challenge",
-    "back": "Back to Games",
-    "reaction": {
-      "title": "F1 Reaction Test",
-      "desc": "Test your reflexes against the 5 red lights. Can you beat an F1 driver's reaction time?",
-      "tag_pool": "MONTHLY PRIZE POOL",
-      "tag_live": "LIVE"
-    },
-    "duel": {
-      "title": "One-Lap Duel (2026)",
-      "desc": "Strategic 1v1 racing. Manage ERS, choose racing lines, and develop your driver.",
-      "tag_strat": "STRATEGY SIMULATION",
-      "tag_new": "NEW"
-    }
-  },
+
   "minigame_onelapduel": {
     "nav": {
       "driver_hq": "Driver HQ",
