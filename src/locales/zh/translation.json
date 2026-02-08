@@ -331,7 +331,17 @@
         "low_rep": "声望过低。您需要 > 50 声望才能支持项目。"
       },
       "campaign": {
-        "create_btn": "创建活动 (需 >70 声望)",
+        "create_btn": "创建活动 (需 >50 声望)",
+        "type_label": "活动类型",
+        "type_normal": "普通活动",
+        "type_driver_bet": "车手博弈",
+        "bond_info": "创建保证金：100 代币。此保证金不可退还，将作为系统费用分发给开发者。",
+          "risk_level": "风险等级",
+          "frequency": "交付频率",
+          "day": "交付日期",
+          "cost": "每票交付成本 (%)",
+          "condition": "交付条件",
+          "fill_deliverables": "请填写所有交付字段。",
         "modal_title": "创建市场活动",
         "title_label": "活动标题",
         "desc_label": "描述",
@@ -359,6 +369,7 @@
         "ticket_integer": "票据数量必须为整数",
         "purchase_success": "票据购买成功！",
         "purchase_failed": "购买失败：{{message}}",
+        "fill_deliverables": "请填写所有交付字段。",
         "fill_driver_bet": "请填写所有 Driver Bet 字段。",
         "driver_bet_created": "Driver Bet 创建成功！",
         "add_refund_schedule": "请至少添加一项退款计划。",
@@ -818,6 +829,7 @@
         "dev_requests": "待处理开发者申请",
         "mission_submissions": "待处理任务提交",
         "active_bets": "活跃车手博弈（需结算）",
+        "pending_deliverables": "待处理交付物",
         "forum_acks": "论坛确认",
         "test_requests": "测试玩家申请"
       },
@@ -825,6 +837,7 @@
         "dev_requests": "无待处理开发者申请",
         "mission_submissions": "无待处理任务提交",
         "active_bets": "无需要结算的活跃博弈",
+        "pending_deliverables": "无待处理交付物",
         "forum_acks": "无待处理确认",
         "test_requests": "无待处理测试玩家申请"
       },
@@ -835,6 +848,9 @@
         "acknowledge": "确认",
         "view_post": "查看帖子",
         "declare_winner": "宣布获胜者：",
+        "deliverable_tag": "交付物",
+        "issue": "发布",
+        "reject": "拒绝",
         "mission_tag": "任务",
         "driver_bet_tag": "车手博弈",
         "side_a": "A方",
@@ -845,19 +861,29 @@
       },
       "labels": {
         "user": "用户",
-        "email": "邮箱"
+        "email": "邮箱",
+        "due_date": "截止日期",
+        "cost": "成本",
+        "condition": "条件"
       },
       "confirms": {
         "approve_dev": "批准此用户为开发者？",
         "decline_dev": "拒绝此开发者申请？",
         "approve_mission": "批准此任务提交？",
         "reject_mission": "驳回此任务提交？",
+        "process_deliverable": "您确定要{{action}}此交付物吗？",
         "acknowledge_post": "标记此帖子为已确认？",
         "approve_test": "批准此测试玩家？他们将获得 +20 声望。",
         "decline_test": "拒绝此请求？"
       },
       "prompts": {
         "proof_url": "输入证明 URL（可选）："
+      },
+      "alerts": {
+        "approve_mission_failed": "批准任务失败",
+        "reject_mission_failed": "拒绝任务失败",
+        "process_deliverable_failed": "处理交付物失败",
+        "acknowledge_failed": "确认失败"
       }
     },
     "test_request": {

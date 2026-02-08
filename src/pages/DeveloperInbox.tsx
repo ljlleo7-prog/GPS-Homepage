@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Shield, CheckCircle, XCircle, MessageSquare, Trophy, AlertTriangle, ExternalLink, Gamepad2 } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, MessageSquare, Trophy, AlertTriangle, ExternalLink, Gamepad2, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useEconomy } from '../context/EconomyContext';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,7 @@ interface InboxData {
   active_bets: ActiveBet[];
   pending_acks: PendingAck[];
   pending_tests: PendingTest[];
+  pending_deliverables: PendingDeliverable[];
 }
 
 interface Mission {
@@ -70,6 +71,17 @@ interface PendingTest {
   user_email: string;
 }
 
+interface PendingDeliverable {
+  id: string;
+  instrument_id: string;
+  due_date: string;
+  created_at: string;
+  instrument_title: string;
+  deliverable_condition: string;
+  deliverable_cost_per_ticket: number;
+  creator_name: string;
+}
+
 const DeveloperInbox = () => {
   const { t, i18n } = useTranslation();
   const { developerStatus, approveDeveloperAccess, resolveDriverBet, approveTestPlayerRequest, declineTestPlayerRequest } = useEconomy();
@@ -98,7 +110,8 @@ const DeveloperInbox = () => {
     pending_missions: [],
     active_bets: [],
     pending_acks: [],
-    pending_tests: []
+    pending_tests: [],
+    pending_deliverables: []
   });
 
   useEffect(() => {
@@ -128,7 +141,8 @@ const DeveloperInbox = () => {
             pending_missions: result.pending_missions,
             active_bets: result.active_bets,
             pending_acks: result.pending_acks,
-            pending_tests: result.pending_tests || []
+            pending_tests: result.pending_tests || [],
+            pending_deliverables: result.pending_deliverables || []
           });
         } else {
           console.error('Inbox fetch failed logically:', result.message);
@@ -395,6 +409,23 @@ const DeveloperInbox = () => {
     }
   };
 
+  const handleProcessDeliverable = async (id: string, action: 'ISSUE' | 'REJECT') => {
+      if (!confirm(t('developer.inbox.confirms.process_deliverable', { action }) || `Are you sure you want to ${action} this deliverable?`)) return;
+      try {
+          const { data, error } = await supabase.rpc('process_deliverable', {
+              p_deliverable_id: id,
+              p_action: action
+          });
+          
+          if (error) throw error;
+          if (data && !data.success) throw new Error(data.message);
+          
+          fetchInbox();
+      } catch (error: any) {
+          alert(error.message || t('developer.inbox.alerts.process_deliverable_failed') || 'Failed to process deliverable');
+      }
+  };
+
   if (developerStatus !== 'APPROVED') {
       return (
           <div className="min-h-screen bg-background pt-24 text-center text-white">
@@ -606,6 +637,48 @@ const DeveloperInbox = () => {
                                                     </button>
                                                 </div>
                                             </div>
+                                        </div>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                </Section>
+
+                {/* 3.5 Pending Deliverables */}
+                <Section title={t('developer.inbox.sections.pending_deliverables') || 'Pending Deliverables'} icon={<Calendar size={20} className="text-pink-400" />} count={data.pending_deliverables.length}>
+                    {data.pending_deliverables.length === 0 ? (
+                        <EmptyState message={t('developer.inbox.empty.pending_deliverables') || 'No pending deliverables.'} />
+                    ) : (
+                        <div className="grid gap-4">
+                            {data.pending_deliverables.map(del => (
+                                <Card key={del.id}>
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-1 mr-4">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="bg-pink-500/20 text-pink-400 text-xs px-2 py-0.5 rounded border border-pink-500/30 font-mono">
+                                                    {t('developer.inbox.actions.deliverable_tag') || 'DELIVERABLE'}
+                                                </span>
+                                                <h3 className="font-bold text-white text-lg">{del.instrument_title}</h3>
+                                            </div>
+                                            <div className="mt-2 text-sm text-gray-300 space-y-1">
+                                                <p><span className="text-text-secondary">{t('developer.inbox.labels.due_date') || 'Due Date'}:</span> <span className="text-white">{new Date(del.due_date).toLocaleDateString(i18n.language)}</span></p>
+                                                <p><span className="text-text-secondary">{t('developer.inbox.labels.cost') || 'Cost'}:</span> <span className="text-yellow-400">{del.deliverable_cost_per_ticket}% / ticket</span></p>
+                                                <p className="mt-2 text-text-secondary text-xs">{t('developer.inbox.labels.condition') || 'Condition'}:</p>
+                                                <p className="bg-black/20 p-2 rounded border border-white/5 italic">{del.deliverable_condition}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <ActionButton 
+                                                onClick={() => handleProcessDeliverable(del.id, 'ISSUE')} 
+                                                variant="approve"
+                                                label={t('developer.inbox.actions.issue') || 'Issue'}
+                                            />
+                                            <ActionButton 
+                                                onClick={() => handleProcessDeliverable(del.id, 'REJECT')} 
+                                                variant="reject"
+                                                label={t('developer.inbox.actions.reject') || 'Reject'}
+                                            />
                                         </div>
                                     </div>
                                 </Card>

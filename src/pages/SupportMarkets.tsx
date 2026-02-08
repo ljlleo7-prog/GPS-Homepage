@@ -8,11 +8,6 @@ import { TicketMarket } from '../components/economy/TicketMarket';
 import { PolicyInfo } from '../components/common/PolicyInfo';
 import { useTranslation } from 'react-i18next';
 
-interface RefundItem {
-  date: string;
-  amount: number;
-}
-
 interface Instrument {
   id: string;
   title: string;
@@ -25,7 +20,7 @@ interface Instrument {
   ticket_type_id?: string;
   ticket_type_a_id?: string;
   ticket_type_b_id?: string;
-  refund_schedule?: RefundItem[];
+  refund_schedule?: any[];
   is_driver_bet?: boolean;
   deletion_status?: 'NONE' | 'DELISTED_MARKET' | 'DELETED_EVERYWHERE';
   side_a_name?: string;
@@ -55,9 +50,13 @@ const SupportMarkets = () => {
   const [isDriverBet, setIsDriverBet] = useState(false);
   
   // Standard Campaign State
-  const [refundSchedule, setRefundSchedule] = useState<RefundItem[]>([]);
-  const [tempRefundDate, setTempRefundDate] = useState('');
-  const [tempRefundAmount, setTempRefundAmount] = useState('');
+  
+  // Normal Market Deliverable State
+  const [riskLevel, setRiskLevel] = useState('HIGH');
+  const [deliverableFrequency, setDeliverableFrequency] = useState('MONTHLY');
+  const [deliverableDay, setDeliverableDay] = useState('');
+  const [deliverableCost, setDeliverableCost] = useState('');
+  const [deliverableCondition, setDeliverableCondition] = useState('');
 
   // Driver Bet State
   const [sideA, setSideA] = useState('');
@@ -77,6 +76,12 @@ const SupportMarkets = () => {
     fetchDriverBetStats();
     if (user) fetchPositions();
   }, [user, activeView]);
+
+  useEffect(() => {
+    if (showCreateModal && wallet && wallet.reputation_balance < 70) {
+        setIsDriverBet(true);
+    }
+  }, [showCreateModal, wallet]);
 
   const fetchDriverBetStats = async () => {
     const { data, error } = await supabase.rpc('get_driver_bet_stats');
@@ -145,20 +150,6 @@ const SupportMarkets = () => {
     }
   };
 
-  const handleAddRefundItem = () => {
-    if (!tempRefundDate || !tempRefundAmount) return;
-    setRefundSchedule([...refundSchedule, {
-        date: tempRefundDate,
-        amount: parseFloat(tempRefundAmount)
-    }].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-    setTempRefundDate('');
-    setTempRefundAmount('');
-  };
-
-  const handleRemoveRefundItem = (index: number) => {
-    setRefundSchedule(refundSchedule.filter((_, i) => i !== index));
-  };
-
   const handleCreateCampaign = async () => {
     if (!newTitle || !newDesc) return;
     
@@ -192,18 +183,25 @@ const SupportMarkets = () => {
             alert(result.message);
         }
     } else {
-        if (refundSchedule.length === 0) {
-            alert(t('economy.market.alerts.add_refund_schedule'));
+        // Validate new deliverable fields
+        if (!riskLevel || !deliverableFrequency || !deliverableDay || !deliverableCost || !deliverableCondition) {
+            alert(t('economy.market.alerts.fill_deliverables'));
             setCreating(false);
             return;
         }
+
         const result = await createUserCampaign(
           'MARKET',
           newTitle,
           newDesc,
           0, 0, 0, 0, // Legacy params
-          refundSchedule,
-          false
+          [], // Refund schedule ignored
+          false,
+          riskLevel,
+          deliverableFrequency,
+          deliverableDay,
+          parseFloat(deliverableCost),
+          deliverableCondition
         );
 
         if (result.success) {
@@ -212,7 +210,12 @@ const SupportMarkets = () => {
           setNewTitle('');
           setNewDesc('');
           setIsDriverBet(false);
-          setRefundSchedule([]);
+          // Reset new fields
+          setRiskLevel('HIGH');
+          setDeliverableFrequency('MONTHLY');
+          setDeliverableDay('');
+          setDeliverableCost('');
+          setDeliverableCondition('');
           fetchInstruments();
         } else {
           alert(result.message);
@@ -354,7 +357,7 @@ const SupportMarkets = () => {
           </div>
 
           {/* Create Campaign Button */}
-          {wallet && wallet.reputation_balance > 70 && (
+          {wallet && wallet.reputation_balance > 50 && (
             <button
               onClick={() => setShowCreateModal(true)}
               className="absolute right-0 top-0 hidden md:flex items-center gap-2 bg-primary/20 text-primary border border-primary/50 px-4 py-2 rounded hover:bg-primary/30 transition-colors"
@@ -366,7 +369,7 @@ const SupportMarkets = () => {
         </div>
 
         {/* Mobile Create Button */}
-        {wallet && wallet.reputation_balance > 70 && (
+        {wallet && wallet.reputation_balance > 50 && (
           <div className="md:hidden mb-6 flex justify-center">
              <button
               onClick={() => setShowCreateModal(true)}
@@ -688,16 +691,26 @@ const SupportMarkets = () => {
                   />
                 </div>
                 
-                {/* Driver Bet Checkbox */}
-                <div className="flex items-center space-x-2 bg-white/5 p-2 rounded">
-                    <input 
-                        type="checkbox" 
-                        id="driverBet" 
-                        checked={isDriverBet} 
-                        onChange={e => setIsDriverBet(e.target.checked)}
-                        className="rounded border-white/10 bg-background"
-                    />
-                    <label htmlFor="driverBet" className="text-sm text-white">{t('economy.market.campaign.is_driver_bet')}</label>
+                {/* Instrument Type Selection */}
+                <div className="bg-white/5 p-3 rounded mb-4">
+                    <div className="text-xs text-text-secondary mb-2">{t('economy.market.campaign.type_label') || 'Instrument Type'}</div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setIsDriverBet(false)}
+                            disabled={!wallet || wallet.reputation_balance < 70}
+                            className={`flex-1 py-2 text-xs rounded border transition-colors ${!isDriverBet ? 'bg-primary/20 border-primary text-primary' : 'bg-transparent border-white/10 text-white/50'} ${(!wallet || wallet.reputation_balance < 70) ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/50'}`}
+                        >
+                            {t('economy.market.campaign.type_normal') || 'Normal Instrument'}
+                            {(!wallet || wallet.reputation_balance < 70) && <div className="text-[10px] mt-1">(Req: 70 REP)</div>}
+                        </button>
+                        <button
+                            onClick={() => setIsDriverBet(true)}
+                            className={`flex-1 py-2 text-xs rounded border transition-colors ${isDriverBet ? 'bg-purple-500/20 border-purple-500 text-purple-400' : 'bg-transparent border-white/10 text-white/50'} hover:border-purple-500/50`}
+                        >
+                            {t('economy.market.campaign.type_driver_bet') || 'Driver Bet'}
+                            <div className="text-[10px] mt-1">(Req: 50 REP)</div>
+                        </button>
+                    </div>
                 </div>
 
                 {isDriverBet ? (
@@ -774,42 +787,75 @@ const SupportMarkets = () => {
                         </div>
                     </div>
                 ) : (
-                    /* Refund Schedule Builder */
-                    <div className="border border-white/10 rounded p-3">
-                        <label className="block text-xs text-text-secondary mb-2">{t('economy.market.campaign.refund_schedule_label')}</label>
-                        
-                        <div className="flex gap-2 mb-2">
-                            <input 
-                                type="date" 
-                                className="bg-background border border-white/10 rounded px-2 py-1 text-white text-xs flex-1"
-                                value={tempRefundDate}
-                                onChange={e => setTempRefundDate(e.target.value)}
-                            />
-                            <input 
-                                type="number" 
-                                placeholder={t('economy.market.campaign.refund_amt_placeholder')}
-                                className="bg-background border border-white/10 rounded px-2 py-1 text-white text-xs w-16"
-                                value={tempRefundAmount}
-                                onChange={e => setTempRefundAmount(e.target.value)}
-                            />
-                            <button 
-                                onClick={handleAddRefundItem}
-                                className="bg-primary/20 text-primary px-2 rounded hover:bg-primary/30"
+                    /* Standard Campaign Display */
+                    <div className="space-y-4">
+                        {/* Risk Level */}
+                        <div>
+                            <label className="block text-xs text-text-secondary mb-1">{t('economy.market.campaign.risk_level') || 'Risk Level'}</label>
+                            <select 
+                                className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                value={riskLevel}
+                                onChange={e => setRiskLevel(e.target.value)}
                             >
-                                <Plus size={14} />
-                            </button>
+                                <option value="LOW">LOW</option>
+                                <option value="MID">MID</option>
+                                <option value="HIGH">HIGH</option>
+                            </select>
                         </div>
 
-                        <div className="space-y-1 max-h-32 overflow-y-auto">
-                            {refundSchedule.map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-center bg-background/50 px-2 py-1 rounded text-xs">
-                                    <span className="text-white">{item.date}: {item.amount} Tkn</span>
-                                    <button onClick={() => handleRemoveRefundItem(idx)} className="text-red-400 hover:text-red-300">
-                                        <XCircle size={12} />
-                                    </button>
-                                </div>
-                            ))}
-                            {refundSchedule.length === 0 && <div className="text-text-secondary text-xs italic">{t('economy.market.campaign.no_refund_items')}</div>}
+                        {/* Deliverable Info */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs text-text-secondary mb-1">{t('economy.market.campaign.frequency') || 'Deliverable Frequency'}</label>
+                                <select 
+                                    className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                    value={deliverableFrequency}
+                                    onChange={e => setDeliverableFrequency(e.target.value)}
+                                >
+                                    <option value="DAILY">Daily</option>
+                                    <option value="WEEKLY">Weekly</option>
+                                    <option value="MONTHLY">Monthly</option>
+                                    <option value="QUARTERLY">Quarterly</option>
+                                    <option value="YEARLY">Yearly</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs text-text-secondary mb-1">{t('economy.market.campaign.day') || 'Deliverable Day'}</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Monday, 1st"
+                                    className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                    value={deliverableDay}
+                                    onChange={e => setDeliverableDay(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs text-text-secondary mb-1">{t('economy.market.campaign.cost_per_ticket') || 'Deliverable Amount per Ticket (%)'}</label>
+                            <input
+                                type="number"
+                                placeholder="e.g. 5"
+                                className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                value={deliverableCost}
+                                onChange={e => setDeliverableCost(e.target.value)}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs text-text-secondary mb-1">{t('economy.market.campaign.condition') || 'Deliverable Condition'}</label>
+                            <textarea
+                                className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                rows={2}
+                                placeholder="Under which condition will it be delivered?"
+                                value={deliverableCondition}
+                                onChange={e => setDeliverableCondition(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Bond Info */}
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded text-xs text-yellow-200">
+                            <span className="font-bold">Creation Bond:</span> 100 Tokens. This bond is non-refundable and will be distributed to developers as a system fee.
                         </div>
                     </div>
                 )}

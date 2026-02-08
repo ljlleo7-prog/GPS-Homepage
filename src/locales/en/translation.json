@@ -330,7 +330,17 @@
         "low_rep": "Reputation too low. You need > 50 Rep to support instruments."
       },
       "campaign": {
-        "create_btn": "Create Campaign (Rep > 70)",
+        "create_btn": "Create Campaign (Rep > 50)",
+        "type_label": "Instrument Type",
+        "type_normal": "Normal Instrument",
+        "type_driver_bet": "Driver Bet",
+        "bond_info": "Creation Bond: 100 Tokens. This bond is non-refundable and will be distributed to developers as a system fee.",
+          "risk_level": "Risk Level",
+          "frequency": "Deliverable Frequency",
+          "day": "Deliverable Day",
+          "cost": "Deliverable Cost per Ticket (%)",
+          "condition": "Deliverable Condition",
+          "fill_deliverables": "Please fill in all deliverable fields.",
         "modal_title": "Create Market Campaign",
         "title_label": "Campaign Title",
         "desc_label": "Description",
@@ -358,6 +368,7 @@
         "ticket_integer": "Ticket quantity must be an integer",
         "purchase_success": "Tickets purchased successfully!",
         "purchase_failed": "Failed: {{message}}",
+        "fill_deliverables": "Please fill in all deliverable fields.",
         "fill_driver_bet": "Please fill in all Driver Bet fields.",
         "driver_bet_created": "Driver Bet created!",
         "add_refund_schedule": "Please add at least one refund schedule item.",
@@ -832,6 +843,7 @@
         "dev_requests": "Pending Developer Requests",
         "mission_submissions": "Pending Mission Submissions",
         "active_bets": "Active Driver Bets (Needs Resolution)",
+        "pending_deliverables": "Pending Deliverables",
         "forum_acks": "Forum Acknowledgements",
         "test_requests": "Test Player Requests"
       },
@@ -839,6 +851,7 @@
         "dev_requests": "No pending developer requests",
         "mission_submissions": "No pending mission submissions",
         "active_bets": "No active bets needing resolution",
+        "pending_deliverables": "No pending deliverables.",
         "forum_acks": "No pending acknowledgements",
         "test_requests": "No pending test player requests"
       },
@@ -849,6 +862,9 @@
         "acknowledge": "Acknowledge",
         "view_post": "View Post",
         "declare_winner": "Declare Winner:",
+        "deliverable_tag": "DELIVERABLE",
+        "issue": "Issue",
+        "reject": "Reject",
         "mission_tag": "MISSION",
         "driver_bet_tag": "DRIVER BET",
         "side_a": "Side A",
@@ -859,13 +875,17 @@
       },
       "labels": {
         "user": "User",
-        "email": "Email"
+        "email": "Email",
+        "due_date": "Due Date",
+        "cost": "Cost",
+        "condition": "Condition"
       },
       "confirms": {
         "approve_dev": "Approve this user as developer?",
         "decline_dev": "Decline this developer request?",
         "approve_mission": "Approve this mission submission?",
         "reject_mission": "Reject this mission submission?",
+        "process_deliverable": "Are you sure you want to {{action}} this deliverable?",
         "acknowledge_post": "Mark this post as acknowledged?",
         "approve_test": "Approve this test player? They will receive +20 Rep.",
         "decline_test": "Decline this request?"
@@ -878,6 +898,7 @@
         "decline_failed": "Failed to decline",
         "approve_mission_failed": "Failed to approve mission",
         "reject_mission_failed": "Failed to reject mission",
+        "process_deliverable_failed": "Failed to process deliverable",
         "acknowledge_failed": "Failed to acknowledge"
       }
     },

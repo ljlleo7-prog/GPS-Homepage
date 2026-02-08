@@ -40,7 +40,12 @@ interface EconomyContextType {
     yieldRate?: number,
     lockupDays?: number,
     refundSchedule?: any[],
-    isDriverBet?: boolean
+    isDriverBet?: boolean,
+    riskLevel?: string,
+    deliverableFrequency?: string,
+    deliverableDay?: string,
+    deliverableCostPerTicket?: number,
+    deliverableCondition?: string
   ) => Promise<{ success: boolean; message?: string; data?: any }>;
   createDriverBet: (
     title: string,
@@ -322,16 +327,29 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     yieldRate?: number,
     lockupDays?: number,
     refundSchedule?: any[],
-    isDriverBet?: boolean
+    isDriverBet?: boolean,
+    riskLevel?: string,
+    deliverableFrequency?: string,
+    deliverableDay?: string,
+    deliverableCostPerTicket?: number,
+    deliverableCondition?: string
   ) => {
     if (!user) return { success: false, message: 'Not authenticated' };
     try {
       if (type === 'MARKET') {
-        const { data, error } = await supabase.rpc('create_marketing_campaign_v2', {
+        // Use the new create_user_campaign function which supports new deliverable fields
+        const { data, error } = await supabase.rpc('create_user_campaign', {
+          p_type: 'MARKET',
           p_title: title,
           p_description: description,
+          p_risk_level: riskLevel || 'HIGH',
+          p_yield_rate: yieldRate || 0,
+          p_lockup_days: lockupDays || 0,
           p_refund_schedule: refundSchedule || [],
-          p_is_driver_bet: isDriverBet || false
+          p_deliverable_frequency: deliverableFrequency,
+          p_deliverable_day: deliverableDay,
+          p_deliverable_cost_per_ticket: deliverableCostPerTicket,
+          p_deliverable_condition: deliverableCondition
         });
         
         if (error) throw error;
