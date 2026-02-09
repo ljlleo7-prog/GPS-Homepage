@@ -4,7 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { DriverStats, MONZA_TRACK, PlayerStrategy, TRACKS, INITIAL_BATTERY, RaceState, ERSMode, RacingLine } from './types';
 import { getInitialRaceState, advanceRaceState, calculatePhysicsStep, getTrackNodeAtDist, SimulationResult } from './simulation';
-import { Check, User, Zap, MousePointer2, AlertTriangle, Play, Battery, Gauge, Wind, Activity } from 'lucide-react';
+import { Check, User, Zap, MousePointer2, AlertTriangle, Play, Battery, Gauge, Wind, Activity, Map } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
@@ -270,6 +270,11 @@ export default function Room({ roomId, driver, onLeave }: Props) {
   }, [players, room, raceState, isStarting, user?.id]);
 
   const initiateRaceStart = async () => {
+    if (isStarting || raceState) return;
+
+    // Start locally for Host immediately (broadcast might not echo back)
+    handleStartCountdown();
+    
     await supabase.channel(`room:${roomId}`).send({
         type: 'broadcast',
         event: 'start_countdown',
@@ -477,6 +482,14 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                      {room?.status} • {players.length}/2 • R:{players.filter(p=>p.is_ready).length}
                  </div>
             )}
+            {!isRacing && room?.created_by === user?.id && players.length === 2 && (
+                 <button 
+                     onClick={() => initiateRaceStart()}
+                     className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded uppercase transition-colors"
+                 >
+                     {t('minigame_onelapduel.room.force_start') || 'Force Start'}
+                 </button>
+            )}
             <button onClick={handleExit} className="text-gray-400 hover:text-white">{t('minigame_onelapduel.room.exit')}</button>
         </div>
       </div>
@@ -507,11 +520,33 @@ export default function Room({ roomId, driver, onLeave }: Props) {
         <div className="bg-black p-6 rounded-lg border border-white/10 relative">
             {/* Track Progress */}
             <div className="relative h-32 bg-neutral-900 rounded-xl mb-8 border border-white/5 overflow-hidden group">
+                {/* Track Map Visualization (Background) */}
+                <div className="absolute inset-0 flex h-full opacity-30">
+                    {currentTrack.map((node, i) => {
+                        const widthPct = (node.length / trackLength) * 100;
+                        let colorClass = 'bg-green-500'; // Straight / X Mode
+                        if (node.type === 'turn') {
+                            const speed = node.base_speed_exit;
+                            if (speed < 120) colorClass = 'bg-red-600'; // Low Speed
+                            else if (speed < 200) colorClass = 'bg-orange-500'; // Mid Speed
+                            else colorClass = 'bg-yellow-500'; // High Speed
+                        }
+                        return (
+                            <div 
+                                key={i} 
+                                style={{ width: `${widthPct}%` }} 
+                                className={`h-full ${colorClass} border-r border-black/20`}
+                                title={`${t(`minigame_onelapduel.room.track.${node.name_key}`)} (${node.length}m)`}
+                            />
+                        );
+                    })}
+                </div>
+
                 {/* Track Surface & Racing Lines Guide */}
-                <div className="absolute inset-0 flex flex-col">
-                     <div className="flex-1 border-b border-white/5 bg-white/5 flex items-center px-2 text-[10px] text-white/20">Outside (Opportunity)</div>
+                <div className="absolute inset-0 flex flex-col z-10">
+                     <div className="flex-1 border-b border-white/5 flex items-center px-2 text-[10px] text-white/20">Outside (Opportunity)</div>
                      <div className="flex-1 border-b border-dashed border-white/10 flex items-center px-2 text-[10px] text-white/20">Center (Clean)</div>
-                     <div className="flex-1 bg-white/5 flex items-center px-2 text-[10px] text-white/20">Inside (Defense)</div>
+                     <div className="flex-1 flex items-center px-2 text-[10px] text-white/20">Inside (Defense)</div>
                 </div>
 
                 {/* Start/Finish Line */}
@@ -665,7 +700,46 @@ export default function Room({ roomId, driver, onLeave }: Props) {
             )}
         </div>
       ) : (
-        // Lobby / Strategy Selection
+        <>
+        {/* Lobby / Strategy Selection */}
+        <div className="mb-8">
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Map className="w-5 h-5 text-f1-red" />
+                {t('minigame_onelapduel.room.track_preview') || 'Track Preview'}
+            </h3>
+             <div className="relative h-24 bg-neutral-900 rounded-xl border border-white/5 overflow-hidden">
+                <div className="absolute inset-0 flex h-full">
+                    {currentTrack.map((node, i) => {
+                        const widthPct = (node.length / trackLength) * 100;
+                        let colorClass = 'bg-green-500'; // Straight / X Mode
+                        if (node.type === 'turn') {
+                            const speed = node.base_speed_exit;
+                            if (speed < 120) colorClass = 'bg-red-600'; // Low Speed
+                            else if (speed < 200) colorClass = 'bg-orange-500'; // Mid Speed
+                            else colorClass = 'bg-yellow-500'; // High Speed
+                        }
+                        return (
+                            <div 
+                                key={i} 
+                                style={{ width: `${widthPct}%` }} 
+                                className={`h-full ${colorClass} border-r border-black/20 opacity-80`}
+                                title={`${t(`minigame_onelapduel.room.track.${node.name_key}`)} (${node.length}m)`}
+                            />
+                        );
+                    })}
+                </div>
+            </div>
+            <div className="flex justify-between text-xs text-gray-500 mt-2">
+                 <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-sm"></div> Straight/X-Mode
+                    <div className="w-3 h-3 bg-red-600 rounded-sm"></div> Low Speed
+                    <div className="w-3 h-3 bg-orange-500 rounded-sm"></div> Mid Speed
+                    <div className="w-3 h-3 bg-yellow-500 rounded-sm"></div> High Speed
+                 </div>
+                 <div>{trackLength}m</div>
+            </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-4 mb-8">
              {players.map((p) => (
                 <div key={p.user_id} className={`p-4 rounded-lg border ${p.is_ready ? 'border-green-500/50 bg-green-500/10' : 'border-white/10 bg-surface'}`}>
@@ -692,6 +766,7 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                  </div>
              )}
         </div>
+      </>
       )}
       
       {!isRacing && (

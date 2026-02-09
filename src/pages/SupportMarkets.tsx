@@ -31,6 +31,9 @@ interface Instrument {
   open_date?: string;
   winning_side?: 'A' | 'B';
   resolution_status?: string;
+  deliverable_frequency?: string;
+  deliverable_cost_per_ticket?: number;
+  deliverable_condition?: string;
 }
 
 const SupportMarkets = () => {
@@ -594,14 +597,18 @@ const SupportMarkets = () => {
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
-                        <div className="bg-background/50 p-2 rounded">
-                            <div className="text-text-secondary text-xs">{t('economy.market.instrument.yield')}</div>
-                            <div className="text-green-400 font-mono">+{instrument.yield_rate}%</div>
-                        </div>
-                        <div className="bg-background/50 p-2 rounded">
-                            <div className="text-text-secondary text-xs">{t('economy.market.instrument.lockup')}</div>
-                            <div className="text-white font-mono">{instrument.lockup_period_days} {t('economy.market.instrument.days')}</div>
-                        </div>
+                          <div className="bg-background/50 p-2 rounded">
+                            <div className="text-text-secondary text-xs">{t('economy.market.instrument.frequency')}</div>
+                            <div className="text-green-400 font-mono text-xs">{instrument.deliverable_frequency}</div>
+                          </div>
+                          <div className="bg-background/50 p-2 rounded">
+                            <div className="text-text-secondary text-xs">{t('economy.market.instrument.cost_per_ticket')}</div>
+                            <div className="text-white font-mono text-xs">{instrument.deliverable_cost_per_ticket} {t('economy.wallet.currency.tkn')}</div>
+                          </div>
+                          <div className="col-span-2 bg-background/50 p-2 rounded">
+                             <div className="text-text-secondary text-xs">{t('economy.market.instrument.condition')}</div>
+                             <div className="text-white/80 text-xs italic">{instrument.deliverable_condition}</div>
+                          </div>
                         </div>
                     )}
                     

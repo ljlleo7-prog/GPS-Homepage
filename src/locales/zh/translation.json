@@ -325,8 +325,9 @@
       "instrument": {
         "support_btn": "支持",
         "amount_placeholder": "金额",
-        "yield": "收益率",
-        "lockup": "锁定期",
+        "frequency": "交付频率",
+        "cost_per_ticket": "每票成本",
+        "condition": "交付条件",
         "days": "天",
         "low_rep": "声望过低。您需要 > 50 声望才能支持项目。"
       },
@@ -616,7 +617,6 @@
     "fees_title": "费率与计算",
     "fees_content": "市场费率：每笔 P2P 票据交易收取 2% 手续费。\n\n小游戏费用：1 代币入场费部分注入月度奖池。\n\n代币供应：通过任务（浮动）和每日登录获取。通过费用和惩罚销毁。"
   },
-
   "minigame_onelapduel": {
     "nav": {
       "driver_hq": "车手总部",
@@ -728,6 +728,10 @@
       "confirm_strategy": "确认策略",
       "ers_mode": "ERS 模式",
       "racing_line": "赛车线",
+      "victory_reward": "胜利！+5 代币 & +25 声望",
+      "defeat_reward": "失败。+10 声望。",
+      "strategy_limit": "策略已锁定！",
+      "track_preview": "赛道预览",
       "track_type": {
         "straight": "直道",
         "turn": "弯道",
