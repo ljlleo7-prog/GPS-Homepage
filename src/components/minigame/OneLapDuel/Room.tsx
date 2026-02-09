@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { DriverStats, MONZA_TRACK, PlayerStrategy, TRACKS, INITIAL_BATTERY, RaceState, ERSMode, RacingLine } from './types';
-import { getInitialRaceState, advanceRaceState, SimulationResult } from './simulation';
-import { Check, User, Zap, MousePointer2, AlertTriangle, Play, Battery, Gauge } from 'lucide-react';
+import { getInitialRaceState, advanceRaceState, calculatePhysicsStep, getTrackNodeAtDist, SimulationResult } from './simulation';
+import { Check, User, Zap, MousePointer2, AlertTriangle, Play, Battery, Gauge, Wind, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
@@ -30,8 +30,16 @@ export default function Room({ roomId, driver, onLeave }: Props) {
   
   // Real-time Race State
   const [raceState, setRaceState] = useState<RaceState | null>(null);
+  const raceStateRef = useRef<RaceState | null>(null); // For loop access
   const raceIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const clientLoopRef = useRef<NodeJS.Timeout | null>(null); // Client-side prediction loop
   const lastStrategyUpdate = useRef<number>(0); // Rate limiting
+
+  const updateRaceState = (newState: RaceState | null) => {
+      raceStateRef.current = newState;
+      setRaceState(newState);
+  };
+
   const lastLineChangeNodeRef = useRef<number>(-1);
   const [toast, setToast] = useState<{msg: string, type: 'error' | 'success'} | null>(null);
 
@@ -47,6 +55,11 @@ export default function Room({ roomId, driver, onLeave }: Props) {
   // Fetch initial state & subscribe
   useEffect(() => {
     fetchRoomDetails();
+    
+    // Update Driver Skills (Lazy Update)
+    if (user) {
+        supabase.rpc('update_driver_skills', { p_user_id: user.id });
+    }
 
     // Realtime subscription
     const roomChannel = supabase
@@ -65,7 +78,13 @@ export default function Room({ roomId, driver, onLeave }: Props) {
         fetchRoomDetails(); 
       })
       .on('broadcast', { event: 'race_update' }, (payload) => {
-          setRaceState(payload.payload);
+          updateRaceState(payload.payload);
+      })
+      .on('broadcast', { event: 'start_countdown' }, () => {
+          // Trigger Countdown for Everyone
+          if (!isStarting) {
+              handleStartCountdown();
+          }
       })
       .on('broadcast', { event: 'strategy_update' }, (payload) => {
           // Update local player cache for Host simulation
@@ -88,8 +107,76 @@ export default function Room({ roomId, driver, onLeave }: Props) {
     return () => {
       supabase.removeChannel(roomChannel);
       if (raceIntervalRef.current) clearInterval(raceIntervalRef.current);
+      if (clientLoopRef.current) clearInterval(clientLoopRef.current);
     };
   }, [roomId]);
+
+  // Client-side Prediction Loop (Inertial Navigation)
+  useEffect(() => {
+      clientLoopRef.current = setInterval(() => {
+          const currentState = raceStateRef.current;
+          // Only predict if we are NOT the host (Host has the source of truth engine)
+          // Or actually, even host can use this for smoother 60fps UI between 1s ticks? 
+          // Yes, let's do it for everyone for smoothness.
+          if (!currentState || currentState.finished) return;
+
+          const p1 = playersRef.current[0];
+          const p2 = playersRef.current[1];
+          if (!p1 || !p2) return;
+
+          const dt = 0.05; // 50ms
+
+          // Helper to get nodes
+          const getNodes = (dist: number) => {
+              const node = getTrackNodeAtDist(currentTrack, dist);
+              const idx = currentTrack.indexOf(node);
+              const nextNode = currentTrack[(idx + 1) % currentTrack.length];
+              return { node, nextNode, distInNode: dist - node.start_dist! };
+          };
+
+          // Predict P1
+          const p1Nodes = getNodes(currentState.p1.distance);
+          const p1Res = calculatePhysicsStep(dt, {
+              speed: currentState.p1.speed / 3.6,
+              battery: currentState.p1.battery,
+              lateral_offset: currentState.p1.lateral_offset
+          }, p1Nodes.node, p1Nodes.nextNode, p1Nodes.distInNode, 
+          p1.one_lap_drivers, p1.strategy.current_ers, p1.strategy.current_line, currentState.p1.target_offset || 0);
+
+          // Predict P2
+          const p2Nodes = getNodes(currentState.p2.distance);
+          const p2Res = calculatePhysicsStep(dt, {
+              speed: currentState.p2.speed / 3.6,
+              battery: currentState.p2.battery,
+              lateral_offset: currentState.p2.lateral_offset
+          }, p2Nodes.node, p2Nodes.nextNode, p2Nodes.distInNode, 
+          p2.one_lap_drivers, p2.strategy.current_ers, p2.strategy.current_line, currentState.p2.target_offset || 0);
+
+          // Update State (Optimistic)
+          updateRaceState({
+              ...currentState,
+              p1: {
+                  ...currentState.p1,
+                  speed: p1Res.speed * 3.6,
+                  battery: p1Res.battery,
+                  lateral_offset: p1Res.lateral_offset,
+                  distance: currentState.p1.distance + (p1Res.speed * dt)
+              },
+              p2: {
+                  ...currentState.p2,
+                  speed: p2Res.speed * 3.6,
+                  battery: p2Res.battery,
+                  lateral_offset: p2Res.lateral_offset,
+                  distance: currentState.p2.distance + (p2Res.speed * dt)
+              }
+          });
+
+      }, 50);
+
+      return () => {
+          if (clientLoopRef.current) clearInterval(clientLoopRef.current);
+      };
+  }, [currentTrack]); 
 
   // Watch for Finish
   useEffect(() => {
@@ -131,7 +218,7 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                 // Reconstruct finished state
                 const logs = raceData.simulation_log;
                 const lastLog = logs[logs.length - 1];
-                setRaceState({
+                updateRaceState({
                     time: lastLog.time,
                     p1: { distance: lastLog.p1_dist, speed: lastLog.p1_speed, battery: lastLog.p1_battery, last_node_id: lastLog.nodeId, lateral_offset: 0 },
                     p2: { distance: lastLog.p2_dist, speed: lastLog.p2_speed, battery: lastLog.p2_battery, last_node_id: lastLog.nodeId, lateral_offset: 0 },
@@ -175,11 +262,23 @@ export default function Room({ roomId, driver, onLeave }: Props) {
   // Check for start condition
   useEffect(() => {
     if (players.length === 2 && players.every(p => p.is_ready) && room?.status === 'open' && !isStarting && !raceState) {
-        startRaceSequence();
+        // Only Host initiates
+        if (room?.created_by === user?.id) {
+            initiateRaceStart();
+        }
     }
-  }, [players, room, raceState, isStarting]);
+  }, [players, room, raceState, isStarting, user?.id]);
 
-  const startRaceSequence = async () => {
+  const initiateRaceStart = async () => {
+    await supabase.channel(`room:${roomId}`).send({
+        type: 'broadcast',
+        event: 'start_countdown',
+        payload: {}
+    });
+  };
+
+  const handleStartCountdown = () => {
+    if (isStarting) return;
     setIsStarting(true);
     setCountdown(5);
     let count = 5;
@@ -207,7 +306,7 @@ export default function Room({ roomId, driver, onLeave }: Props) {
       const initialState = getInitialRaceState(currentTrack);
       
       let currentState = initialState;
-      setRaceState(currentState);
+      updateRaceState(currentState);
 
       // Broadcast Start
       supabase.channel(`room:${roomId}`).send({
@@ -241,7 +340,7 @@ export default function Room({ roomId, driver, onLeave }: Props) {
               currentTrack
           );
 
-          setRaceState(currentState);
+          updateRaceState(currentState);
           
           // Broadcast
           supabase.channel(`room:${roomId}`).send({
@@ -470,6 +569,30 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                                     <div className="text-xs text-gray-500 flex items-center gap-1"><Battery className="w-3 h-3"/> BATTERY</div>
                                     <div className={`text-2xl font-mono font-bold ${pState.battery < 20 ? 'text-red-500 animate-pulse' : 'text-green-400'}`}>
                                         {pState.battery.toFixed(0)}%
+                                    </div>
+                                </div>
+                                {/* Active Aero Status */}
+                                <div className="bg-black/30 p-2 rounded">
+                                    <div className="text-xs text-gray-500 flex items-center gap-1"><Wind className="w-3 h-3"/> AERO</div>
+                                    {getTrackNodeAtDist(currentTrack, pState.distance).type === 'straight' ? (
+                                        <div className="text-sm font-bold text-cyan-400 flex items-center gap-1 animate-pulse">
+                                            DRS OPEN
+                                        </div>
+                                    ) : (
+                                        <div className="text-sm font-bold text-gray-400">
+                                            CLOSED
+                                        </div>
+                                    )}
+                                </div>
+                                {/* ERS State */}
+                                <div className="bg-black/30 p-2 rounded">
+                                    <div className="text-xs text-gray-500 flex items-center gap-1"><Zap className="w-3 h-3"/> ERS</div>
+                                    <div className={`text-sm font-bold uppercase ${
+                                        p.strategy.current_ers === 'overtake' ? 'text-red-500' :
+                                        p.strategy.current_ers === 'hotlap' ? 'text-blue-400' :
+                                        p.strategy.current_ers === 'recharge' ? 'text-green-400' : 'text-gray-400'
+                                    }`}>
+                                        {p.strategy.current_ers}
                                     </div>
                                 </div>
                             </div>

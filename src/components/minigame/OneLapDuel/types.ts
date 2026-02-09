@@ -36,6 +36,8 @@ export interface RaceState {
         battery: number;  // %
         last_node_id: number;
         lateral_offset: number; // -1 (Inside) to 1 (Outside)
+        target_offset?: number;
+        reaction_end_time?: number;
     };
     p2: {
         distance: number;
@@ -43,6 +45,12 @@ export interface RaceState {
         battery: number;
         last_node_id: number;
         lateral_offset: number;
+        target_offset?: number;
+        reaction_end_time?: number;
+    };
+    starting_grid?: {
+        p1: number; // 1 or 2
+        p2: number; // 1 or 2
     };
     finished: boolean;
     winner_id: string | null;
