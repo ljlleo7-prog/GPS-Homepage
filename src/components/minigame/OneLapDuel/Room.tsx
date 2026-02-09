@@ -131,7 +131,8 @@ export default function Room({ roomId, driver, onLeave }: Props) {
               const node = getTrackNodeAtDist(currentTrack, dist);
               const idx = currentTrack.indexOf(node);
               const nextNode = currentTrack[(idx + 1) % currentTrack.length];
-              return { node, nextNode, distInNode: dist - node.start_dist! };
+              const wrapsNext = nextNode.start_dist! < node.start_dist!;
+              return { node, nextNode, distInNode: dist - node.start_dist!, wrapsNext };
           };
 
           // Predict P1
@@ -141,7 +142,7 @@ export default function Room({ roomId, driver, onLeave }: Props) {
               battery: currentState.p1.battery,
               lateral_offset: currentState.p1.lateral_offset
           }, p1Nodes.node, p1Nodes.nextNode, p1Nodes.distInNode, 
-          p1.one_lap_drivers, p1.strategy.current_ers, p1.strategy.current_line, currentState.p1.target_offset || 0);
+          p1.one_lap_drivers, p1.strategy.current_ers, p1.strategy.current_line, currentState.p1.target_offset || 0, p1Nodes.wrapsNext);
 
           // Predict P2
           const p2Nodes = getNodes(currentState.p2.distance);
@@ -150,7 +151,7 @@ export default function Room({ roomId, driver, onLeave }: Props) {
               battery: currentState.p2.battery,
               lateral_offset: currentState.p2.lateral_offset
           }, p2Nodes.node, p2Nodes.nextNode, p2Nodes.distInNode, 
-          p2.one_lap_drivers, p2.strategy.current_ers, p2.strategy.current_line, currentState.p2.target_offset || 0);
+          p2.one_lap_drivers, p2.strategy.current_ers, p2.strategy.current_line, currentState.p2.target_offset || 0, p2Nodes.wrapsNext);
 
           // Update State (Optimistic)
           updateRaceState({
@@ -181,14 +182,14 @@ export default function Room({ roomId, driver, onLeave }: Props) {
   // Watch for Finish
   useEffect(() => {
     if (raceState?.finished && raceState.winner_id === user?.id) {
-        setToast({ type: 'success', msg: t('minigame_onelapduel.room.victory_reward') || 'Victory! +5 Tokens & +25 Points' });
+        setToast({ type: 'success', msg: t('minigame_onelapduel.room.victory_reward') || 'Victory! +5 Tokens & +25 Points (积分)' });
         
         // Refresh driver stats (points/wins updated by trigger)
         setTimeout(() => {
             // Optional: trigger a refresh if we had a callback
         }, 2000);
     } else if (raceState?.finished && raceState.winner_id !== user?.id && raceState.winner_id) {
-        setToast({ type: 'error', msg: t('minigame_onelapduel.room.defeat_reward') || 'Defeat. +10 Points for finishing.' });
+        setToast({ type: 'error', msg: t('minigame_onelapduel.room.defeat_reward') || 'Defeat. 0 Points this time (积分).' });
     }
   }, [raceState?.finished, raceState?.winner_id, user?.id]);
 

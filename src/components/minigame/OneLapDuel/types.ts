@@ -64,44 +64,45 @@ export type PlayerStrategy = {
     current_line: RacingLine; // Real-time
 };
 
-// Mock Track (Monza-ish)
 export const MONZA_TRACK: TrackNode[] = [
-  { id: 0, type: 'straight', length: 1100, base_speed_entry: 200, base_speed_exit: 330, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'main_straight' },
-  { id: 1, type: 'turn', length: 150, base_speed_entry: 330, base_speed_exit: 80, drag_factor: 1.2, overtake_difficulty: 0.8, name_key: 'variante_del_rettifilo' },
-  { id: 2, type: 'turn', length: 300, base_speed_entry: 80, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.5, name_key: 'curva_grande' },
-  { id: 3, type: 'turn', length: 150, base_speed_entry: 280, base_speed_exit: 160, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'variante_della_roggia' },
-  { id: 4, type: 'turn', length: 100, base_speed_entry: 160, base_speed_exit: 180, drag_factor: 1.1, overtake_difficulty: 0.6, name_key: 'lesmo_1' },
-  { id: 5, type: 'turn', length: 100, base_speed_entry: 180, base_speed_exit: 170, drag_factor: 1.1, overtake_difficulty: 0.6, name_key: 'lesmo_2' },
-  { id: 6, type: 'straight', length: 900, base_speed_entry: 170, base_speed_exit: 320, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'serraglio_straight' },
-  { id: 7, type: 'turn', length: 200, base_speed_entry: 320, base_speed_exit: 190, drag_factor: 1.2, overtake_difficulty: 0.7, name_key: 'variante_ascari' },
-  { id: 8, type: 'straight', length: 800, base_speed_entry: 190, base_speed_exit: 330, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'back_straight' },
-  { id: 9, type: 'turn', length: 250, base_speed_entry: 330, base_speed_exit: 200, drag_factor: 1.1, overtake_difficulty: 0.5, name_key: 'parabolica' },
+  { id: 0, type: 'straight', length: 1573, base_speed_entry: 200, base_speed_exit: 330, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'main_straight' },
+  { id: 1, type: 'turn', length: 210, base_speed_entry: 330, base_speed_exit: 80, drag_factor: 1.2, overtake_difficulty: 0.8, name_key: 'variante_del_rettifilo' },
+  { id: 2, type: 'turn', length: 430, base_speed_entry: 80, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.5, name_key: 'curva_grande' },
+  { id: 3, type: 'turn', length: 210, base_speed_entry: 280, base_speed_exit: 160, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'variante_della_roggia' },
+  { id: 4, type: 'turn', length: 140, base_speed_entry: 160, base_speed_exit: 180, drag_factor: 1.1, overtake_difficulty: 0.6, name_key: 'lesmo_1' },
+  { id: 5, type: 'turn', length: 140, base_speed_entry: 180, base_speed_exit: 170, drag_factor: 1.1, overtake_difficulty: 0.6, name_key: 'lesmo_2' },
+  { id: 6, type: 'straight', length: 1290, base_speed_entry: 170, base_speed_exit: 320, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'serraglio_straight' },
+  { id: 7, type: 'turn', length: 290, base_speed_entry: 320, base_speed_exit: 190, drag_factor: 1.2, overtake_difficulty: 0.7, name_key: 'variante_ascari' },
+  { id: 8, type: 'straight', length: 1150, base_speed_entry: 190, base_speed_exit: 330, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'back_straight' },
+  { id: 9, type: 'turn', length: 360, base_speed_entry: 330, base_speed_exit: 200, drag_factor: 1.1, overtake_difficulty: 0.5, name_key: 'parabolica' },
 ];
 
 export const SPA_TRACK: TrackNode[] = [
-  { id: 0, type: 'turn', length: 100, base_speed_entry: 250, base_speed_exit: 60, drag_factor: 1.2, overtake_difficulty: 0.9, name_key: 'la_source' },
-  { id: 1, type: 'straight', length: 500, base_speed_entry: 60, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'eau_rouge_app' },
-  { id: 2, type: 'turn', length: 300, base_speed_entry: 280, base_speed_exit: 300, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'raidillon' },
-  { id: 3, type: 'straight', length: 1500, base_speed_entry: 300, base_speed_exit: 330, drag_factor: 0.9, overtake_difficulty: 0.1, name_key: 'kemmel_straight' },
-  { id: 4, type: 'turn', length: 200, base_speed_entry: 330, base_speed_exit: 140, drag_factor: 1.1, overtake_difficulty: 0.6, name_key: 'les_combes' },
-  { id: 5, type: 'turn', length: 150, base_speed_entry: 140, base_speed_exit: 120, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'malmedy' },
-  { id: 6, type: 'turn', length: 250, base_speed_entry: 120, base_speed_exit: 100, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'rivage' },
-  { id: 7, type: 'turn', length: 200, base_speed_entry: 100, base_speed_exit: 160, drag_factor: 1.0, overtake_difficulty: 0.5, name_key: 'pouhon' },
-  { id: 8, type: 'straight', length: 800, base_speed_entry: 160, base_speed_exit: 290, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'blanchimont_app' },
-  { id: 9, type: 'turn', length: 150, base_speed_entry: 290, base_speed_exit: 80, drag_factor: 1.2, overtake_difficulty: 0.9, name_key: 'bus_stop' },
+  { id: 0, type: 'straight', length: 300, base_speed_entry: 200, base_speed_exit: 260, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'start_finish' },
+  { id: 1, type: 'turn', length: 170, base_speed_entry: 250, base_speed_exit: 60, drag_factor: 1.2, overtake_difficulty: 0.9, name_key: 'la_source' },
+  { id: 2, type: 'straight', length: 840, base_speed_entry: 60, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'eau_rouge_app' },
+  { id: 3, type: 'turn', length: 510, base_speed_entry: 280, base_speed_exit: 300, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'raidillon' },
+  { id: 4, type: 'straight', length: 2234, base_speed_entry: 300, base_speed_exit: 330, drag_factor: 0.9, overtake_difficulty: 0.1, name_key: 'kemmel_straight' },
+  { id: 5, type: 'turn', length: 340, base_speed_entry: 330, base_speed_exit: 140, drag_factor: 1.1, overtake_difficulty: 0.6, name_key: 'les_combes' },
+  { id: 6, type: 'turn', length: 250, base_speed_entry: 140, base_speed_exit: 120, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'malmedy' },
+  { id: 7, type: 'turn', length: 420, base_speed_entry: 120, base_speed_exit: 100, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'rivage' },
+  { id: 8, type: 'turn', length: 340, base_speed_entry: 100, base_speed_exit: 160, drag_factor: 1.0, overtake_difficulty: 0.5, name_key: 'pouhon' },
+  { id: 9, type: 'straight', length: 1350, base_speed_entry: 160, base_speed_exit: 290, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'blanchimont_app' },
+  { id: 10, type: 'turn', length: 250, base_speed_entry: 290, base_speed_exit: 80, drag_factor: 1.2, overtake_difficulty: 0.9, name_key: 'bus_stop' },
 ];
 
 export const SILVERSTONE_TRACK: TrackNode[] = [
-  { id: 0, type: 'turn', length: 150, base_speed_entry: 280, base_speed_exit: 250, drag_factor: 1.0, overtake_difficulty: 0.4, name_key: 'abbey' },
-  { id: 1, type: 'turn', length: 200, base_speed_entry: 250, base_speed_exit: 100, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'village' },
-  { id: 2, type: 'straight', length: 600, base_speed_entry: 100, base_speed_exit: 290, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'wellington_straight' },
-  { id: 3, type: 'turn', length: 150, base_speed_entry: 290, base_speed_exit: 110, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'brooklands' },
-  { id: 4, type: 'turn', length: 100, base_speed_entry: 110, base_speed_exit: 180, drag_factor: 1.0, overtake_difficulty: 0.5, name_key: 'woodcote' },
-  { id: 5, type: 'straight', length: 400, base_speed_entry: 180, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'copse_app' },
-  { id: 6, type: 'turn', length: 150, base_speed_entry: 280, base_speed_exit: 260, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'copse' },
-  { id: 7, type: 'turn', length: 400, base_speed_entry: 260, base_speed_exit: 240, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'maggotts_becketts' },
-  { id: 8, type: 'straight', length: 800, base_speed_entry: 240, base_speed_exit: 310, drag_factor: 1.0, overtake_difficulty: 0.1, name_key: 'hangar_straight' },
-  { id: 9, type: 'turn', length: 200, base_speed_entry: 310, base_speed_exit: 130, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'stowe' },
+  { id: 0, type: 'straight', length: 500, base_speed_entry: 260, base_speed_exit: 300, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'start_finish' },
+  { id: 1, type: 'turn', length: 280, base_speed_entry: 280, base_speed_exit: 250, drag_factor: 1.0, overtake_difficulty: 0.4, name_key: 'abbey' },
+  { id: 2, type: 'turn', length: 370, base_speed_entry: 250, base_speed_exit: 100, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'village' },
+  { id: 3, type: 'straight', length: 1120, base_speed_entry: 100, base_speed_exit: 290, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'wellington_straight' },
+  { id: 4, type: 'turn', length: 280, base_speed_entry: 290, base_speed_exit: 110, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'brooklands' },
+  { id: 5, type: 'turn', length: 190, base_speed_entry: 110, base_speed_exit: 180, drag_factor: 1.0, overtake_difficulty: 0.5, name_key: 'woodcote' },
+  { id: 6, type: 'straight', length: 750, base_speed_entry: 180, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'copse_app' },
+  { id: 7, type: 'turn', length: 280, base_speed_entry: 280, base_speed_exit: 260, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'copse' },
+  { id: 8, type: 'turn', length: 750, base_speed_entry: 260, base_speed_exit: 240, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'maggotts_becketts' },
+  { id: 9, type: 'straight', length: 1001, base_speed_entry: 240, base_speed_exit: 310, drag_factor: 1.0, overtake_difficulty: 0.1, name_key: 'hangar_straight' },
+  { id: 10, type: 'turn', length: 370, base_speed_entry: 310, base_speed_exit: 130, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'stowe' },
 ];
 
 export const TRACKS: Record<string, TrackNode[]> = {

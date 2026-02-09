@@ -49,6 +49,7 @@ interface ActiveBet {
   title: string;
   description: string;
   official_end_date: string;
+  open_date: string;
   side_a_name: string;
   side_b_name: string;
   creator_name?: string;
@@ -362,6 +363,23 @@ const DeveloperInbox = () => {
     }
   };
 
+  const isApproachingDeadline = (dateString: string) => {
+    if (!dateString) return false;
+    const deadline = new Date(dateString).getTime();
+    const now = new Date().getTime();
+    const diff = deadline - now;
+    // Less than 24 hours (86400000 ms) and not yet resolved (assuming resolved items are removed)
+    // Also show if overdue (diff < 0)
+    return diff < 86400000;
+  };
+
+  const RedDot = () => (
+    <span className="relative flex h-3 w-3 ml-2 inline-block align-middle">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+    </span>
+  );
+
   const handleResolveBetAction = async (id: string, side: 'A' | 'B') => {
       const proofUrl = prompt(t('developer.inbox.prompts.proof_url'), 'https://example.com');
       if (proofUrl === null) return; // Cancelled
@@ -615,10 +633,13 @@ const DeveloperInbox = () => {
                                                 <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded border border-red-500/30 font-mono">
                                                     {t('developer.inbox.actions.driver_bet_tag')}
                                                 </span>
-                                                <h3 className="font-bold text-white text-lg">{bet.title}</h3>
+                                                <h3 className="font-bold text-white text-lg flex items-center">
+                                                    {bet.title}
+                                                    {isApproachingDeadline(bet.open_date) && <RedDot />}
+                                                </h3>
                                             </div>
                                             <p className="text-sm text-text-secondary mb-2">{bet.description}</p>
-                                            <p className="text-xs text-text-secondary">{t('developer.inbox.end_date')}: {new Date(bet.official_end_date).toLocaleDateString(i18n.language)}</p>
+                                            <p className="text-xs text-text-secondary">{t('developer.inbox.labels.release_date') || 'Release Date'}: {new Date(bet.open_date).toLocaleDateString(i18n.language)}</p>
                                             
                                             <div className="mt-3 p-3 bg-black/30 rounded border border-white/5">
                                                 <span className="text-xs text-center text-text-secondary mb-1">{t('developer.inbox.declare_winner')}:</span>
@@ -656,11 +677,14 @@ const DeveloperInbox = () => {
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 mr-4">
                                             <div className="flex items-center gap-2 mb-1">
-                                                <span className="bg-pink-500/20 text-pink-400 text-xs px-2 py-0.5 rounded border border-pink-500/30 font-mono">
-                                                    {t('developer.inbox.actions.deliverable_tag') || 'DELIVERABLE'}
-                                                </span>
-                                                <h3 className="font-bold text-white text-lg">{del.instrument_title}</h3>
-                                            </div>
+                        <span className="bg-pink-500/20 text-pink-400 text-xs px-2 py-0.5 rounded border border-pink-500/30 font-mono">
+                          {t('developer.inbox.actions.deliverable_tag') || 'DELIVERABLE'}
+                        </span>
+                        <h3 className="font-bold text-white text-lg flex items-center">
+                          {del.instrument_title}
+                          {isApproachingDeadline(del.due_date) && <RedDot />}
+                        </h3>
+                      </div>
                                             <div className="mt-2 text-sm text-gray-300 space-y-1">
                                                 <p><span className="text-text-secondary">{t('developer.inbox.labels.due_date') || 'Due Date'}:</span> <span className="text-white">{new Date(del.due_date).toLocaleDateString(i18n.language)}</span></p>
                                                 <p><span className="text-text-secondary">{t('developer.inbox.labels.cost') || 'Cost'}:</span> <span className="text-yellow-400">{del.deliverable_cost_per_ticket}% / ticket</span></p>

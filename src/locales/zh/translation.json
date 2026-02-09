@@ -560,7 +560,7 @@
       "race_starting": "比赛即将开始...",
       "strategy_limit": "该赛段策略已锁定！",
       "victory_reward": "胜利！+5 代币 & +25 积分",
-      "defeat_reward": "惜败。+10 完赛积分。",
+      "defeat_reward": "失败。本场获得 0 积分。",
       "ready_button": "准备",
       "cancel_ready": "取消准备",
       "ready_status": "已准备",
@@ -728,8 +728,8 @@
       "confirm_strategy": "确认策略",
       "ers_mode": "ERS 模式",
       "racing_line": "赛车线",
-      "victory_reward": "胜利！+5 代币 & +25 声望",
-      "defeat_reward": "失败。+10 声望。",
+      "victory_reward": "胜利！+5 代币 & +25 积分",
+      "defeat_reward": "失败。本场获得 0 积分。",
       "strategy_limit": "策略已锁定！",
       "track_preview": "赛道预览",
       "track_type": {
@@ -738,6 +738,7 @@
         "chicane": "芝加哥弯"
       },
       "track": {
+        "start_finish": "主直道（发车区）",
         "main_straight": "主直道",
         "variante_del_rettifilo": "第一变向弯",
         "curva_grande": "大弯",

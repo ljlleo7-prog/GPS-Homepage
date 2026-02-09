@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useEconomy } from '../context/EconomyContext';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Shield, Trophy, AlertTriangle, Ticket, Plus, Trash2, XCircle } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Ticket, Plus, Trash2, XCircle } from 'lucide-react';
 import { TicketMarket } from '../components/economy/TicketMarket';
 import { PolicyInfo } from '../components/common/PolicyInfo';
 import { useTranslation } from 'react-i18next';
@@ -34,12 +34,13 @@ interface Instrument {
   deliverable_frequency?: string;
   deliverable_cost_per_ticket?: number;
   deliverable_condition?: string;
+  refund_price?: number;
 }
 
 const SupportMarkets = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { wallet, enterPosition, createUserCampaign, createDriverBet, buyDriverBetTicket, resolveDriverBet, deleteCampaign } = useEconomy();
+  const { wallet, enterPosition, createUserCampaign, createDriverBet, buyDriverBetTicket, resolveDriverBet, deleteCampaign, refreshEconomy } = useEconomy();
   const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [userPositions, setUserPositions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +61,7 @@ const SupportMarkets = () => {
   const [deliverableDay, setDeliverableDay] = useState('');
   const [deliverableCost, setDeliverableCost] = useState('');
   const [deliverableCondition, setDeliverableCondition] = useState('');
+  const [refundPrice, setRefundPrice] = useState('0.9');
 
   // Driver Bet State
   const [sideA, setSideA] = useState('');
@@ -187,7 +189,7 @@ const SupportMarkets = () => {
         }
     } else {
         // Validate new deliverable fields
-        if (!riskLevel || !deliverableFrequency || !deliverableDay || !deliverableCost || !deliverableCondition) {
+        if (!riskLevel || !deliverableFrequency || !deliverableDay || !deliverableCost || !deliverableCondition || !refundPrice) {
             alert(t('economy.market.alerts.fill_deliverables'));
             setCreating(false);
             return;
@@ -204,7 +206,8 @@ const SupportMarkets = () => {
           deliverableFrequency,
           deliverableDay,
           parseFloat(deliverableCost),
-          deliverableCondition
+          deliverableCondition,
+          parseFloat(refundPrice)
         );
 
         if (result.success) {
@@ -219,6 +222,7 @@ const SupportMarkets = () => {
           setDeliverableDay('');
           setDeliverableCost('');
           setDeliverableCondition('');
+          setRefundPrice('0.9');
           fetchInstruments();
         } else {
           alert(result.message);
@@ -261,6 +265,34 @@ const SupportMarkets = () => {
           fetchPositions();
       } else {
           alert(t('economy.market.alerts.buy_failed', { message: result.message }));
+      }
+  };
+
+  const handleSellBackToOfficial = async (instrument: Instrument, qty: number) => {
+      if (!qty || qty <= 0 || !Number.isInteger(qty)) {
+          alert(t('economy.market.alerts.buy_integer'));
+          return;
+      }
+
+      if (!confirm(`Are you sure you want to sell ${qty} tickets back to the official issuer for ${instrument.refund_price || 0.9} TKN/ticket?`)) return;
+
+      const { data, error } = await supabase.rpc('sell_ticket_to_official', {
+          p_instrument_id: instrument.id,
+          p_quantity: qty
+      });
+
+      if (error) {
+          console.error('Error selling back:', error);
+          alert('Failed to sell back tickets: ' + error.message);
+      } else {
+          if (data.success) {
+                alert(data.message);
+                setAmount({...amount, [instrument.id]: ''});
+                fetchPositions();
+                refreshEconomy();
+            } else {
+                alert('Failed: ' + data.message);
+            }
       }
   };
 
@@ -501,13 +533,9 @@ const SupportMarkets = () => {
                                 <div className="text-text-secondary">{t('economy.market.labels.limit')}</div>
                                 <div className="text-white">{instrument.ticket_limit}</div>
                             </div>
-                            <div className="bg-white/5 p-2 rounded">
-                                <div className="text-text-secondary">{t('economy.market.labels.sales_end')}</div>
-                                <div className="text-white">{instrument.official_end_date ? new Date(instrument.official_end_date).toLocaleDateString() : '-'}</div>
-                            </div>
-                            <div className="bg-white/5 p-2 rounded">
-                                <div className="text-text-secondary">{t('economy.market.labels.result')}</div>
-                                <div className="text-white">{instrument.open_date ? new Date(instrument.open_date).toLocaleDateString() : '-'}</div>
+                            <div className="bg-white/5 p-2 rounded col-span-2">
+                                <div className="text-text-secondary">{t('economy.market.labels.result') || 'Result Release'}</div>
+                                <div className="text-white font-bold text-yellow-500">{instrument.open_date ? new Date(instrument.open_date).toLocaleString() : '-'}</div>
                             </div>
                         </div>
 
@@ -623,11 +651,17 @@ const SupportMarkets = () => {
                             onChange={(e) => setAmount({...amount, [instrument.id]: e.target.value})}
                         />
                         <button
-                            onClick={() => handleSupport(instrument)}
-                            className="bg-primary text-background font-bold px-4 py-2 rounded hover:bg-primary/90 transition-colors text-sm font-mono whitespace-nowrap"
-                        >
-                            {t('economy.market.labels.buy_one_tkn')}
-                        </button>
+                        onClick={() => handleSupport(instrument)}
+                        className="bg-primary text-background font-bold px-4 py-2 rounded hover:bg-primary/90 transition-colors text-sm font-mono whitespace-nowrap"
+                    >
+                        {t('economy.market.labels.buy_one_tkn')}
+                    </button>
+                    <button
+                        onClick={() => handleSellBackToOfficial(instrument, parseInt(amount[instrument.id]))}
+                        className="bg-yellow-500 text-background font-bold px-4 py-2 rounded hover:bg-yellow-500/90 transition-colors text-sm font-mono whitespace-nowrap"
+                    >
+                        {t('economy.market.labels.sell_back')} ({instrument.refund_price || 0.9})
+                    </button>
                         </div>
                     )}
                     </>
@@ -857,6 +891,18 @@ const SupportMarkets = () => {
                                 placeholder="Under which condition will it be delivered?"
                                 value={deliverableCondition}
                                 onChange={e => setDeliverableCondition(e.target.value)}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs text-text-secondary mb-1">{t('economy.market.campaign.refund_price_label')}</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                value={refundPrice}
+                                onChange={e => setRefundPrice(e.target.value)}
+                                placeholder="0.9"
                             />
                         </div>
 

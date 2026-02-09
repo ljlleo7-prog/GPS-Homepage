@@ -67,13 +67,16 @@ export const calculatePhysicsStep = (
   driver: DriverStats,
   ers: ERSMode,
   line: RacingLine,
-  targetOffset: number
+  targetOffset: number,
+  ignoreNextNodeForBraking: boolean = false
 ): PhysicsState => {
   let { speed, battery, lateral_offset } = currentState; // speed is m/s
   
   // 1. Lateral Movement towards Target
-  // Smoothly transition lateral offset
-  const lateralSpeed = 0.5 * dt; // Move 0.5 units per second
+  const baseLateralSpeed = 1.2;
+  const decisionFactor = 0.8 + (driver.decision_making_skill / 25);
+  const lineFactor = line === 'opportunity' ? 1.1 : line === 'defense' ? 0.9 : 1.0;
+  const lateralSpeed = baseLateralSpeed * decisionFactor * lineFactor * dt;
   if (lateral_offset < targetOffset) lateral_offset = Math.min(targetOffset, lateral_offset + lateralSpeed);
   else if (lateral_offset > targetOffset) lateral_offset = Math.max(targetOffset, lateral_offset - lateralSpeed);
 
@@ -82,29 +85,31 @@ export const calculatePhysicsStep = (
   const currentDragArea = isActiveAeroXMode ? DRAG_AREA_X_MODE : DRAG_AREA_Z_MODE;
 
   // 3. Determine Max Speed for Current Context
-  const distToNextNode = node.length - distInNode;
-  const brakingDistNeeded = (speed * speed - (nextNode.base_speed_entry / 3.6) ** 2) / (2 * 4.5 * GRAVITY); 
+  const baseExitSpeedMs = node.base_speed_exit / 3.6;
   
-  let targetSpeedLimit = 1000; // Infinite on straight
+  let contextSpeedLimit = baseExitSpeedMs;
+  if (node.type === 'turn') {
+      let cornerSpeed = baseExitSpeedMs;
+      if (line === 'defense') cornerSpeed *= 0.92;
+      else if (line === 'opportunity') cornerSpeed *= 1.05;
+      cornerSpeed *= (1 + (driver.cornering_skill / 2000));
+      contextSpeedLimit = cornerSpeed;
+  }
+
+  let targetSpeedLimit = contextSpeedLimit;
   let brakingMode = false;
 
-  // Check if we need to brake for the next node
-  if (distToNextNode < brakingDistNeeded + 20 && nextNode.base_speed_entry < (speed * 3.6)) {
-      targetSpeedLimit = nextNode.base_speed_entry / 3.6;
-      brakingMode = true;
-  } 
-  // Or are we in a turn constrained by grip?
-  else if (node.type === 'turn') {
-      let cornerSpeed = node.base_speed_entry / 3.6; // Base corner speed
-      
-      // Line effects on corner speed
-      if (line === 'defense') cornerSpeed *= 0.92; // Tight line, slower
-      else if (line === 'opportunity') cornerSpeed *= 1.05; // Wide entry, faster exit
-      
-      // Skill effects
-      cornerSpeed *= (1 + (driver.cornering_skill / 2000)); // Small boost
-      
-      targetSpeedLimit = cornerSpeed;
+  if (!ignoreNextNodeForBraking) {
+      const distToNextNode = node.length - distInNode;
+      const nextNodeEntrySpeed = nextNode.base_speed_entry / 3.6;
+      const brakingDistRaw = (speed * speed - nextNodeEntrySpeed * nextNodeEntrySpeed) / (2 * 4.5 * GRAVITY);
+      const brakingDistNeeded = Math.max(0, brakingDistRaw);
+
+      // Check if we need to brake for the next node
+      if (distToNextNode < brakingDistNeeded + 20 && nextNodeEntrySpeed < speed) {
+          targetSpeedLimit = Math.min(contextSpeedLimit, nextNodeEntrySpeed);
+          brakingMode = true;
+      }
   }
 
   // 4. Calculate Forces
@@ -151,11 +156,29 @@ export const calculatePhysicsStep = (
       netForce = engineForce - dragForce - rollingRes;
   }
 
+  // Cornering control: smooth accel/decel through turns so exit speed matches curve limits
+  if (node.type === 'turn') {
+      const remainingDist = Math.max(1, node.length - distInNode);
+      const desiredExitSpeed = contextSpeedLimit;
+      const aTarget = (desiredExitSpeed * desiredExitSpeed - speed * speed) / (2 * remainingDist);
+      const aRaw = netForce / MASS;
+
+      if (aTarget < 0 && aRaw < aTarget) {
+          // Too much braking vs what is needed to exit at desired speed
+          netForce = aTarget * MASS;
+      } else if (aTarget > 0 && aRaw > aTarget) {
+          // Too much throttle vs what is needed to exit at desired speed
+          netForce = aTarget * MASS;
+      }
+  }
+
   // 5. Apply Physics Integration (Euler)
   const acceleration = netForce / MASS;
   speed += acceleration * dt;
   
   speed = Math.max(0, speed);
+  // Never exceed context speed limit for this segment (curve limitation)
+  speed = Math.min(speed, targetSpeedLimit);
 
   // 6. Battery Limits
   battery = Math.max(0, Math.min(100, battery + batteryChange));
@@ -262,12 +285,14 @@ export const advanceRaceState = (
         // P1 Step
         const p1NodeCurrent = getNode(p1State.distance);
         const p1NextCurrent = getNextNode(p1NodeCurrent);
+        const p1WrapsNext = p1NextCurrent.start_dist! < p1NodeCurrent.start_dist!;
         const p1Res = calculatePhysicsStep(
             SUB_DT, 
             { speed: p1State.speed, battery: p1State.battery, lateral_offset: p1State.lateral_offset }, 
             p1NodeCurrent, p1NextCurrent, p1State.distance - p1NodeCurrent.start_dist!, 
             p1.driver, p1.strategy.current_ers, p1.strategy.current_line,
-            newState.p1.target_offset ?? 0
+            newState.p1.target_offset ?? 0,
+            p1WrapsNext
         );
         p1State.speed = p1Res.speed;
         p1State.battery = p1Res.battery;
@@ -277,12 +302,14 @@ export const advanceRaceState = (
         // P2 Step
         const p2NodeCurrent = getNode(p2State.distance);
         const p2NextCurrent = getNextNode(p2NodeCurrent);
+        const p2WrapsNext = p2NextCurrent.start_dist! < p2NodeCurrent.start_dist!;
         const p2Res = calculatePhysicsStep(
             SUB_DT, 
             { speed: p2State.speed, battery: p2State.battery, lateral_offset: p2State.lateral_offset }, 
             p2NodeCurrent, p2NextCurrent, p2State.distance - p2NodeCurrent.start_dist!, 
             p2.driver, p2.strategy.current_ers, p2.strategy.current_line,
-            newState.p2.target_offset ?? 0
+            newState.p2.target_offset ?? 0,
+            p2WrapsNext
         );
         p2State.speed = p2Res.speed;
         p2State.battery = p2Res.battery;

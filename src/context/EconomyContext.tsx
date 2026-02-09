@@ -45,7 +45,8 @@ interface EconomyContextType {
     deliverableFrequency?: string,
     deliverableDay?: string,
     deliverableCostPerTicket?: number,
-    deliverableCondition?: string
+    deliverableCondition?: string,
+    refundPrice?: number
   ) => Promise<{ success: boolean; message?: string; data?: any }>;
   createDriverBet: (
     title: string,
@@ -332,7 +333,8 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     deliverableFrequency?: string,
     deliverableDay?: string,
     deliverableCostPerTicket?: number,
-    deliverableCondition?: string
+    deliverableCondition?: string,
+    refundPrice?: number
   ) => {
     if (!user) return { success: false, message: 'Not authenticated' };
     try {
@@ -349,7 +351,8 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
           p_deliverable_frequency: deliverableFrequency,
           p_deliverable_day: deliverableDay,
           p_deliverable_cost_per_ticket: deliverableCostPerTicket,
-          p_deliverable_condition: deliverableCondition
+          p_deliverable_condition: deliverableCondition,
+          p_refund_price: refundPrice || 0.9
         });
         
         if (error) throw error;
