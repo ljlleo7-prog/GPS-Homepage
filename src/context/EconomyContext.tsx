@@ -22,8 +22,11 @@ interface EconomyContextType {
   wallet: Wallet | null;
   ledger: LedgerEntry[];
   loading: boolean;
-  developerStatus: 'NONE' | 'PENDING' | 'APPROVED';
+  developerStatus: 'NONE' | 'PENDING' | 'APPROVED' | 'DECLINED';
   username: string | null;
+  developerDeclineMessage?: string | null;
+  developerDeclineNotified?: boolean;
+  testDeclines?: { id: string; message: string }[];
   refreshEconomy: () => Promise<void>;
   enterPosition: (instrumentId: string, amount: number) => Promise<{ success: boolean; message?: string }>;
   createTicketListing: (ticketId: string, quantity: number, price: number, password: string) => Promise<{ success: boolean; message?: string }>;
@@ -71,7 +74,9 @@ interface EconomyContextType {
   deleteCampaign: (id: string, mode: 'MARKET' | 'EVERYWHERE') => Promise<{ success: boolean; message?: string }>;
   requestTestPlayerAccess: (identifiableName: string, program: string, progressDescription: string) => Promise<{ success: boolean; message?: string }>;
   approveTestPlayerRequest: (requestId: string) => Promise<{ success: boolean; message?: string }>;
-  declineTestPlayerRequest: (requestId: string) => Promise<{ success: boolean; message?: string }>;
+  declineTestPlayerRequest: (requestId: string, message: string) => Promise<{ success: boolean; message?: string }>;
+  acknowledgeDeveloperDecline: () => Promise<{ success: boolean; message?: string }>;
+  acknowledgeTestPlayerDecline: (requestId: string) => Promise<{ success: boolean; message?: string }>;
   playReactionGame: (scoreMs: number) => Promise<{ success: boolean; reward?: number; message?: string }>;
   getMonthlyLeaderboard: () => Promise<{ success: boolean; data?: any[] }>;
   getMonthlyPool: () => Promise<{ success: boolean; data?: any }>;
@@ -83,6 +88,9 @@ const EconomyContext = createContext<EconomyContextType>({
   loading: true,
   developerStatus: 'NONE',
   username: null,
+  developerDeclineMessage: null,
+  developerDeclineNotified: false,
+  testDeclines: [],
   refreshEconomy: async () => {},
   enterPosition: async () => ({ success: false }),
   createTicketListing: async () => ({ success: false }),
@@ -98,6 +106,8 @@ const EconomyContext = createContext<EconomyContextType>({
   requestTestPlayerAccess: async () => ({ success: false }),
   approveTestPlayerRequest: async () => ({ success: false }),
   declineTestPlayerRequest: async () => ({ success: false }),
+  acknowledgeDeveloperDecline: async () => ({ success: false }),
+  acknowledgeTestPlayerDecline: async () => ({ success: false }),
   playReactionGame: async () => ({ success: false }),
   getMonthlyLeaderboard: async () => ({ success: false }),
   getMonthlyPool: async () => ({ success: false }),
@@ -109,8 +119,11 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
   const { user } = useAuth();
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
-  const [developerStatus, setDeveloperStatus] = useState<'NONE' | 'PENDING' | 'APPROVED'>('NONE');
+  const [developerStatus, setDeveloperStatus] = useState<'NONE' | 'PENDING' | 'APPROVED' | 'DECLINED'>('NONE');
   const [username, setUsername] = useState<string | null>(null);
+  const [developerDeclineMessage, setDeveloperDeclineMessage] = useState<string | null>(null);
+  const [developerDeclineNotified, setDeveloperDeclineNotified] = useState<boolean>(false);
+  const [testDeclines, setTestDeclines] = useState<{ id: string; message: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refreshEconomy = async () => {
@@ -152,13 +165,29 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       // Fetch Profile for Developer Status and Username
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('developer_status, username')
+        .select('developer_status, username, decline_message, decline_notified')
         .eq('id', user.id)
         .single();
       
       if (!profileError && profileData) {
         setDeveloperStatus(profileData.developer_status as any || 'NONE');
         setUsername(profileData.username);
+        setDeveloperDeclineMessage(profileData.decline_message || null);
+        setDeveloperDeclineNotified(!!profileData.decline_notified);
+      }
+      const { data: declines, error: declinesError } = await supabase
+        .from('test_player_requests')
+        .select('id, decline_message, notified, status')
+        .eq('user_id', user.id)
+        .eq('notified', false);
+      if (!declinesError && Array.isArray(declines)) {
+        setTestDeclines(
+          declines
+            .filter((r: any) => !!r.decline_message && (r.status === 'REJECTED' || r.status === 'DECLINED'))
+            .map((r: any) => ({ id: r.id, message: r.decline_message as string }))
+        );
+      } else {
+        setTestDeclines([]);
       }
 
       // Fetch Ledger
@@ -510,11 +539,12 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
-  const declineTestPlayerRequest = async (requestId: string) => {
+  const declineTestPlayerRequest = async (requestId: string, message: string) => {
     if (!user) return { success: false, message: 'Not authenticated' };
     try {
       const { data, error } = await supabase.rpc('decline_test_player_request', {
-        p_request_id: requestId
+        p_request_id: requestId,
+        p_message: message
       });
 
       if (error) throw error;
@@ -525,6 +555,36 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     } catch (error: any) {
       console.error('Error declining test player request:', error);
       return { success: false, message: error.message || 'Failed to decline request' };
+    }
+  };
+
+  const acknowledgeDeveloperDecline = async () => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+      const { data, error } = await supabase.rpc('acknowledge_developer_decline');
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      await refreshEconomy();
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error acknowledging developer decline:', error);
+      return { success: false, message: error.message || 'Failed to acknowledge' };
+    }
+  };
+
+  const acknowledgeTestPlayerDecline = async (requestId: string) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+      const { data, error } = await supabase.rpc('acknowledge_test_player_decline', {
+        p_request_id: requestId
+      });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      await refreshEconomy();
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error acknowledging test player decline:', error);
+      return { success: false, message: error.message || 'Failed to acknowledge' };
     }
   };
 
@@ -575,6 +635,9 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       loading,
       developerStatus,
       username,
+      developerDeclineMessage,
+      developerDeclineNotified,
+      testDeclines,
       refreshEconomy,
       enterPosition,
       createTicketListing, 
@@ -590,6 +653,8 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       requestTestPlayerAccess,
       approveTestPlayerRequest,
       declineTestPlayerRequest,
+      acknowledgeDeveloperDecline,
+      acknowledgeTestPlayerDecline,
       playReactionGame,
       getMonthlyLeaderboard,
       getMonthlyPool

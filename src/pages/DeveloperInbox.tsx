@@ -317,14 +317,15 @@ const DeveloperInbox = () => {
 
   const handleDeclineDev = async (id: string) => {
     if (!confirm(t('developer.inbox.confirms.decline_dev'))) return;
+    const msg = prompt(t('developer.inbox.prompts.decline_reason') || '');
+    if (msg === null) return;
     try {
         const { data, error } = await supabase.rpc('decline_developer_access', {
-            target_user_id: id
+            target_user_id: id,
+            p_message: msg
         });
-        
         if (error) throw error;
         if (data && !data.success) throw new Error(data.message);
-        
         fetchInbox();
     } catch (error: any) {
         alert(error.message || t('developer.inbox.alerts.decline_failed'));
@@ -419,7 +420,9 @@ const DeveloperInbox = () => {
 
   const handleDeclineTest = async (id: string) => {
     if (!confirm(t('developer.inbox.confirms.decline_test'))) return;
-    const result = await declineTestPlayerRequest(id);
+    const msg = prompt(t('developer.inbox.prompts.decline_reason') || '');
+    if (msg === null) return;
+    const result = await declineTestPlayerRequest(id, msg || '');
     if (result.success) {
       fetchInbox();
     } else {

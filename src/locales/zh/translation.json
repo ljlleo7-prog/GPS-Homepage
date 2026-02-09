@@ -882,9 +882,12 @@
         "decline_test": "拒绝此请求？"
       },
       "prompts": {
-        "proof_url": "输入证明 URL（可选）："
+        "proof_url": "输入证明 URL（可选）：",
+        "decline_reason": "请输入拒绝原因（将通知用户）："
       },
       "alerts": {
+        "approve_failed": "批准失败",
+        "decline_failed": "拒绝失败",
         "approve_mission_failed": "批准任务失败",
         "reject_mission_failed": "拒绝任务失败",
         "process_deliverable_failed": "处理交付物失败",
@@ -910,6 +913,11 @@
         "error": "发生意外错误"
       }
     }
+  },
+  "notifications": {
+    "developer_declined": "您的开发者申请已被拒绝",
+    "acknowledge": "我已知晓",
+    "reason": "原因"
   },
   "minigame": {
     "title": "围场俱乐部",

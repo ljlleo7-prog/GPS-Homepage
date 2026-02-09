@@ -1,13 +1,13 @@
 import { useEconomy } from '../context/EconomyContext';
 import { motion } from 'framer-motion';
 import { useTranslation, Trans } from 'react-i18next';
-import { Gift, Lock, Shield, UserCheck, Activity, Star, CheckCircle, Gamepad2 } from 'lucide-react';
+import { Gift, Shield, UserCheck, Star, Gamepad2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import TestPlayerRequestModal from '../components/dashboard/TestPlayerRequestModal';
 
 const Wallet = () => {
-  const { wallet, ledger, loading, developerStatus, claimDailyBonus, requestDeveloperAccess, approveDeveloperAccess } = useEconomy();
+  const { wallet, ledger, loading, developerStatus, claimDailyBonus, requestDeveloperAccess, approveDeveloperAccess, developerDeclineMessage, developerDeclineNotified, acknowledgeDeveloperDecline, testDeclines, acknowledgeTestPlayerDecline } = useEconomy();
   const { t } = useTranslation();
   const [claiming, setClaiming] = useState(false);
   const [requesting, setRequesting] = useState(false);
@@ -156,6 +156,17 @@ const Wallet = () => {
                   {t('economy.wallet.developer.approved')}
                 </p>
               </div>
+            ) : developerStatus === 'DECLINED' && !developerDeclineNotified ? (
+              <div className="bg-red-500/10 border border-red-500/30 rounded p-3">
+                <p className="text-red-400 font-bold mb-2">{t('notifications.developer_declined')}</p>
+                <p className="text-sm text-white">{t('notifications.reason')}: {developerDeclineMessage || '-'}</p>
+                <button
+                  onClick={async () => { await acknowledgeDeveloperDecline(); }}
+                  className="mt-3 w-full bg-red-500/20 border border-red-500/40 text-red-300 font-bold py-2 rounded hover:bg-red-500/30 transition-colors"
+                >
+                  {t('notifications.acknowledge')}
+                </button>
+              </div>
             ) : developerStatus === 'PENDING' ? (
               <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-3 text-center">
                 <p className="text-yellow-400 font-bold">
@@ -172,6 +183,24 @@ const Wallet = () => {
               </button>
             )}
           </motion.div>
+          
+          {Array.isArray(testDeclines) && testDeclines.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="bg-red-500/10 border border-red-500/30 rounded-lg p-4"
+            >
+              <p className="text-red-400 font-bold mb-2">{t('developer.inbox.sections.test_requests')}</p>
+              <p className="text-sm text-white">{t('notifications.reason')}: {testDeclines[0].message}</p>
+              <button
+                onClick={async () => { await acknowledgeTestPlayerDecline(testDeclines[0].id); }}
+                className="mt-3 w-full bg-red-500/20 border border-red-500/40 text-red-300 font-bold py-2 rounded hover:bg-red-500/30 transition-colors"
+              >
+                {t('notifications.acknowledge')}
+              </button>
+            </motion.div>
+          )}
         </div>
 
         {/* Test Player Request Card */}
