@@ -873,10 +873,11 @@ const SupportMarkets = () => {
                         </div>
 
                         <div>
-                            <label className="block text-xs text-text-secondary mb-1">{t('economy.market.campaign.cost_per_ticket') || 'Deliverable Amount per Ticket (%)'}</label>
+                            <label className="block text-xs text-text-secondary mb-1">{t('economy.market.campaign.cost_per_ticket') || 'Interest Amount per Ticket (TKN)'}</label>
                             <input
                                 type="number"
-                                placeholder="e.g. 5"
+                                step="0.001"
+                                placeholder="e.g. 0.05 表示每票 0.05 代币 (~5%)"
                                 className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
                                 value={deliverableCost}
                                 onChange={e => setDeliverableCost(e.target.value)}

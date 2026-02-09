@@ -18,6 +18,10 @@ BEGIN
   IF v_is_dev IS NOT TRUE THEN
     RETURN jsonb_build_object('success', false, 'message', 'Unauthorized');
   END IF;
+  BEGIN
+    PERFORM public.maintain_deliverables();
+  EXCEPTION WHEN OTHERS THEN
+  END;
   SELECT jsonb_agg(t) INTO v_pending_devs FROM (
     SELECT id, COALESCE(username, 'Awaiting_' || substr(id::text, 8)) as username, COALESCE(full_name, 'No Name') as full_name, created_at
     FROM public.profiles

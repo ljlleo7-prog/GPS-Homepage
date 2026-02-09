@@ -30,31 +30,169 @@ CREATE POLICY "Developers can update deliverables" ON public.instrument_delivera
     USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND developer_status = 'APPROVED'));
 
 -- 2. FUNCTION TO GENERATE DELIVERABLES
--- Should be called periodically or via trigger. For now, we can call it when viewing the inbox.
+-- Called from get_developer_inbox to ensure all interest schedules are materialized.
 CREATE OR REPLACE FUNCTION public.maintain_deliverables()
 RETURNS void AS $$
 DECLARE
     r RECORD;
+    v_now TIMESTAMPTZ;
+    v_today DATE;
     v_next_due TIMESTAMPTZ;
+    v_dow_current INTEGER;
+    v_dow_target INTEGER;
+    v_day_int INTEGER;
+    v_month_int INTEGER;
+    v_year_int INTEGER;
+    v_month_text TEXT;
+    v_day_text TEXT;
+    v_parts TEXT[];
 BEGIN
-    -- Loop through active instruments (Normal type)
-    FOR r IN SELECT * FROM public.support_instruments 
-             WHERE type = 'MILESTONE' 
-             AND status = 'OPEN' 
-             AND is_driver_bet IS FALSE -- Only Normal Instruments
-             AND deliverable_frequency IS NOT NULL
+    v_now := NOW();
+    v_today := v_now::date;
+    v_dow_current := EXTRACT(DOW FROM v_now)::INT;
+
+    FOR r IN 
+        SELECT * 
+        FROM public.support_instruments 
+        WHERE type = 'MILESTONE' 
+          AND status = 'OPEN' 
+          AND COALESCE(is_driver_bet, false) = false
+          AND deliverable_frequency IS NOT NULL
     LOOP
-        -- Logic to determine next due date
-        -- Simplified: If no pending deliverable exists, create one based on frequency
-        IF NOT EXISTS (
+        IF EXISTS (
             SELECT 1 FROM public.instrument_deliverables 
             WHERE instrument_id = r.id AND status = 'PENDING'
         ) THEN
-            -- Calculate next due date (Simplified for now: Next 'Day' of Month/Week)
-            -- This is complex date math. For MVP, let's say due in 7 days or next 1st of month.
-            -- Using a placeholder logic:
-            v_next_due := NOW() + INTERVAL '7 days'; 
-            
+            CONTINUE;
+        END IF;
+
+        v_next_due := NULL;
+
+        IF r.deliverable_frequency = 'DAILY' THEN
+            v_next_due := (v_today + INTERVAL '1 day');
+
+        ELSIF r.deliverable_frequency = 'WEEKLY' THEN
+            v_day_text := UPPER(TRIM(r.deliverable_day));
+            v_dow_target := NULL;
+
+            IF v_day_text IN ('MON', 'MONDAY') THEN
+                v_dow_target := 1;
+            ELSIF v_day_text IN ('TUE', 'TUESDAY') THEN
+                v_dow_target := 2;
+            ELSIF v_day_text IN ('WED', 'WEDNESDAY') THEN
+                v_dow_target := 3;
+            ELSIF v_day_text IN ('THU', 'THURSDAY') THEN
+                v_dow_target := 4;
+            ELSIF v_day_text IN ('FRI', 'FRIDAY') THEN
+                v_dow_target := 5;
+            ELSIF v_day_text IN ('SAT', 'SATURDAY') THEN
+                v_dow_target := 6;
+            ELSIF v_day_text IN ('SUN', 'SUNDAY') THEN
+                v_dow_target := 0;
+            END IF;
+
+            IF v_dow_target IS NULL THEN
+                CONTINUE;
+            END IF;
+
+            v_next_due := v_today::timestamptz;
+
+            IF v_dow_current <= v_dow_target THEN
+                v_next_due := v_next_due + (v_dow_target - v_dow_current + 7)::INT * INTERVAL '1 day';
+            ELSE
+                v_next_due := v_next_due + (7 - (v_dow_current - v_dow_target))::INT * INTERVAL '1 day';
+            END IF;
+
+        ELSIF r.deliverable_frequency = 'MONTHLY' THEN
+            BEGIN
+                v_day_int := NULLIF(regexp_replace(COALESCE(r.deliverable_day, ''), '\D', '', 'g'), '')::INT;
+            EXCEPTION WHEN OTHERS THEN
+                v_day_int := NULL;
+            END;
+
+            IF v_day_int IS NULL OR v_day_int < 1 OR v_day_int > 31 THEN
+                CONTINUE;
+            END IF;
+
+            v_year_int := EXTRACT(YEAR FROM v_today)::INT;
+            v_month_int := EXTRACT(MONTH FROM v_today)::INT;
+
+            v_next_due := make_timestamp(
+                v_year_int,
+                v_month_int,
+                LEAST(
+                    v_day_int,
+                    EXTRACT(DAY FROM (date_trunc('month', make_date(v_year_int, v_month_int, 1)) + INTERVAL '1 month - 1 day'))::INT
+                ),
+                0, 0, 0
+            );
+
+            IF v_next_due <= v_now THEN
+                v_month_int := v_month_int + 1;
+                IF v_month_int > 12 THEN
+                    v_month_int := 1;
+                    v_year_int := v_year_int + 1;
+                END IF;
+
+                v_next_due := make_timestamp(
+                    v_year_int,
+                    v_month_int,
+                    LEAST(
+                        v_day_int,
+                        EXTRACT(DAY FROM (date_trunc('month', make_date(v_year_int, v_month_int, 1)) + INTERVAL '1 month - 1 day'))::INT
+                    ),
+                    0, 0, 0
+                );
+            END IF;
+
+        ELSIF r.deliverable_frequency = 'QUARTERLY' THEN
+            v_next_due := (v_today + INTERVAL '3 months');
+
+        ELSIF r.deliverable_frequency = 'YEARLY' THEN
+            v_parts := string_to_array(COALESCE(r.deliverable_day, ''), '-');
+            IF array_length(v_parts, 1) = 2 THEN
+                BEGIN
+                    v_month_int := v_parts[1]::INT;
+                    v_day_int := v_parts[2]::INT;
+                EXCEPTION WHEN OTHERS THEN
+                    v_month_int := NULL;
+                    v_day_int := NULL;
+                END;
+
+                IF v_month_int IS NULL OR v_day_int IS NULL OR v_month_int < 1 OR v_month_int > 12 OR v_day_int < 1 OR v_day_int > 31 THEN
+                    CONTINUE;
+                END IF;
+
+                v_year_int := EXTRACT(YEAR FROM v_today)::INT;
+
+                v_next_due := make_timestamp(
+                    v_year_int,
+                    v_month_int,
+                    LEAST(
+                        v_day_int,
+                        EXTRACT(DAY FROM (date_trunc('month', make_date(v_year_int, v_month_int, 1)) + INTERVAL '1 month - 1 day'))::INT
+                    ),
+                    0, 0, 0
+                );
+
+                IF v_next_due <= v_now THEN
+                    v_year_int := v_year_int + 1;
+                    v_next_due := make_timestamp(
+                        v_year_int,
+                        v_month_int,
+                        LEAST(
+                            v_day_int,
+                            EXTRACT(DAY FROM (date_trunc('month', make_date(v_year_int, v_month_int, 1)) + INTERVAL '1 month - 1 day'))::INT
+                        ),
+                        0, 0, 0
+                    );
+                END IF;
+            ELSE
+                CONTINUE;
+            END IF;
+        END IF;
+
+        IF v_next_due IS NOT NULL THEN
             INSERT INTO public.instrument_deliverables (instrument_id, due_date)
             VALUES (r.id, v_next_due);
         END IF;
@@ -112,4 +250,3 @@ BEGIN
     END LOOP;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-

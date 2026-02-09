@@ -83,6 +83,14 @@ interface PendingDeliverable {
   creator_name: string;
 }
 
+type CalendarEventType = 'deliverable' | 'mission' | 'bet' | 'dev_request' | 'ack' | 'test';
+
+interface CalendarEvent {
+  dateKey: string;
+  type: CalendarEventType;
+  label: string;
+}
+
 const DeveloperInbox = () => {
   const { t, i18n } = useTranslation();
   const { developerStatus, approveDeveloperAccess, resolveDriverBet, approveTestPlayerRequest, declineTestPlayerRequest } = useEconomy();
@@ -113,6 +121,10 @@ const DeveloperInbox = () => {
     pending_acks: [],
     pending_tests: [],
     pending_deliverables: []
+  });
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
   });
 
   useEffect(() => {
@@ -447,6 +459,75 @@ const DeveloperInbox = () => {
       }
   };
 
+  const buildDateKey = (value: string | Date) => {
+    const d = typeof value === 'string' ? new Date(value) : value;
+    const year = d.getFullYear();
+    const month = `${d.getMonth() + 1}`.padStart(2, '0');
+    const day = `${d.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const eventsByDate: Record<string, CalendarEvent[]> = {};
+
+  const addEvent = (dateString: string | null | undefined, type: CalendarEventType, label: string) => {
+    if (!dateString) return;
+    const key = buildDateKey(dateString);
+    if (!eventsByDate[key]) {
+      eventsByDate[key] = [];
+    }
+    eventsByDate[key].push({ dateKey: key, type, label });
+  };
+
+  data.pending_deliverables.forEach(del => {
+    addEvent(del.due_date, 'deliverable', del.instrument_title);
+  });
+
+  data.pending_missions.forEach(sub => {
+    addEvent(sub.created_at, 'mission', sub.mission_title);
+  });
+
+  data.active_bets.forEach(bet => {
+    addEvent(bet.open_date, 'bet', bet.title);
+  });
+
+  data.pending_devs.forEach(dev => {
+    addEvent(dev.created_at, 'dev_request', dev.username);
+  });
+
+  data.pending_acks.forEach(ack => {
+    addEvent(ack.created_at, 'ack', ack.title);
+  });
+
+  data.pending_tests.forEach(req => {
+    addEvent(req.created_at, 'test', req.program);
+  });
+
+  const totalEvents = Object.values(eventsByDate).reduce((acc, arr) => acc + arr.length, 0);
+
+  const startOfMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+  const endOfMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0);
+  const startWeekday = startOfMonth.getDay();
+
+  const days: Array<Date | null> = [];
+  for (let i = 0; i < startWeekday; i += 1) {
+    days.push(null);
+  }
+  for (let d = 1; d <= endOfMonth.getDate(); d += 1) {
+    days.push(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), d));
+  }
+  while (days.length % 7 !== 0) {
+    days.push(null);
+  }
+
+  const eventStyles: Record<CalendarEventType, string> = {
+    deliverable: 'bg-pink-500/20 text-pink-200 border border-pink-500/40',
+    mission: 'bg-yellow-500/20 text-yellow-200 border border-yellow-500/40',
+    bet: 'bg-red-500/20 text-red-200 border border-red-500/40',
+    dev_request: 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40',
+    ack: 'bg-purple-500/20 text-purple-200 border border-purple-500/40',
+    test: 'bg-blue-500/20 text-blue-200 border border-blue-500/40'
+  };
+
   if (developerStatus !== 'APPROVED') {
       return (
           <div className="min-h-screen bg-background pt-24 text-center text-white">
@@ -483,6 +564,79 @@ const DeveloperInbox = () => {
              <div className="text-center text-text-secondary py-12">{t('developer.inbox.loading')}</div>
         ) : (
             <div className="space-y-8">
+                <Section
+                    title={t('developer.inbox.sections.calendar') || 'Workload Calendar'}
+                    icon={<Calendar className="text-pink-400" />}
+                    count={totalEvents}
+                >
+                    <div className="flex items-center justify-between mb-4">
+                        <button
+                            onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+                            className="px-2 py-1 text-xs border border-white/10 rounded text-text-secondary hover:text-white hover:border-white/30"
+                        >
+                            ‹
+                        </button>
+                        <div className="text-sm font-mono text-white">
+                            {calendarMonth.getFullYear()}-{`${calendarMonth.getMonth() + 1}`.padStart(2, '0')}
+                        </div>
+                        <button
+                            onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+                            className="px-2 py-1 text-xs border border-white/10 rounded text-text-secondary hover:text-white hover:border-white/30"
+                        >
+                            ›
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-7 gap-1 text-[11px] text-text-secondary mb-1">
+                        <div className="text-center">Sun</div>
+                        <div className="text-center">Mon</div>
+                        <div className="text-center">Tue</div>
+                        <div className="text-center">Wed</div>
+                        <div className="text-center">Thu</div>
+                        <div className="text-center">Fri</div>
+                        <div className="text-center">Sat</div>
+                    </div>
+                    <div className="grid grid-cols-7 gap-1 text-[11px]">
+                        {days.map((day, idx) => {
+                            if (!day) {
+                                return <div key={idx} className="h-20 bg-background/40 border border-white/5 rounded" />;
+                            }
+                            const key = buildDateKey(day);
+                            const items = eventsByDate[key] || [];
+                            const isToday =
+                                buildDateKey(new Date()) === key;
+                            return (
+                                <div
+                                    key={idx}
+                                    className={`h-20 bg-background/60 border border-white/10 rounded p-1 flex flex-col ${
+                                        isToday ? 'border-primary/70' : ''
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-xs font-mono text-white">{day.getDate()}</span>
+                                        {items.length > 0 && (
+                                            <span className="text-[10px] text-text-secondary">{items.length}</span>
+                                        )}
+                                    </div>
+                                    <div className="space-y-0.5 overflow-hidden">
+                                        {items.slice(0, 3).map((ev, i) => (
+                                            <div
+                                                key={`${key}-${ev.type}-${i}`}
+                                                className={`truncate px-1 py-0.5 rounded text-[10px] ${eventStyles[ev.type]}`}
+                                            >
+                                                {ev.label}
+                                            </div>
+                                        ))}
+                                        {items.length > 3 && (
+                                            <div className="text-[10px] text-text-secondary">
+                                                +{items.length - 3}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </Section>
                 {/* 0. Mission Management */}
                 <Section title={t('developer.inbox.mission_control.title')} icon={<Trophy className="text-yellow-400" />} count={missions.length}>
                     <div className="mb-4">
