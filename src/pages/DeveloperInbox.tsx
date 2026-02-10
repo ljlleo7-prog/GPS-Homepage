@@ -13,6 +13,8 @@ interface InboxData {
   pending_acks: PendingAck[];
   pending_tests: PendingTest[];
   pending_deliverables: PendingDeliverable[];
+  // Interest-bearing instruments for calendar schedule
+  interest_instruments?: InterestInstrument[];
 }
 
 interface Mission {
@@ -83,6 +85,14 @@ interface PendingDeliverable {
   creator_name: string;
 }
 
+interface InterestInstrument {
+  id: string;
+  title: string;
+  deliverable_frequency: string;
+  deliverable_day: string | null;
+  deliverable_condition: string | null;
+}
+
 type CalendarEventType = 'deliverable' | 'mission' | 'bet' | 'dev_request' | 'ack' | 'test';
 
 interface CalendarEvent {
@@ -120,7 +130,8 @@ const DeveloperInbox = () => {
     active_bets: [],
     pending_acks: [],
     pending_tests: [],
-    pending_deliverables: []
+    pending_deliverables: [],
+    interest_instruments: []
   });
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
     const now = new Date();
@@ -149,14 +160,16 @@ const DeveloperInbox = () => {
       
       if (result) {
         if (result.success) {
-          setData({
+          const nextData: InboxData = {
             pending_devs: result.pending_devs,
             pending_missions: result.pending_missions,
             active_bets: result.active_bets,
             pending_acks: result.pending_acks,
             pending_tests: result.pending_tests || [],
-            pending_deliverables: result.pending_deliverables || []
-          });
+            pending_deliverables: result.pending_deliverables || [],
+            interest_instruments: (result as any).interest_instruments || []
+          };
+          setData(nextData);
         } else {
           console.error('Inbox fetch failed logically:', result.message);
           // Show alert for logical failures (e.g. Unauthorized or RPC internal error)
@@ -478,7 +491,77 @@ const DeveloperInbox = () => {
     eventsByDate[key].push({ dateKey: key, type, label });
   };
 
-  data.pending_deliverables.forEach(del => {
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+const interestInstruments = data.interest_instruments || [];
+const scheduledInstrumentIds = new Set<string>();
+
+const addInterestScheduleForMonth = () => {
+  const year = calendarMonth.getFullYear();
+  const monthIndex = calendarMonth.getMonth();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+
+  interestInstruments.forEach((instrument: InterestInstrument) => {
+    const freq = instrument.deliverable_frequency;
+    const rawDay = instrument.deliverable_day || '';
+    const trimmedTitle = instrument.title;
+
+    if (!freq) return;
+
+    scheduledInstrumentIds.add(instrument.id);
+
+    if (freq === 'DAILY') {
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const date = new Date(year, monthIndex, day);
+        if (date < today) continue;
+        addEvent(date.toISOString(), 'deliverable', trimmedTitle);
+      }
+      return;
+    }
+
+    if (freq === 'WEEKLY') {
+      const upperDay = rawDay.trim().toUpperCase();
+      let targetDow: number | null = null;
+      if (upperDay === 'MON' || upperDay === 'MONDAY') targetDow = 1;
+      else if (upperDay === 'TUE' || upperDay === 'TUESDAY') targetDow = 2;
+      else if (upperDay === 'WED' || upperDay === 'WEDNESDAY') targetDow = 3;
+      else if (upperDay === 'THU' || upperDay === 'THURSDAY') targetDow = 4;
+      else if (upperDay === 'FRI' || upperDay === 'FRIDAY') targetDow = 5;
+      else if (upperDay === 'SAT' || upperDay === 'SATURDAY') targetDow = 6;
+      else if (upperDay === 'SUN' || upperDay === 'SUNDAY') targetDow = 0;
+
+      if (targetDow === null) return;
+
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const date = new Date(year, monthIndex, day);
+        if (date < today) continue;
+        if (date.getDay() === targetDow) {
+          addEvent(date.toISOString(), 'deliverable', trimmedTitle);
+        }
+      }
+      return;
+    }
+
+    if (freq === 'MONTHLY') {
+      const numeric = rawDay.replace(/[^\d]/g, '');
+      if (!numeric) return;
+      const dayInt = parseInt(numeric, 10);
+      if (!Number.isFinite(dayInt) || dayInt < 1) return;
+      const targetDay = Math.min(dayInt, daysInMonth);
+      const date = new Date(year, monthIndex, targetDay);
+      if (date < today) return;
+      addEvent(date.toISOString(), 'deliverable', trimmedTitle);
+      return;
+    }
+  });
+};
+
+addInterestScheduleForMonth();
+
+data.pending_deliverables
+  .filter(del => !scheduledInstrumentIds.has(del.instrument_id))
+  .forEach(del => {
     addEvent(del.due_date, 'deliverable', del.instrument_title);
   });
 
@@ -844,7 +927,7 @@ const DeveloperInbox = () => {
                       </div>
                                             <div className="mt-2 text-sm text-gray-300 space-y-1">
                                                 <p><span className="text-text-secondary">{t('developer.inbox.labels.due_date') || 'Due Date'}:</span> <span className="text-white">{new Date(del.due_date).toLocaleDateString(i18n.language)}</span></p>
-                                                <p><span className="text-text-secondary">{t('developer.inbox.labels.cost') || 'Cost'}:</span> <span className="text-yellow-400">{del.deliverable_cost_per_ticket}% / ticket</span></p>
+                                                <p><span className="text-text-secondary">{t('developer.inbox.labels.cost') || 'Cost'}:</span> <span className="text-yellow-400">{del.deliverable_cost_per_ticket} / ticket</span></p>
                                                 <p className="mt-2 text-text-secondary text-xs">{t('developer.inbox.labels.condition') || 'Condition'}:</p>
                                                 <p className="bg-black/20 p-2 rounded border border-white/5 italic">{del.deliverable_condition}</p>
                                             </div>

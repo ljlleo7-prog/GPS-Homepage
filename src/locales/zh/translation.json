@@ -686,7 +686,7 @@
       "no_records": "暂无记录。争做第一人！",
       "rank": "排名",
       "driver": "车手",
-      "best_lap": "最佳圈速",
+      "best_gap": "最佳差距（秒，越负越好）",
       "wins": "胜场",
       "podiums": "领奖台",
       "points": "积分",

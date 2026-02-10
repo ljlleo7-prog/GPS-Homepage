@@ -692,7 +692,7 @@
       "no_records": "No records yet. Be the first!",
       "rank": "Rank",
       "driver": "Driver",
-      "best_lap": "Best Lap",
+      "best_gap": "Best Gap (s)",
       "wins": "Wins",
       "podiums": "Podiums",
       "points": "Points",

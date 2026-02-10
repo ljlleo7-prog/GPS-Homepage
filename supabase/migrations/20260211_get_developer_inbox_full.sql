@@ -12,6 +12,7 @@ DECLARE
   v_pending_acks JSONB;
   v_pending_tests JSONB;
   v_pending_deliverables JSONB;
+  v_interest_instruments JSONB;
 BEGIN
   v_user_id := auth.uid();
   SELECT (COALESCE(developer_status, 'NONE') = 'APPROVED') INTO v_is_dev FROM public.profiles WHERE id = v_user_id;
@@ -72,6 +73,22 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     v_pending_deliverables := '[]'::jsonb;
   END;
+  BEGIN
+    SELECT jsonb_agg(t) INTO v_interest_instruments FROM (
+      SELECT 
+        id,
+        title,
+        deliverable_frequency,
+        deliverable_day,
+        deliverable_condition
+      FROM public.support_instruments
+      WHERE status != 'RESOLVED'
+        AND COALESCE(is_driver_bet, false) = false
+        AND deliverable_frequency IS NOT NULL
+    ) t;
+  EXCEPTION WHEN OTHERS THEN
+    v_interest_instruments := '[]'::jsonb;
+  END;
   RETURN jsonb_build_object(
     'success', true,
     'pending_devs', COALESCE(v_pending_devs, '[]'::jsonb),
@@ -79,7 +96,8 @@ BEGIN
     'active_bets', COALESCE(v_active_bets, '[]'::jsonb),
     'pending_acks', COALESCE(v_pending_acks, '[]'::jsonb),
     'pending_tests', COALESCE(v_pending_tests, '[]'::jsonb),
-    'pending_deliverables', COALESCE(v_pending_deliverables, '[]'::jsonb)
+    'pending_deliverables', COALESCE(v_pending_deliverables, '[]'::jsonb),
+    'interest_instruments', COALESCE(v_interest_instruments, '[]'::jsonb)
   );
 END;
 $$;

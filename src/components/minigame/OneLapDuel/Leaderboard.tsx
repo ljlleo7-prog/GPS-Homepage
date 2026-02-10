@@ -20,7 +20,7 @@ export default function Leaderboard() {
     const { data } = await supabase
       .from('one_lap_leaderboard')
       .select('*, profiles(username, avatar_url)')
-      .order('best_lap_time_ms', { ascending: true }) // Fastest time first
+      .order('best_gap_sec', { ascending: true }) // More negative time gap (further ahead) is better
       .limit(50);
     
     if (data) setLeaderboard(data);
@@ -39,7 +39,7 @@ export default function Leaderboard() {
             <tr>
               <th className="px-6 py-4">{t('minigame_onelapduel.leaderboard.rank')}</th>
               <th className="px-6 py-4">{t('minigame_onelapduel.leaderboard.driver')}</th>
-              <th className="px-6 py-4 text-right">{t('minigame_onelapduel.leaderboard.best_lap')}</th>
+              <th className="px-6 py-4 text-right">{t('minigame_onelapduel.leaderboard.best_gap')}</th>
               <th className="px-6 py-4 text-right">{t('minigame_onelapduel.leaderboard.wins')}</th>
               <th className="px-6 py-4 text-right">{t('minigame_onelapduel.leaderboard.points')}</th>
             </tr>
@@ -66,7 +66,9 @@ export default function Leaderboard() {
                     {entry.user_id === user?.id && <span className="text-xs bg-primary text-black px-2 py-0.5 rounded">{t('minigame_onelapduel.leaderboard.you')}</span>}
                   </td>
                   <td className="px-6 py-4 text-right font-mono text-f1-red font-bold">
-                    {entry.best_lap_time_ms ? (entry.best_lap_time_ms / 1000).toFixed(3) : '--'}s
+                    {typeof entry.best_gap_sec === 'number'
+                      ? `${entry.best_gap_sec > 0 ? '+' : ''}${entry.best_gap_sec.toFixed(3)}s`
+                      : '--'}
                   </td>
                   <td className="px-6 py-4 text-right font-mono text-green-400">
                     {entry.wins}

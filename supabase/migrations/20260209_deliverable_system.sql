@@ -40,29 +40,50 @@ DECLARE
     v_next_due TIMESTAMPTZ;
     v_dow_current INTEGER;
     v_dow_target INTEGER;
+    v_days_ahead INTEGER;
     v_day_int INTEGER;
     v_month_int INTEGER;
     v_year_int INTEGER;
-    v_month_text TEXT;
     v_day_text TEXT;
     v_parts TEXT[];
+    v_existing_due TIMESTAMPTZ;
+    v_existing_id UUID;
 BEGIN
     v_now := NOW();
     v_today := v_now::date;
     v_dow_current := EXTRACT(DOW FROM v_now)::INT;
 
+    DELETE FROM public.instrument_deliverables d
+    USING (
+        SELECT id
+        FROM (
+            SELECT id,
+                   ROW_NUMBER() OVER (PARTITION BY instrument_id ORDER BY due_date ASC) AS rn
+            FROM public.instrument_deliverables
+            WHERE status = 'PENDING'
+              AND due_date > v_now
+        ) x
+        WHERE rn > 1
+    ) dup
+    WHERE d.id = dup.id;
+
     FOR r IN 
         SELECT * 
         FROM public.support_instruments 
-        WHERE type = 'MILESTONE' 
-          AND status = 'OPEN' 
+        WHERE status != 'RESOLVED'
           AND COALESCE(is_driver_bet, false) = false
           AND deliverable_frequency IS NOT NULL
     LOOP
-        IF EXISTS (
-            SELECT 1 FROM public.instrument_deliverables 
-            WHERE instrument_id = r.id AND status = 'PENDING'
-        ) THEN
+        SELECT id, due_date
+        INTO v_existing_id, v_existing_due
+        FROM public.instrument_deliverables 
+        WHERE instrument_id = r.id 
+          AND status = 'PENDING'
+          AND due_date >= v_now
+        ORDER BY due_date ASC
+        LIMIT 1;
+
+        IF FOUND THEN
             CONTINUE;
         END IF;
 
@@ -95,13 +116,12 @@ BEGIN
                 CONTINUE;
             END IF;
 
-            v_next_due := v_today::timestamptz;
-
-            IF v_dow_current <= v_dow_target THEN
-                v_next_due := v_next_due + (v_dow_target - v_dow_current + 7)::INT * INTERVAL '1 day';
-            ELSE
-                v_next_due := v_next_due + (7 - (v_dow_current - v_dow_target))::INT * INTERVAL '1 day';
+            v_days_ahead := (v_dow_target - v_dow_current + 7) % 7;
+            IF v_days_ahead <= 0 THEN
+                v_days_ahead := 7;
             END IF;
+
+            v_next_due := v_today::timestamptz + v_days_ahead * INTERVAL '1 day';
 
         ELSIF r.deliverable_frequency = 'MONTHLY' THEN
             BEGIN
