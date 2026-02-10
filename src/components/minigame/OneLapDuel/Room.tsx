@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { DriverStats, MONZA_TRACK, PlayerStrategy, TRACKS, INITIAL_BATTERY, RaceState, ERSMode, RacingLine } from './types';
-import { getInitialRaceState, advanceRaceState, calculatePhysicsStep, getTrackNodeAtDist, SimulationResult } from './simulation';
+import { getInitialRaceState, advanceRaceState, calculatePhysicsStep, getTrackNodeAtDist, SimulationResult, calculateGap } from './simulation';
 import { Check, User, Zap, MousePointer2, AlertTriangle, Play, Battery, Gauge, Wind, Activity, Map } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -136,21 +136,42 @@ export default function Room({ roomId, driver, onLeave }: Props) {
           };
 
           // Predict P1
+          const trackLength = currentTrack[currentTrack.length - 1].end_dist!;
           const p1Nodes = getNodes(currentState.p1.distance);
+          const gapP1toP2 = calculateGap(currentState.p1.distance, currentState.p2.distance, trackLength);
+          
           const p1Res = calculatePhysicsStep(dt, {
               speed: currentState.p1.speed / 3.6,
               battery: currentState.p1.battery,
-              lateral_offset: currentState.p1.lateral_offset
-          }, p1Nodes.node, p1Nodes.nextNode, p1Nodes.distInNode, 
+              lateral_offset: currentState.p1.lateral_offset,
+              distance: currentState.p1.distance
+          }, {
+              speed: currentState.p2.speed / 3.6,
+              battery: currentState.p2.battery,
+              lateral_offset: currentState.p2.lateral_offset,
+              distance: currentState.p2.distance
+          }, 
+          gapP1toP2,
+          p1Nodes.node, p1Nodes.nextNode, p1Nodes.distInNode, 
           p1.one_lap_drivers, p1.strategy.current_ers, p1.strategy.current_line, currentState.p1.target_offset || 0, p1Nodes.wrapsNext);
 
           // Predict P2
           const p2Nodes = getNodes(currentState.p2.distance);
+          const gapP2toP1 = calculateGap(currentState.p2.distance, currentState.p1.distance, trackLength);
+          
           const p2Res = calculatePhysicsStep(dt, {
               speed: currentState.p2.speed / 3.6,
               battery: currentState.p2.battery,
-              lateral_offset: currentState.p2.lateral_offset
-          }, p2Nodes.node, p2Nodes.nextNode, p2Nodes.distInNode, 
+              lateral_offset: currentState.p2.lateral_offset,
+              distance: currentState.p2.distance
+          }, {
+              speed: currentState.p1.speed / 3.6,
+              battery: currentState.p1.battery,
+              lateral_offset: currentState.p1.lateral_offset,
+              distance: currentState.p1.distance
+          }, 
+          gapP2toP1,
+          p2Nodes.node, p2Nodes.nextNode, p2Nodes.distInNode, 
           p2.one_lap_drivers, p2.strategy.current_ers, p2.strategy.current_line, currentState.p2.target_offset || 0, p2Nodes.wrapsNext);
 
           // Update State (Optimistic)

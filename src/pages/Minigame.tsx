@@ -74,11 +74,11 @@ export default function Minigame() {
               
               <div className="relative z-20 p-8 h-full flex flex-col justify-end">
                 <Wrench className="w-12 h-12 text-yellow-500 mb-4" />
-                <h2 className="text-3xl font-bold mb-2">PIT STOP CHALLENGE</h2>
-                <p className="text-gray-300 mb-4">Master the art of the perfect pit stop. Speed and precision are key.</p>
+                <h2 className="text-3xl font-bold mb-2">{t('minigame.pit_stop.title')}</h2>
+                <p className="text-gray-300 mb-4">{t('minigame.pit_stop.desc')}</p>
                 <div className="flex items-center gap-2 text-sm font-mono text-yellow-500">
-                  <span>SKILL & SPEED</span>
-                  <span className="bg-yellow-600 text-white px-2 py-0.5 rounded">NEW</span>
+                  <span>{t('minigame.pit_stop.tag_pool')}</span>
+                  <span className="bg-yellow-600 text-white px-2 py-0.5 rounded">{t('minigame.pit_stop.tag_new')}</span>
                 </div>
               </div>
             </motion.button>

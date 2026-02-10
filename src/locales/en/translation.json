@@ -696,6 +696,8 @@
       "wins": "Wins",
       "podiums": "Podiums",
       "points": "Points",
+      "est_prize": "Est. Prize",
+      "current_pool": "Current Pool",
       "you": "You"
     },
     "room": {

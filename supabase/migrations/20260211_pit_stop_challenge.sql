@@ -140,31 +140,29 @@ BEGIN
   -- Probably yes, if it's a global "Minigame Reward Cooldown".
   -- Let's stick to the single `last_minigame_reward_at` for now.
 
-  SELECT last_minigame_reward_at INTO v_last_reward_time 
-  FROM public.profiles 
-  WHERE id = v_user_id;
-
-  IF v_last_reward_time IS NOT NULL AND v_last_reward_time > NOW() - INTERVAL '60 minutes' THEN
-    v_on_cooldown := true;
-    v_cooldown_remaining := EXTRACT(EPOCH FROM (v_last_reward_time + INTERVAL '60 minutes' - NOW()))::INTEGER;
-  END IF;
-
   -- 6. Calculate Reward (Tiered)
-  -- <2s -> 5 token; 2-2.5 -> 3; 2.5-3 -> 2; 3-4 -> 1; >4 -> 0
-  IF p_score_ms < 2000 THEN
-      v_reward_amount := 5;
-  ELSIF p_score_ms < 2500 THEN
-      v_reward_amount := 3;
-  ELSIF p_score_ms < 3000 THEN
-      v_reward_amount := 2;
-  ELSIF p_score_ms < 4000 THEN
-      v_reward_amount := 1;
-  ELSE
-      v_reward_amount := 0;
-  END IF;
+    -- <2s -> 20 token
+    -- 2-2.5s -> 10 token
+    -- 2.5-3s -> 5 token
+    -- 3-4s -> 2 token
+    -- 4-6s -> 1 token
+    -- >6s -> 0 token
+    IF p_score_ms < 2000 THEN
+        v_reward_amount := 20;
+    ELSIF p_score_ms < 2500 THEN
+        v_reward_amount := 10;
+    ELSIF p_score_ms < 3000 THEN
+        v_reward_amount := 5;
+    ELSIF p_score_ms < 4000 THEN
+        v_reward_amount := 2;
+    ELSIF p_score_ms < 6000 THEN
+        v_reward_amount := 1;
+    ELSE
+        v_reward_amount := 0;
+    END IF;
 
   -- 7. Award Reward (If not on cooldown AND reward > 0)
-  IF NOT v_on_cooldown AND v_reward_amount > 0 THEN
+  IF v_reward_amount > 0 THEN
       -- Update Score
       UPDATE public.minigame_scores 
       SET reward_amount = v_reward_amount 
@@ -182,11 +180,6 @@ BEGIN
       UPDATE public.profiles 
       SET last_minigame_reward_at = NOW() 
       WHERE id = v_user_id;
-  ELSE
-      -- Reset reward amount in return if on cooldown
-      IF v_on_cooldown THEN
-          v_reward_amount := 0;
-      END IF;
   END IF;
 
   RETURN jsonb_build_object(
@@ -194,7 +187,6 @@ BEGIN
       'reward', v_reward_amount, 
       'score_ms', p_score_ms,
       'message', CASE 
-          WHEN v_on_cooldown THEN 'Score recorded! Reward cooldown active (' || (v_cooldown_remaining / 60) || 'm left).'
           WHEN v_reward_amount > 0 THEN 'Pit Stop Complete! You earned ' || v_reward_amount || ' tokens!'
           ELSE 'Pit Stop Complete! Too slow for reward.'
       END,

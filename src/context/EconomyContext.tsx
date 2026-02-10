@@ -78,7 +78,7 @@ interface EconomyContextType {
   acknowledgeDeveloperDecline: () => Promise<{ success: boolean; message?: string }>;
   acknowledgeTestPlayerDecline: (requestId: string) => Promise<{ success: boolean; message?: string }>;
   playReactionGame: (scoreMs: number) => Promise<{ success: boolean; reward?: number; message?: string }>;
-  playPitStopGame: (scoreMs: number) => Promise<{ success: boolean; reward?: number; message?: string; on_cooldown?: boolean }>;
+  playPitStopGame: (scoreMs: number) => Promise<{ success: boolean; reward?: number; message?: string }>;
   getMonthlyLeaderboard: (gameType?: string) => Promise<{ success: boolean; data?: any[] }>;
   getMonthlyPool: (gameType?: string) => Promise<{ success: boolean; data?: any }>;
 }

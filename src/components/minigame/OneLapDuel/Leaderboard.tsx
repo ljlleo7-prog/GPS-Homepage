@@ -8,10 +8,22 @@ export default function Leaderboard() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [prizePool, setPrizePool] = useState<number>(0);
 
   useEffect(() => {
     fetchLeaderboard();
+    fetchPrizePool();
   }, []);
+
+  const fetchPrizePool = async () => {
+    const { data } = await supabase
+      .from('minigame_prize_pools')
+      .select('current_pool')
+      .eq('game_key', 'one_lap_duel')
+      .single();
+    
+    if (data) setPrizePool(data.current_pool);
+  };
 
   const fetchLeaderboard = async () => {
     // Ideally use a view that joins profiles
@@ -20,17 +32,26 @@ export default function Leaderboard() {
     const { data } = await supabase
       .from('one_lap_leaderboard')
       .select('*, profiles(username, avatar_url)')
-      .order('best_gap_sec', { ascending: true }) // More negative time gap (further ahead) is better
+      .order('total_points', { ascending: false }) // Sort by Points (Primary)
+      .order('wins', { ascending: false })         // Tie-breaker 1: Wins
+      .order('best_gap_sec', { ascending: true })  // Tie-breaker 2: Best Gap (more negative is better)
       .limit(50);
     
     if (data) setLeaderboard(data);
   };
+
+  const PRIZE_DISTRIBUTION = [0.25, 0.18, 0.15, 0.12, 0.10, 0.08, 0.06, 0.04, 0.02];
 
   return (
     <div>
       <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
         <Trophy className="w-6 h-6 text-yellow-500" />
         {t('minigame_onelapduel.leaderboard.title')}
+        {prizePool > 0 && (
+          <span className="text-sm font-normal text-gray-400 ml-auto">
+            {t('minigame_onelapduel.leaderboard.current_pool')}: <span className="text-yellow-400">{prizePool} Tokens</span>
+          </span>
+        )}
       </h2>
 
       <div className="bg-surface rounded-lg overflow-hidden border border-white/10">
@@ -42,12 +63,13 @@ export default function Leaderboard() {
               <th className="px-6 py-4 text-right">{t('minigame_onelapduel.leaderboard.best_gap')}</th>
               <th className="px-6 py-4 text-right">{t('minigame_onelapduel.leaderboard.wins')}</th>
               <th className="px-6 py-4 text-right">{t('minigame_onelapduel.leaderboard.points')}</th>
+              <th className="px-6 py-4 text-right text-yellow-500">{t('minigame_onelapduel.leaderboard.est_prize')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
             {leaderboard.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                   {t('minigame_onelapduel.leaderboard.no_records')}
                 </td>
               </tr>
@@ -75,6 +97,11 @@ export default function Leaderboard() {
                   </td>
                   <td className="px-6 py-4 text-right font-mono">
                     {entry.total_points}
+                  </td>
+                  <td className="px-6 py-4 text-right font-mono text-yellow-400">
+                    {index < PRIZE_DISTRIBUTION.length 
+                      ? Math.floor(prizePool * PRIZE_DISTRIBUTION[index]) 
+                      : 0}
                   </td>
                 </tr>
               ))

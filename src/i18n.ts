@@ -9,6 +9,9 @@ i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
+    detection: {
+      order: ['querystring', 'cookie', 'localStorage', 'sessionStorage', 'navigator', 'htmlTag', 'path', 'subdomain'],
+    },
     resources: {
       en: {
         translation: enTranslation,
@@ -18,7 +21,6 @@ i18n
       },
     },
     fallbackLng: 'en',
-    debug: true,
     interpolation: {
       escapeValue: false, // not needed for react as it escapes by default
     },

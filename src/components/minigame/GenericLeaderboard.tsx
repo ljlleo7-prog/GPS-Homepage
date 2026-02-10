@@ -78,15 +78,30 @@ export default function GenericLeaderboard({ gameType, formatScore }: GenericLea
                             <th className="px-6 py-4">{t('minigame.leaderboard.player')}</th>
                             <th className="px-6 py-4 text-right">{t('minigame.leaderboard.score')}</th>
                             <th className="px-6 py-4 text-right">{t('minigame.leaderboard.attempts')}</th>
+                            <th className="px-6 py-4 text-right">{t('minigame.est_prize')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
                         {loading ? (
-                            <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
+                            <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">Loading...</td></tr>
                         ) : leaderboard.length === 0 ? (
-                            <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">{t('minigame.leaderboard.no_records')}</td></tr>
+                            <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">{t('minigame.leaderboard.no_records')}</td></tr>
                         ) : (
-                            leaderboard.map((entry, index) => (
+                            leaderboard.map((entry, index) => {
+                                const rank = index + 1;
+                                let prize = 0;
+                                const pool = poolData?.dynamic_pool || 0;
+                                if (rank === 1) prize = Math.floor(pool * 0.25);
+                                else if (rank === 2) prize = Math.floor(pool * 0.18);
+                                else if (rank === 3) prize = Math.floor(pool * 0.15);
+                                else if (rank === 4) prize = Math.floor(pool * 0.12);
+                                else if (rank === 5) prize = Math.floor(pool * 0.10);
+                                else if (rank === 6) prize = Math.floor(pool * 0.08);
+                                else if (rank === 7) prize = Math.floor(pool * 0.06);
+                                else if (rank === 8) prize = Math.floor(pool * 0.04);
+                                else if (rank === 9) prize = Math.floor(pool * 0.02);
+
+                                return (
                                 <tr key={entry.user_id} className={`hover:bg-white/5 transition-colors ${entry.user_id === user?.id ? 'bg-f1-red/10' : ''}`}>
                                     <td className="px-6 py-4 font-mono">
                                         {index === 0 && <span className="text-yellow-400 text-xl">🥇</span>}
@@ -117,8 +132,12 @@ export default function GenericLeaderboard({ gameType, formatScore }: GenericLea
                                     <td className="px-6 py-4 text-right font-mono text-gray-500">
                                         {entry.play_count}
                                     </td>
+                                    <td className="px-6 py-4 text-right font-mono text-yellow-400 font-bold">
+                                        {prize > 0 ? prize : '-'}
+                                    </td>
                                 </tr>
-                            ))
+                            );
+                        })
                         )}
                     </tbody>
                 </table>

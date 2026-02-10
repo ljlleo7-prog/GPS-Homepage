@@ -518,6 +518,32 @@
       "tag_pool": "月度奖金池",
       "tag_live": "进行中"
     },
+    "pit_stop": {
+      "title": "进站挑战",
+      "desc": "以最快速度完成换胎！",
+      "instructions": "拖动轮胎进行更换。按住鼠标左键拧紧/拧松螺母。",
+      "success": "进站完成！",
+      "fail": "太慢了！",
+      "tag_pool": "月度奖金池",
+      "tag_new": "新发布",
+      "ready_title": "准备进站？",
+      "cost_label": "花费：",
+      "cost_value": "1 代币",
+      "objective": "以最快速度更换右前轮。",
+      "start_engine": "启动引擎",
+      "result_time": "进站时间",
+      "reward_earned": "获得奖励",
+      "too_slow": "太慢了",
+      "reward_threshold": "需 < 6.000s 才能获得奖励",
+      "menu": "菜单",
+      "retry": "重试 (1 代币)",
+      "step1_title": "1. 拧松",
+      "step1_desc": "按住红色螺母直到变绿。",
+      "step2_title": "2. 更换",
+      "step2_desc": "拖走旧轮胎，然后将新轮胎拖到轮毂上。",
+      "step3_title": "3. 拧紧",
+      "step3_desc": "再次按住螺母以固定车轮。"
+    },
     "duel": {
       "title": "单圈对决 (2026)",
       "desc": "策略性 1v1 竞速。管理 ERS，选择赛车线，培养你的车手。",
@@ -690,6 +716,8 @@
       "wins": "胜场",
       "podiums": "领奖台",
       "points": "积分",
+      "est_prize": "预计奖金",
+      "current_pool": "当前奖池",
       "you": "你"
     },
     "room": {
@@ -920,50 +948,5 @@
     "developer_declined": "您的开发者申请已被拒绝",
     "acknowledge": "我已知晓",
     "reason": "原因"
-  },
-  "minigame": {
-    "title": "围场俱乐部",
-    "subtitle": "选择你的挑战",
-    "back": "返回游戏列表",
-    "reaction": {
-      "title": "F1 反应测试",
-      "desc": "挑战五盏红灯。你能击败 F1 车手的反应时间吗？",
-      "tag_pool": "月度奖池",
-      "tag_live": "进行中"
-    },
-    "duel": {
-      "title": "单圈决斗 (2026)",
-      "desc": "策略性 1v1 竞速。管理 ERS，选择赛车线，培养你的车手。",
-      "tag_strat": "策略模拟",
-      "tag_new": "新"
-    },
-    "instructions": "五盏红灯熄灭时点击任意位置！",
-    "login_to_save": "登录以保存成绩并参与竞争。",
-    "start_game": "开始游戏 (1 代币)",
-    "wait_for_it": "等待...",
-    "click": "点击！",
-    "jump_start": "抢跑！",
-    "jump_start_message": "你点击太早了 (低于 110ms)。",
-    "try_again": "重试",
-    "verifying": "验证中...",
-    "great_job": "干得好！",
-    "save_failed": "保存失败",
-    "tokens_earned": "代币",
-    "play_again": "再玩一次 (1 代币)",
-    "play_game": "开始游戏",
-    "monthly_leaderboard": "月度排行榜",
-    "monthly_championship": "月度锦标赛",
-    "championship_description": "展示你的反应速度。每次尝试消耗 1 代币。部分费用进入月度奖池。",
-    "total_plays": "总游玩次数",
-    "prize_pool": "奖池",
-    "current_record": "当前记录",
-    "rank": "排名",
-    "pilot": "车手",
-    "reaction_time": "反应时间",
-    "est_prize": "预计奖金",
-    "no_times_recorded": "本月暂无记录",
-    "you": "你",
-    "login_warning": "请先登录！",
-    "cost_warning": "代币不足 (需要 1 个)"
   }
 }

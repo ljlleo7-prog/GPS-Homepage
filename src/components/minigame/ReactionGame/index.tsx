@@ -313,10 +313,15 @@ export default function ReactionGame() {
                                 leaderboard.map((entry) => {
                                     let prize = 0;
                                     const pool = poolData?.dynamic_pool || 0;
-                                    if (entry.rank === 1) prize = Math.floor(pool * 0.3);
-                                    else if (entry.rank === 2) prize = Math.floor(pool * 0.2);
-                                    else if (entry.rank === 3) prize = Math.floor(pool * 0.1);
-                                    else if (entry.rank <= 10) prize = Math.floor((pool * 0.4) / 7);
+                                    if (entry.rank === 1) prize = Math.floor(pool * 0.25);
+                                    else if (entry.rank === 2) prize = Math.floor(pool * 0.18);
+                                    else if (entry.rank === 3) prize = Math.floor(pool * 0.15);
+                                    else if (entry.rank === 4) prize = Math.floor(pool * 0.12);
+                                    else if (entry.rank === 5) prize = Math.floor(pool * 0.10);
+                                    else if (entry.rank === 6) prize = Math.floor(pool * 0.08);
+                                    else if (entry.rank === 7) prize = Math.floor(pool * 0.06);
+                                    else if (entry.rank === 8) prize = Math.floor(pool * 0.04);
+                                    else if (entry.rank === 9) prize = Math.floor(pool * 0.02);
 
                                     return (
                                         <tr key={entry.user_id} className={`hover:bg-white/5 transition-colors ${entry.user_id === user?.id ? 'bg-primary/10' : ''}`}>
