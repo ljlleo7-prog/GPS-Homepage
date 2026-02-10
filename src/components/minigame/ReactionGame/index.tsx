@@ -34,8 +34,8 @@ export default function ReactionGame() {
 
   const loadLeaderboard = async () => {
     const [lb, pool] = await Promise.all([
-        getMonthlyLeaderboard(),
-        getMonthlyPool()
+        getMonthlyLeaderboard('REACTION'),
+        getMonthlyPool('REACTION')
     ]);
     if (lb.success) setLeaderboard(lb.data || []);
     if (pool.success) setPoolData(pool.data);

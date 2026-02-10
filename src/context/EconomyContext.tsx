@@ -78,8 +78,9 @@ interface EconomyContextType {
   acknowledgeDeveloperDecline: () => Promise<{ success: boolean; message?: string }>;
   acknowledgeTestPlayerDecline: (requestId: string) => Promise<{ success: boolean; message?: string }>;
   playReactionGame: (scoreMs: number) => Promise<{ success: boolean; reward?: number; message?: string }>;
-  getMonthlyLeaderboard: () => Promise<{ success: boolean; data?: any[] }>;
-  getMonthlyPool: () => Promise<{ success: boolean; data?: any }>;
+  playPitStopGame: (scoreMs: number) => Promise<{ success: boolean; reward?: number; message?: string; on_cooldown?: boolean }>;
+  getMonthlyLeaderboard: (gameType?: string) => Promise<{ success: boolean; data?: any[] }>;
+  getMonthlyPool: (gameType?: string) => Promise<{ success: boolean; data?: any }>;
 }
 
 const EconomyContext = createContext<EconomyContextType>({
@@ -109,6 +110,7 @@ const EconomyContext = createContext<EconomyContextType>({
   acknowledgeDeveloperDecline: async () => ({ success: false }),
   acknowledgeTestPlayerDecline: async () => ({ success: false }),
   playReactionGame: async () => ({ success: false }),
+  playPitStopGame: async () => ({ success: false }),
   getMonthlyLeaderboard: async () => ({ success: false }),
   getMonthlyPool: async () => ({ success: false }),
 });
@@ -599,16 +601,36 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       if (data && !data.success) throw new Error(data.message);
 
       await refreshEconomy();
-      return { success: true, reward: data.reward, message: data.message };
+      return { success: true, reward: data.reward, message: data.message, on_cooldown: data.on_cooldown };
     } catch (error: any) {
       console.error('Error playing reaction game:', error);
       return { success: false, message: error.message || 'Failed to submit score' };
     }
   };
 
-  const getMonthlyLeaderboard = async () => {
+  const playPitStopGame = async (scoreMs: number) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
     try {
-        const { data, error } = await supabase.rpc('get_monthly_leaderboard');
+      const { data, error } = await supabase.rpc('play_pit_stop_game', {
+        p_score_ms: scoreMs
+      });
+
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+
+      await refreshEconomy();
+      return { success: true, reward: data.reward, message: data.message };
+    } catch (error: any) {
+      console.error('Error playing pit stop game:', error);
+      return { success: false, message: error.message || 'Failed to submit score' };
+    }
+  };
+
+  const getMonthlyLeaderboard = async (gameType: string = 'REACTION') => {
+    try {
+        const { data, error } = await supabase.rpc('get_monthly_leaderboard', {
+            p_game_type: gameType
+        });
         if (error) throw error;
         return { success: true, data };
     } catch (error: any) {
@@ -617,9 +639,11 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
-  const getMonthlyPool = async () => {
+  const getMonthlyPool = async (gameType: string = 'REACTION') => {
     try {
-        const { data, error } = await supabase.rpc('get_monthly_prize_pool');
+        const { data, error } = await supabase.rpc('get_monthly_prize_pool', {
+            p_game_type: gameType
+        });
         if (error) throw error;
         return { success: true, data };
     } catch (error: any) {
@@ -656,6 +680,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       acknowledgeDeveloperDecline,
       acknowledgeTestPlayerDecline,
       playReactionGame,
+      playPitStopGame,
       getMonthlyLeaderboard,
       getMonthlyPool
     }}>
