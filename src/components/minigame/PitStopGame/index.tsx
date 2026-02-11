@@ -54,7 +54,7 @@ export default function PitStopGame() {
 
     // Constants
     const SCREW_TIME = 500; // ms to screw/unscrew
-    const TIRE_TOLERANCE = 30; // px tolerance for installation (generous)
+    const TIRE_TOLERANCE = 20; // px tolerance for installation (generous)
     const PIT_ALIGN_X = -100;
     const PIT_ALIGN_Y = -100;
     const CAR_SCALE = 1.4;
@@ -195,9 +195,9 @@ export default function PitStopGame() {
             if (!isDragging) return;
 
             if (isDragging === 'OLD') {
-                // Check if old tire is clear (dist > 100px)
+                // Check if old tire is clear (dist > 60px)
                 const dist = Math.sqrt(oldTirePos.x * oldTirePos.x + oldTirePos.y * oldTirePos.y);
-                if (dist > 100) {
+                if (dist > 60) {
                     setGameState('TIRE_REMOVED');
                 } else {
                     // Snap back if not far enough

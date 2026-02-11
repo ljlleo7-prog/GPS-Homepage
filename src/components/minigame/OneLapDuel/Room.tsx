@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
-import { DriverStats, MONZA_TRACK, PlayerStrategy, TRACKS, INITIAL_BATTERY, RaceState, ERSMode, RacingLine } from './types';
-import { getInitialRaceState, advanceRaceState, calculatePhysicsStep, getTrackNodeAtDist, SimulationResult, calculateGap } from './simulation';
-import { Check, User, Zap, MousePointer2, AlertTriangle, Play, Battery, Gauge, Wind, Activity, Map } from 'lucide-react';
+import { DriverStats, MONZA_TRACK, PlayerStrategy, TRACKS, INITIAL_BATTERY, RaceState, ERSMode, RacingLine, TrackNode } from './types';
+import { getInitialRaceState, advanceRaceState, calculatePhysicsStep, getTrackNodeAtDist, SimulationResult, calculateGap, MAX_BATTERY_JOULES, getTargetOffset } from './simulation';
+import { Check, User, Zap, MousePointer2, AlertTriangle, Play, Battery, Gauge, Wind, Activity, Map, Trash2, UserMinus, LogOut, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
@@ -126,53 +126,88 @@ export default function Room({ roomId, driver, onLeave }: Props) {
 
           const dt = 0.05; // 50ms
 
+          // Predict P1
+          const trackLength = currentTrack[currentTrack.length - 1].end_dist!;
+
           // Helper to get nodes
           const getNodes = (dist: number) => {
-              const node = getTrackNodeAtDist(currentTrack, dist);
+              const modDist = dist % trackLength;
+              const node = getTrackNodeAtDist(currentTrack, modDist);
               const idx = currentTrack.indexOf(node);
               const nextNode = currentTrack[(idx + 1) % currentTrack.length];
               const wrapsNext = nextNode.start_dist! < node.start_dist!;
-              return { node, nextNode, distInNode: dist - node.start_dist!, wrapsNext };
+              return { node, nextNode, distInNode: modDist - node.start_dist!, wrapsNext };
           };
 
-          // Predict P1
-          const trackLength = currentTrack[currentTrack.length - 1].end_dist!;
           const p1Nodes = getNodes(currentState.p1.distance);
-          const gapP1toP2 = calculateGap(currentState.p1.distance, currentState.p2.distance, trackLength);
+          const gapP1toP2 = calculateGap(currentState.p1.distance % trackLength, currentState.p2.distance % trackLength, trackLength);
           
+          // Use helper to predict target offset immediately based on strategy
+          // This ensures client reacts to "Defense"/"Attack" even before server tick
+          const p1TargetOffset = getTargetOffset(p1.strategy.current_line, currentState.p2.lateral_offset || 0);
+          
+          // Safe driver fallback to prevent NaNs
+          const defaultDriver: DriverStats = { 
+              user_id: 'fallback',
+              acceleration_skill: 50, 
+              braking_skill: 50, 
+              cornering_skill: 50, 
+              ers_efficiency_skill: 50, 
+              decision_making_skill: 50, 
+              morale: 100,
+              daily_dev_accumulated: 0,
+              last_training_update: new Date().toISOString(),
+              training_mode: 'rest',
+              focused_skills: []
+          };
+          const p1Driver = p1.one_lap_drivers || defaultDriver;
+
           const p1Res = calculatePhysicsStep(dt, {
-              speed: currentState.p1.speed / 3.6,
-              battery: currentState.p1.battery,
-              lateral_offset: currentState.p1.lateral_offset,
-              distance: currentState.p1.distance
+              speed: (currentState.p1.speed || 0) / 3.6,
+              battery: currentState.p1.battery || 0, // NaN guard
+              lateral_offset: currentState.p1.lateral_offset || 0,
+              distance: currentState.p1.distance || 0,
+              recovered_energy: currentState.p1.recovered_energy || 0
           }, {
-              speed: currentState.p2.speed / 3.6,
-              battery: currentState.p2.battery,
-              lateral_offset: currentState.p2.lateral_offset,
-              distance: currentState.p2.distance
+              speed: (currentState.p2.speed || 0) / 3.6,
+              battery: currentState.p2.battery || 0,
+              lateral_offset: currentState.p2.lateral_offset || 0,
+              distance: currentState.p2.distance || 0,
+              recovered_energy: currentState.p2.recovered_energy || 0
           }, 
           gapP1toP2,
           p1Nodes.node, p1Nodes.nextNode, p1Nodes.distInNode, 
-          p1.one_lap_drivers, p1.strategy.current_ers, p1.strategy.current_line, currentState.p1.target_offset || 0, p1Nodes.wrapsNext);
+          p1Driver,
+          p1.strategy.current_ers, p1.strategy.current_line, 
+          p1TargetOffset, // Use calculated target instead of potentially stale state
+          p1Nodes.wrapsNext);
 
           // Predict P2
           const p2Nodes = getNodes(currentState.p2.distance);
-          const gapP2toP1 = calculateGap(currentState.p2.distance, currentState.p1.distance, trackLength);
+          const gapP2toP1 = calculateGap(currentState.p2.distance % trackLength, currentState.p1.distance % trackLength, trackLength);
           
+          const p2TargetOffset = getTargetOffset(p2.strategy.current_line, currentState.p1.lateral_offset || 0);
+          const p2Driver = p2.one_lap_drivers || defaultDriver;
+
           const p2Res = calculatePhysicsStep(dt, {
-              speed: currentState.p2.speed / 3.6,
-              battery: currentState.p2.battery,
-              lateral_offset: currentState.p2.lateral_offset,
-              distance: currentState.p2.distance
+              speed: (currentState.p2.speed || 0) / 3.6,
+              battery: currentState.p2.battery || 0,
+              lateral_offset: currentState.p2.lateral_offset || 0,
+              distance: currentState.p2.distance || 0,
+              recovered_energy: currentState.p2.recovered_energy || 0
           }, {
-              speed: currentState.p1.speed / 3.6,
-              battery: currentState.p1.battery,
-              lateral_offset: currentState.p1.lateral_offset,
-              distance: currentState.p1.distance
+              speed: (currentState.p1.speed || 0) / 3.6,
+              battery: currentState.p1.battery || 0,
+              lateral_offset: currentState.p1.lateral_offset || 0,
+              distance: currentState.p1.distance || 0,
+              recovered_energy: currentState.p1.recovered_energy || 0
           }, 
           gapP2toP1,
           p2Nodes.node, p2Nodes.nextNode, p2Nodes.distInNode, 
-          p2.one_lap_drivers, p2.strategy.current_ers, p2.strategy.current_line, currentState.p2.target_offset || 0, p2Nodes.wrapsNext);
+          p2Driver, 
+          p2.strategy.current_ers, p2.strategy.current_line, 
+          p2TargetOffset, 
+          p2Nodes.wrapsNext);
 
           // Update State (Optimistic)
           updateRaceState({
@@ -182,14 +217,16 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                   speed: p1Res.speed * 3.6,
                   battery: p1Res.battery,
                   lateral_offset: p1Res.lateral_offset,
-                  distance: currentState.p1.distance + (p1Res.speed * dt)
+                  distance: currentState.p1.distance + (p1Res.speed * dt),
+                  recovered_energy: p1Res.recovered_energy
               },
               p2: {
                   ...currentState.p2,
                   speed: p2Res.speed * 3.6,
                   battery: p2Res.battery,
                   lateral_offset: p2Res.lateral_offset,
-                  distance: currentState.p2.distance + (p2Res.speed * dt)
+                  distance: currentState.p2.distance + (p2Res.speed * dt),
+                  recovered_energy: p2Res.recovered_energy
               }
           });
 
@@ -202,15 +239,58 @@ export default function Room({ roomId, driver, onLeave }: Props) {
 
   // Watch for Finish
   useEffect(() => {
-    if (raceState?.finished && raceState.winner_id === user?.id) {
-        setToast({ type: 'success', msg: t('minigame_onelapduel.room.victory_reward') || 'Victory! +5 Tokens & +25 Points (积分)' });
+    if (raceState?.finished && raceState.winner_id) {
+        const isWinner = raceState.winner_id === user?.id;
         
-        // Refresh driver stats (points/wins updated by trigger)
-        setTimeout(() => {
-            // Optional: trigger a refresh if we had a callback
-        }, 2000);
-    } else if (raceState?.finished && raceState.winner_id !== user?.id && raceState.winner_id) {
-        setToast({ type: 'error', msg: t('minigame_onelapduel.room.defeat_reward') || 'Defeat. 0 Points this time (积分).' });
+        // Calculate Points (Display Only)
+        let points = 0;
+        
+        if (players.length >= 2) {
+             const isP1Winner = raceState.winner_id === players[0].user_id;
+             const winnerState = isP1Winner ? raceState.p1 : raceState.p2;
+             const loserState = isP1Winner ? raceState.p2 : raceState.p1;
+             
+             const gapDist = Math.abs(winnerState.distance - loserState.distance);
+             const loserSpeedMs = Math.max(5, loserState.speed / 3.6);
+             const timeGap = gapDist / loserSpeedMs;
+             
+             if (timeGap < 0.2) points = 1;
+             else if (timeGap < 0.5) points = 2;
+             else if (timeGap < 1.0) points = 3;
+             else if (timeGap < 2.0) points = 4;
+             else points = 5;
+             
+             // Multiplier
+             let multiplier = 1;
+             if (isP1Winner) {
+                 if (raceState.starting_grid.p1 === 2) multiplier = 2;
+             } else {
+                 if (raceState.starting_grid.p2 === 2) multiplier = 2;
+             }
+             points *= multiplier;
+        }
+
+        if (isWinner) {
+             setToast({ type: 'success', msg: `${t('minigame_onelapduel.room.victory_reward') || 'Victory!'} +5 Tokens & +${points} Points` });
+             
+             // Update Tokens (Wallet) - Client Side
+             // Points are handled by Host to ensure consistency
+             (async () => {
+                 try {
+                     const { data: pData } = await supabase.from('profiles').select('tokens').eq('id', user.id).single();
+                     if (pData) {
+                         await supabase.from('profiles').update({
+                             tokens: (pData.tokens || 0) + 5
+                         }).eq('id', user.id);
+                     }
+                 } catch (e) {
+                     console.error('Error updating tokens:', e);
+                 }
+             })();
+
+        } else {
+             setToast({ type: 'error', msg: t('minigame_onelapduel.room.defeat_reward') || 'Defeat. 0 Points.' });
+        }
     }
   }, [raceState?.finished, raceState?.winner_id, user?.id]);
 
@@ -242,8 +322,8 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                 const lastLog = logs[logs.length - 1];
                 updateRaceState({
                     time: lastLog.time,
-                    p1: { distance: lastLog.p1_dist, speed: lastLog.p1_speed, battery: lastLog.p1_battery, last_node_id: lastLog.nodeId, lateral_offset: 0 },
-                    p2: { distance: lastLog.p2_dist, speed: lastLog.p2_speed, battery: lastLog.p2_battery, last_node_id: lastLog.nodeId, lateral_offset: 0 },
+                    p1: { distance: lastLog.p1_dist, speed: lastLog.p1_speed, battery: lastLog.p1_battery, recovered_energy: lastLog.p1_recovered || 0, last_node_id: lastLog.nodeId, lateral_offset: 0 },
+                    p2: { distance: lastLog.p2_dist, speed: lastLog.p2_speed, battery: lastLog.p2_battery, recovered_energy: lastLog.p2_recovered || 0, last_node_id: lastLog.nodeId, lateral_offset: 0 },
                     finished: true,
                     winner_id: raceData.winner_id,
                     logs: logs
@@ -352,6 +432,52 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                   simulation_log: currentState.logs
               }]);
               await supabase.from('one_lap_rooms').update({ status: 'finished' }).eq('id', roomId);
+
+              // Explicit Stats Update (Fix for "Win not applied")
+              if (currentState.winner_id) {
+                  // Calculate Points based on New Policy
+                  const p1 = playersRef.current[0];
+                  const p2 = playersRef.current[1];
+                  
+                  if (p1 && p2) {
+                      const isP1Winner = currentState.winner_id === p1.user_id;
+                      const winnerState = isP1Winner ? currentState.p1 : currentState.p2;
+                      const loserState = isP1Winner ? currentState.p2 : currentState.p1;
+                      
+                      // Calculate Time Gap
+                      const gapDist = Math.abs(winnerState.distance - loserState.distance);
+                      const loserSpeedMs = Math.max(5, loserState.speed / 3.6); // Min 5m/s to avoid infinity
+                      const timeGap = gapDist / loserSpeedMs;
+                      
+                      let points = 0;
+                      if (timeGap < 0.2) points = 1;
+                      else if (timeGap < 0.5) points = 2;
+                      else if (timeGap < 1.0) points = 3;
+                      else if (timeGap < 2.0) points = 4;
+                      else points = 5;
+                      
+                      // Overtake Multiplier (If Winner started P2/Behind)
+                      // Grid 1 = Ahead (0m), Grid 2 = Behind (-10m)
+                      let multiplier = 1;
+                      if (isP1Winner) {
+                          if (currentState.starting_grid.p1 === 2) multiplier = 2;
+                      } else {
+                          if (currentState.starting_grid.p2 === 2) multiplier = 2;
+                      }
+                      
+                      const totalPoints = points * multiplier;
+
+                      // Winner: +1 Win, +Points
+                      const { data: wData } = await supabase.from('one_lap_drivers').select('wins, points').eq('user_id', currentState.winner_id).single();
+                      if (wData) {
+                          await supabase.from('one_lap_drivers').update({ 
+                              wins: (wData.wins || 0) + 1, 
+                              points: (wData.points || 0) + totalPoints 
+                          }).eq('user_id', currentState.winner_id);
+                      }
+                  }
+              }
+
               return;
           }
 
@@ -462,12 +588,50 @@ export default function Room({ roomId, driver, onLeave }: Props) {
   const handleExit = async () => {
     if (!user) return;
     const isHost = room?.created_by === user.id;
-    if (isHost) {
-        await supabase.from('one_lap_rooms').delete().eq('id', roomId);
-    } else {
-        await supabase.from('one_lap_room_players').delete().eq('room_id', roomId).eq('user_id', user.id);
+
+    // Use a robust delete approach
+    // If we are host, we should delete the room.
+    // If we are guest, we should delete our player entry.
+    // However, sometimes RLS or Foreign Key constraints fail if not handled cleanly.
+    // Let's use an RPC or explicit sequence.
+
+    try {
+        if (isHost) {
+            // Delete room (Cascade should handle players, but let's be safe)
+            // User reported corruption, so maybe cascade isn't working perfectly?
+            // Actually, if we delete the room, everything linked to it should go.
+            const { error } = await supabase.from('one_lap_rooms').delete().eq('id', roomId);
+            if (error) console.error('Error deleting room:', error);
+        } else {
+            // Guest leaving
+            const { error } = await supabase.from('one_lap_room_players').delete().eq('room_id', roomId).eq('user_id', user.id);
+             if (error) console.error('Error leaving room:', error);
+        }
+    } catch (e) {
+        console.error('Exception during exit:', e);
     }
+    
+    // Always clean up local state
     onLeave();
+  };
+
+  const handleDeleteRoom = async () => {
+    if (!confirm(t('minigame_onelapduel.room.confirm_delete'))) return;
+    const { error } = await supabase.from('one_lap_rooms').delete().eq('id', roomId);
+    if (error) {
+        console.error('Error deleting room:', error);
+        setToast({ type: 'error', msg: 'Failed to delete room' });
+    } else {
+        onLeave();
+    }
+  };
+
+  const handleKickOpponent = async (playerId: string) => {
+    if (!confirm(t('minigame_onelapduel.room.confirm_kick'))) return;
+    const { error } = await supabase.from('one_lap_room_players').delete().eq('room_id', roomId).eq('user_id', playerId);
+     if (error) {
+        console.error('Error kicking player:', error);
+    }
   };
 
   const handleJoin = async () => {
@@ -512,7 +676,38 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                      {t('minigame_onelapduel.room.force_start') || 'Force Start'}
                  </button>
             )}
-            <button onClick={handleExit} className="text-gray-400 hover:text-white">{t('minigame_onelapduel.room.exit')}</button>
+            <div className="flex gap-2">
+                {room?.created_by === user?.id && (
+                    <div className="flex gap-2 mr-2 border-r border-white/20 pr-2">
+                        <button 
+                            onClick={handleDeleteRoom}
+                            className="px-3 py-1 bg-red-900/50 hover:bg-red-900 text-red-200 rounded flex items-center gap-2 text-sm border border-red-700/50 transition-colors"
+                        >
+                            <Trash2 size={14} />
+                            {t('minigame_onelapduel.room.delete_room')}
+                        </button>
+                        {players.length > 1 && (
+                             <button 
+                                onClick={() => {
+                                    const opponent = players.find(p => p.user_id !== user.id);
+                                    if (opponent) handleKickOpponent(opponent.user_id);
+                                }}
+                                className="px-3 py-1 bg-orange-900/50 hover:bg-orange-900 text-orange-200 rounded flex items-center gap-2 text-sm border border-orange-700/50 transition-colors"
+                            >
+                                <UserMinus size={14} />
+                                {t('minigame_onelapduel.room.kick_opponent')}
+                            </button>
+                        )}
+                    </div>
+                )}
+                <button
+                    onClick={handleExit}
+                    className="px-4 py-1 bg-red-600 hover:bg-red-700 text-white rounded flex items-center gap-2 text-sm transition-colors"
+                >
+                    <LogOut size={14} />
+                    {t('minigame_onelapduel.room.exit')}
+                </button>
+            </div>
         </div>
       </div>
 
@@ -617,16 +812,34 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                             </div>
                             
                             {/* Stats */}
-                            <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div className="grid grid-cols-3 gap-2 mb-4">
                                 <div className="bg-black/30 p-2 rounded">
                                     <div className="text-xs text-gray-500 flex items-center gap-1"><Gauge className="w-3 h-3"/> SPEED</div>
                                     <div className="text-2xl font-mono font-bold">{pState.speed.toFixed(0)}</div>
                                 </div>
                                 <div className="bg-black/30 p-2 rounded">
-                                    <div className="text-xs text-gray-500 flex items-center gap-1"><Battery className="w-3 h-3"/> BATTERY</div>
-                                    <div className={`text-2xl font-mono font-bold ${pState.battery < 20 ? 'text-red-500 animate-pulse' : 'text-green-400'}`}>
-                                        {pState.battery.toFixed(0)}%
+                                    <div className="text-xs text-gray-500 flex items-center gap-1"><Battery className="w-3 h-3"/> SOC</div>
+                                    <div className={`text-2xl font-mono font-bold ${(pState.battery / MAX_BATTERY_JOULES) < 0.2 ? 'text-red-500 animate-pulse' : 'text-green-400'}`}>
+                                        {((pState.battery / MAX_BATTERY_JOULES) * 100).toFixed(0)}%
                                     </div>
+                                </div>
+                                <div className="bg-black/30 p-2 rounded">
+                                    <div className="text-xs text-gray-500 flex items-center gap-1"><Activity className="w-3 h-3"/> PWR</div>
+                                    {(() => {
+                                        // @ts-ignore
+                                        const power = pState.current_power || 0; // Watts
+                                        const powerKw = Math.round(power / 1000);
+                                        let color = 'text-gray-500';
+                                        if (power < -1000) color = 'text-green-400'; // Regen (Green)
+                                        else if (power > 200000) color = 'text-red-500'; // High Deploy (Red)
+                                        else if (power > 1000) color = 'text-yellow-400'; // Low Deploy (Yellow)
+                                        
+                                        return (
+                                            <div className={`text-xl font-bold font-mono ${color}`}>
+                                                {powerKw > 0 ? '+' : ''}{powerKw}kW
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                                 {/* Active Aero Status */}
                                 <div className="bg-black/30 p-2 rounded">

@@ -15,6 +15,8 @@ export type SimulationLog = {
   p2_speed: number;
   p1_battery: number;
   p2_battery: number;
+  p1_recovered: number;
+  p2_recovered: number;
   gap: number; // Distance Gap in Meters
   events: SimulationEvent[];
 };
@@ -32,31 +34,86 @@ const AIR_DENSITY = 1.225; // kg/m^3
 const GRAVITY = 9.81;
 
 // Aerodynamics (Active Aero)
-const DRAG_AREA_Z_MODE = 1.2; // High Downforce (Corners)
-const DRAG_AREA_X_MODE = 0.7; // Low Drag (Straights)
+const DRAG_AREA_Z_MODE = 1.1; // High Downforce (Corners) - Increased for 2026 realism
+const DRAG_AREA_X_MODE = 0.75; // Reduced drag to allow higher top speeds (was 0.9)
 const ROLLING_RESISTANCE_COEFF = 0.015;
 
+export const MAX_BATTERY_JOULES = 4_000_000; // 4MJ
+export const MAX_RECOVERY_JOULES = 9_000_000; // 9MJ
+
 // Power Maps (Watts)
-const BASE_ENGINE_POWER = 400000; // 400 kW ICE
-const ERS_POWER_MAP: Record<ERSMode, number> = {
-    'neutral': 100000,
-    'hotlap': 250000,
-    'overtake': 350000,
-    'recharge': 0
+const BASE_ENGINE_POWER = 400000; // 420 kW (Internal Combustion)
+
+// ERS Constants
+const ERS_MAX_POWER = 350000; // 350 kW
+const ERS_MAX_REGEN = 250000; // 250 kW (ICE Harvesting Limit)
+const BRAKING_MAX_REGEN = 350000; // 350 kW (Kinetic Braking Limit)
+
+// Helper to get available ERS power based on speed and mode
+const getERSLimit = (speedKmh: number, mode: ERSMode, isBehind: boolean): number => {
+    // 1. Overtake Mode Exception (Must be behind)
+    if (mode === 'overtake' && isBehind) {
+        return ERS_MAX_POWER; // Always 350 kW, no tapering
+    }
+
+    // 2. Speed-Dependent Tapering (2026 Regs)
+    // 0–300 km/h: ~350 kW available
+    // 300–340 km/h: tapering from 350 kW to 150 kW
+    // 340–345 km/h: tapering from 150 kW to 0 kW
+    // >345 km/h: 0 kW
+    
+    let speedLimit = ERS_MAX_POWER;
+
+    if (speedKmh > 345) {
+        speedLimit = 0;
+    } else if (speedKmh > 340) {
+        // Taper 340-345 (150kW -> 0kW)
+        const ratio = (speedKmh - 340) / 5;
+        speedLimit = 150000 * (1 - ratio);
+    } else if (speedKmh > 300) {
+        // Taper 300-340 (350kW -> 150kW)
+        const ratio = (speedKmh - 300) / 40;
+        speedLimit = 350000 - (200000 * ratio);
+    }
+
+    // 3. Mode-Specific Scaling
+    if (mode === 'recharge') return 0; // Recharge mode doesn't deploy
+    
+    // Neutral drops to 0 earlier (e.g., linear drop from 250kph to 320kph?)
+    // User: "in neutral it will drop to 0kW earlier"
+    // Also user: "normal deployment" (Neutral) should be 250kW max.
+    if (mode === 'neutral') {
+        if (speedKmh > 320) return 0;
+        speedLimit = Math.min(speedLimit, 250000); // Max 250kW in Neutral
+    }
+    // Hotlap uses full speedLimit curve (max 350kW)
+
+    return speedLimit;
 };
 
-const ERS_DRAIN_RATE: Record<ERSMode, number> = {
-    'neutral': 2.0,
-    'hotlap': 5.0,
-    'overtake': 9.0,
-    'recharge': -2.0
+// Helper for Target Offset Strategy
+export const getTargetOffset = (line: 'clean' | 'defense' | 'opportunity', opponentOffset: number): number => {
+    if (line === 'opportunity') {
+        // Move AWAY from opponent
+        // If opponent is Right (>0), go Left (-0.8).
+        // If opponent is Left (<0), go Right (0.8).
+        // If opponent is Center (0), go Right (0.8) (Arbitrary default).
+        return opponentOffset > 0 ? -0.8 : 0.8;
+    } else if (line === 'defense') {
+        // Move TOWARD opponent to block
+        return opponentOffset;
+    } else {
+        // Clean line
+        return 0;
+    }
 };
 
 interface PhysicsState {
     speed: number; // m/s
-    battery: number; // %
+    battery: number; // Joules (Changed from %)
     lateral_offset: number; // -1 to 1
-    distance: number; // Meters (Added)
+    distance: number; // Meters
+    recovered_energy: number; // Joules (Track 9MJ limit)
 }
 
 export const calculateGap = (distA: number, distB: number, trackLength: number) => {
@@ -143,9 +200,13 @@ export const calculatePhysicsStep = (
 
   // Max Acceleration Force (Engine + ERS)
   let availablePower = BASE_ENGINE_POWER; 
+  
+  // ERS Deployment
   if (battery > 0) {
-      availablePower += ERS_POWER_MAP[ers];
+      const ersLimit = getERSLimit(speed * 3.6, ers, isBehind);
+      availablePower += ersLimit;
   }
+
   availablePower *= (1 + driver.acceleration_skill / 2000);
   
   const maxEngineForce = availablePower / effectiveSpeed;
@@ -179,6 +240,19 @@ export const calculatePhysicsStep = (
   } else {
       // Straight: Uncapped exit speed (allow physics to push max speed)
       targetExitSpeedMs = 9999; 
+  }
+
+  // Interaction: Prevent accelerating into a blocked path (saves battery)
+  // IMPROVEMENT: If we are actively moving laterally (overtaking), we should NOT be clamped as strictly.
+  // We want to allow momentum to carry us alongside.
+  const isOvertakingManeuver = Math.abs(lateral_offset - opponentState.lateral_offset) > 0.3 && Math.abs(currentState.lateral_offset - prevLateralOffset) > 0.001;
+  
+  if (isBehind && gapToAhead < 20 && lateralOverlap && !isOvertakingManeuver) {
+       // Limit target speed to opponent speed + closing buffer
+       const maxAllowedSpeed = Math.max(opponentState.speed, 0) + 10; // +10m/s buffer
+       if (targetExitSpeedMs > maxAllowedSpeed) {
+           targetExitSpeedMs = maxAllowedSpeed;
+       }
   }
 
   // B) Calculate Desired Acceleration to match Exit Speed (Quadratic Curve)
@@ -218,26 +292,76 @@ export const calculatePhysicsStep = (
   // Applied Force = Net Force + Resistive Force
   // If Applied > 0, Engine is working. If Applied < 0, Brakes are working.
   const appliedForce = targetNetForce + resistiveForce;
-  let batteryChange = 0;
+  let energyChange = 0; // Joules (Negative = Drain, Positive = Charge)
+  let recoveredEnergyDelta = 0;
 
-  if (appliedForce > 0) {
+  // ICE Harvesting Logic (Recharge Mode)
+  // "if recharge mode is not on, the battery will never harvest energy directly from ICE when accelerating."
+  // So if recharge mode IS on, and we are accelerating, we harvest from ICE.
+  const isAccelerating = targetNetForce > 0;
+  let iceHarvestPower = 0;
+
+  if (isAccelerating && ers === 'recharge' && battery < MAX_BATTERY_JOULES) {
+       // Divert some engine power to battery
+       // Limit to ERS_MAX_REGEN (250kW) or available excess
+       // We want to keep the car accelerating, just slower.
+       // Let's take a fixed chunk or percentage.
+       // Taking 250kW might stall the car if total power is low.
+       // Total ICE Power ~420kW.
+       // If we take 250kW, we have 170kW left for wheels.
+       iceHarvestPower = ERS_MAX_REGEN;
+       
+       // Ensure we don't take more than what the engine produces
+       const icePowerAvailable = BASE_ENGINE_POWER * (1 + driver.acceleration_skill / 2000);
+       if (iceHarvestPower > icePowerAvailable * 0.8) {
+           iceHarvestPower = icePowerAvailable * 0.8; // Leave 20% for movement at least
+       }
+
+       // Reduce the force available for acceleration
+       // Force = Power / Speed
+       const harvestForce = iceHarvestPower / effectiveSpeed;
+       targetNetForce -= harvestForce; 
+       
+       // Re-clamp if it went negative (though with 80% cap it shouldn't unless resistive force is huge)
+       // Actually, targetNetForce is Net Force (Engine - Drag).
+       // If we reduce Engine force, Net Force drops.
+       
+       energyChange += iceHarvestPower * dt;
+  }
+
+  if (targetNetForce > 0) {
       // Accelerating / Maintaining with Engine
-      if (battery > 0) {
-          batteryChange -= ERS_DRAIN_RATE[ers] * dt;
+      if (battery > 0 && ers !== 'recharge') { // Only deploy if not recharging
+          // Calculate ERS contribution ratio
+          // Total Power Used = Force * Speed
+          const totalPower = (targetNetForce + resistiveForce) * speed;
+          const icePower = BASE_ENGINE_POWER * (1 + driver.acceleration_skill / 2000);
+          
+          if (totalPower > icePower) {
+              const ersPower = Math.min(totalPower - icePower, getERSLimit(speed * 3.6, ers, isBehind));
+              energyChange -= ersPower * dt;
+          }
       }
   } else {
       // Braking / Regenerating
       // appliedForce is negative. Magnitude is the braking force.
-      const brakingForce = -appliedForce;
+      const brakingForce = -(targetNetForce + resistiveForce); // Net braking force (Brakes + Regen)
       
-      // MGU-K Harvesting
-      const regenPowerMax = 350000; 
-      const brakingPower = brakingForce * speed;
-      const regenPower = Math.min(regenPowerMax, brakingPower);
-      
-      // Increased regen factor (was 8.75) to prevent battery drain issues
-      const regenPercentage = (regenPower / 350000) * 25.0 * dt; 
-      batteryChange += regenPercentage;
+      if (brakingForce > 0) {
+          // Calculate Harvestable Power
+          const brakingPower = brakingForce * speed;
+          
+          // Cap at BRAKING Max Regen (350kW)
+          // "actual braking can regenerate at most 350kW"
+          const harvestPower = Math.min(BRAKING_MAX_REGEN, brakingPower);
+          
+          // Check 9MJ Quota
+          if (currentState.recovered_energy < MAX_RECOVERY_JOULES) {
+             const energyToHarvest = harvestPower * dt;
+             recoveredEnergyDelta = energyToHarvest;
+             energyChange += energyToHarvest;
+          }
+      }
   }
 
   // Apply Acceleration
@@ -246,11 +370,9 @@ export const calculatePhysicsStep = (
   
   speed = Math.max(0, speed);
 
-  // Hard clamp only for Turn Exit to prevent massive overshoots if physics steps are large
-  if (!isStraight && speed > targetExitSpeedMs + 10) {
-       // Allow slight overshoot but clamp if excessive
-       speed = targetExitSpeedMs + 5; 
-  }
+  // Removed hard clamp for Turn Exit to allow natural overshoots/physics
+  // If the car fails to brake in time, it will enter the turn fast.
+  // Future improvement: Add "Run Wide" or "Crash" logic if entry speed is too high.
 
   // BLOCKING LOGIC (Collision Prevention)
   // "the car is 5m long, so cannot go within 5m on the same line."
@@ -265,9 +387,10 @@ export const calculatePhysicsStep = (
   }
 
   // Battery Limits
-  battery = Math.max(0, Math.min(100, battery + batteryChange));
+  battery = Math.max(0, Math.min(MAX_BATTERY_JOULES, battery + energyChange));
+  const recovered_energy = currentState.recovered_energy + recoveredEnergyDelta;
 
-  return { speed, battery, lateral_offset, distance: currentState.distance };
+  return { speed, battery, lateral_offset, distance: currentState.distance, recovered_energy };
 };
 
 export const getInitialRaceState = (track: TrackNode[]): RaceState => {
@@ -280,17 +403,17 @@ export const getInitialRaceState = (track: TrackNode[]): RaceState => {
 
     // Random Grid Assignment (50/50)
     // Grid 1: 0m
-    // Grid 2: -10m (Worse Grid)
+    // Grid 2: -10m (Worse Grid) -> Use trackLength - 10m to avoid negative distance issues
     const p1Grid = Math.random() > 0.5 ? 1 : 2;
     const p2Grid = p1Grid === 1 ? 2 : 1;
 
-    const p1Dist = p1Grid === 1 ? 0 : -10;
-    const p2Dist = p2Grid === 1 ? 0 : -10;
+    const p1Dist = p1Grid === 1 ? 10 : 0;
+    const p2Dist = p2Grid === 1 ? 10 : 0;
 
     return {
         time: 0,
-        p1: { distance: p1Dist, speed: 0, battery: INITIAL_BATTERY, last_node_id: 0, lateral_offset: 0, target_offset: 0, reaction_end_time: 0 },
-        p2: { distance: p2Dist, speed: 0, battery: INITIAL_BATTERY, last_node_id: 0, lateral_offset: 0, target_offset: 0, reaction_end_time: 0 },
+        p1: { distance: p1Dist, speed: 0, battery: INITIAL_BATTERY, recovered_energy: 0, last_node_id: 0, lateral_offset: 0, target_offset: 0, reaction_end_time: 0 },
+        p2: { distance: p2Dist, speed: 0, battery: INITIAL_BATTERY, recovered_energy: 0, last_node_id: 0, lateral_offset: 0, target_offset: 0, reaction_end_time: 0 },
         starting_grid: { p1: p1Grid, p2: p2Grid },
         finished: false,
         winner_id: null,
@@ -314,7 +437,7 @@ export const advanceRaceState = (
 
     const trackLength = track[track.length - 1].end_dist!;
 
-    const getNode = (dist: number) => getTrackNodeAtDist(track, dist);
+    const getNode = (dist: number) => getTrackNodeAtDist(track, dist % trackLength);
     const getNextNode = (node: TrackNode) => track[(track.indexOf(node) + 1) % track.length];
 
     const p1Node = getNode(newState.p1.distance);
@@ -324,29 +447,29 @@ export const advanceRaceState = (
     newState.p2.last_node_id = p2Node.id;
 
     // --- Decision Making & Line Strategy ---
-    const updateTargetOffset = (playerState: RaceState['p1'], opponentState: RaceState['p2'], strategy: PlayerStrategy, driver: DriverStats) => {
-        if (newState.time >= (playerState.reaction_end_time || 0)) {
-            // New Decision
-            // Calculate delay: 1s base + (0-2s based on inverse decision skill)
-            // Skill 100 -> 0s delay. Skill 0 -> 2s delay. Total 1-3s.
-            const reactionDelay = 1 + (Math.random() * (100 - driver.decision_making_skill) / 50);
-            playerState.reaction_end_time = newState.time + reactionDelay;
-
-            if (strategy.current_line === 'opportunity') {
-                // Different line from opponent
-                playerState.target_offset = opponentState.lateral_offset > 0 ? -0.8 : 0.8;
-            } else if (strategy.current_line === 'defense') {
-                // Same line as opponent
-                playerState.target_offset = opponentState.lateral_offset;
-            } else {
-                // Clean line (center/optimal)
-                playerState.target_offset = 0; 
+    const updateTargetOffset = (playerState: RaceState['p1'], opponentState: RaceState['p2'], strategy: PlayerStrategy, driver: DriverStats, isHuman: boolean) => {
+        // IMPROVEMENT: If player is HUMAN, remove artificial reaction delay for better responsiveness.
+        const now = newState.time;
+        const isReacting = now < (playerState.reaction_end_time || 0);
+        
+        if (!isReacting || isHuman) {
+            if (!isHuman) {
+                // AI / Opponent Logic with Delay
+                const reactionDelay = 1 + (Math.random() * (100 - driver.decision_making_skill) / 50);
+                playerState.reaction_end_time = now + reactionDelay;
             }
+
+            playerState.target_offset = getTargetOffset(strategy.current_line, opponentState.lateral_offset);
         }
     };
 
-    updateTargetOffset(newState.p1, newState.p2, p1.strategy, p1.driver);
-    updateTargetOffset(newState.p2, newState.p1, p2.strategy, p2.driver);
+    // Assuming p1 is Human (or Host's local player) and p2 is Opponent? 
+    // Actually this runs on Host for BOTH players.
+    // We need to know who is a "bot" vs "human".
+    // For now, assume both are human players since it's a multiplayer duel.
+    // Remove delay for BOTH.
+    updateTargetOffset(newState.p1, newState.p2, p1.strategy, p1.driver, true);
+    updateTargetOffset(newState.p2, newState.p1, p2.strategy, p2.driver, true);
 
     // --- Physics Simulation (Sub-stepping for accuracy) ---
     const SUB_STEPS = 10;
@@ -356,13 +479,15 @@ export const advanceRaceState = (
         speed: newState.p1.speed / 3.6, 
         battery: newState.p1.battery, 
         lateral_offset: newState.p1.lateral_offset || 0,
-        distance: newState.p1.distance
+        distance: newState.p1.distance,
+        recovered_energy: newState.p1.recovered_energy || 0
     };
     const p2State = { 
         speed: newState.p2.speed / 3.6, 
         battery: newState.p2.battery, 
         lateral_offset: newState.p2.lateral_offset || 0,
-        distance: newState.p2.distance
+        distance: newState.p2.distance,
+        recovered_energy: newState.p2.recovered_energy || 0
     };
 
     for (let i = 0; i < SUB_STEPS; i++) {
@@ -371,14 +496,14 @@ export const advanceRaceState = (
         const p1NextCurrent = getNextNode(p1NodeCurrent);
         const p1WrapsNext = p1NextCurrent.start_dist! < p1NodeCurrent.start_dist!;
         
-        const gapP1toP2 = calculateGap(p1State.distance, p2State.distance, trackLength);
+        const gapP1toP2 = calculateGap(p1State.distance % trackLength, p2State.distance % trackLength, trackLength);
 
         const p1Res = calculatePhysicsStep(
             SUB_DT, 
-            { speed: p1State.speed, battery: p1State.battery, lateral_offset: p1State.lateral_offset, distance: p1State.distance }, 
-            { speed: p2State.speed, battery: p2State.battery, lateral_offset: p2State.lateral_offset, distance: p2State.distance },
+            { speed: p1State.speed, battery: p1State.battery, lateral_offset: p1State.lateral_offset, distance: p1State.distance, recovered_energy: p1State.recovered_energy }, 
+            { speed: p2State.speed, battery: p2State.battery, lateral_offset: p2State.lateral_offset, distance: p2State.distance, recovered_energy: p2State.recovered_energy },
             gapP1toP2,
-            p1NodeCurrent, p1NextCurrent, p1State.distance - p1NodeCurrent.start_dist!, 
+            p1NodeCurrent, p1NextCurrent, (p1State.distance % trackLength) - p1NodeCurrent.start_dist!, 
             p1.driver, p1.strategy.current_ers, p1.strategy.current_line,
             newState.p1.target_offset ?? 0,
             p1WrapsNext
@@ -387,20 +512,21 @@ export const advanceRaceState = (
         p1State.battery = p1Res.battery;
         p1State.lateral_offset = p1Res.lateral_offset;
         p1State.distance += p1State.speed * SUB_DT;
+        p1State.recovered_energy = p1Res.recovered_energy;
         
         // P2 Step
         const p2NodeCurrent = getNode(p2State.distance);
         const p2NextCurrent = getNextNode(p2NodeCurrent);
         const p2WrapsNext = p2NextCurrent.start_dist! < p2NodeCurrent.start_dist!;
         
-        const gapP2toP1 = calculateGap(p2State.distance, p1State.distance, trackLength);
+        const gapP2toP1 = calculateGap(p2State.distance % trackLength, p1State.distance % trackLength, trackLength);
 
         const p2Res = calculatePhysicsStep(
             SUB_DT, 
-            { speed: p2State.speed, battery: p2State.battery, lateral_offset: p2State.lateral_offset, distance: p2State.distance }, 
-            { speed: p1State.speed, battery: p1State.battery, lateral_offset: p1State.lateral_offset, distance: p1State.distance },
+            { speed: p2State.speed, battery: p2State.battery, lateral_offset: p2State.lateral_offset, distance: p2State.distance, recovered_energy: p2State.recovered_energy }, 
+            { speed: p1State.speed, battery: p1State.battery, lateral_offset: p1State.lateral_offset, distance: p1State.distance, recovered_energy: p1State.recovered_energy },
             gapP2toP1,
-            p2NodeCurrent, p2NextCurrent, p2State.distance - p2NodeCurrent.start_dist!, 
+            p2NodeCurrent, p2NextCurrent, (p2State.distance % trackLength) - p2NodeCurrent.start_dist!, 
             p2.driver, p2.strategy.current_ers, p2.strategy.current_line,
             newState.p2.target_offset ?? 0,
             p2WrapsNext
@@ -409,22 +535,55 @@ export const advanceRaceState = (
         p2State.battery = p2Res.battery;
         p2State.lateral_offset = p2Res.lateral_offset;
         p2State.distance += p2State.speed * SUB_DT;
+        p2State.recovered_energy = p2Res.recovered_energy;
     }
 
-    // Wrap Distances
-    if (p1State.distance >= trackLength) p1State.distance -= trackLength;
-    if (p2State.distance >= trackLength) p2State.distance -= trackLength;
+    if (p1State.distance > trackLength && p2State.distance > trackLength) {
+        // RACE FINISH CONDITION:
+        // If BOTH player crosses the line, the race finishes?
+        // Standard F1: Race ends when leader crosses line.
+        // Duel: First to cross wins.
+        // User request: "if the two both have distance > lap total then game must end"
+        // Interpretation: The user might want to wait for both? Or maybe they noticed a bug where it NEVER ended.
+        // Let's implement: If Leader > TrackLength, finish.
+        // Actually, if we want to support "both have distance > lap total", maybe they mean the finish trigger was broken.
+        // Safe bet: If anyone crosses, race is over.
+        newState.finished = true;
+        
+        // Determine Winner
+        if (p1State.distance > p2State.distance) {
+            newState.winner_id = p1.id;
+        } else {
+            newState.winner_id = p2.id;
+        }
+    }
+    
+    // if (p1State.distance >= trackLength) p1State.distance -= trackLength;
+    // if (p1State.distance < 0) p1State.distance += trackLength;
+    
+    // if (p2State.distance >= trackLength) p2State.distance -= trackLength;
+    // if (p2State.distance < 0) p2State.distance += trackLength;
 
     // Update State
+    // Calculate Power (Watts) = (OldBattery - NewBattery) / dt
+    const p1Power = (newState.p1.battery - p1State.battery) / DT;
+    const p2Power = (newState.p2.battery - p2State.battery) / DT;
+
     newState.p1.speed = p1State.speed * 3.6; // Convert back to km/h
     newState.p1.battery = p1State.battery;
     newState.p1.lateral_offset = p1State.lateral_offset;
     newState.p1.distance = p1State.distance;
+    newState.p1.recovered_energy = p1State.recovered_energy;
+    // @ts-ignore
+    newState.p1.current_power = p1Power;
 
     newState.p2.speed = p2State.speed * 3.6;
     newState.p2.battery = p2State.battery;
     newState.p2.lateral_offset = p2State.lateral_offset;
     newState.p2.distance = p2State.distance;
+    newState.p2.recovered_energy = p2State.recovered_energy;
+    // @ts-ignore
+    newState.p2.current_power = p2Power;
 
     // Check Finish
     if (newState.time > 10) { // Min race time buffer
@@ -456,6 +615,8 @@ export const advanceRaceState = (
         p2_speed: newState.p2.speed,
         p1_battery: newState.p1.battery,
         p2_battery: newState.p2.battery,
+        p1_recovered: newState.p1.recovered_energy,
+        p2_recovered: newState.p2.recovered_energy,
         gap: newState.p1.distance - newState.p2.distance, // Approx
         events: []
     });

@@ -31,11 +31,13 @@ export type RacingLine = 'clean' | 'defense' | 'opportunity';
 export interface RaceState {
     time: number; // Current race time in seconds
     p1: {
-        distance: number; // Meters traveled
-        speed: number;    // km/h
-        battery: number;  // %
+        distance: number;
+        speed: number;
+        battery: number; // Joules
+        recovered_energy: number; // Joules (9MJ limit)
+        current_power?: number; // Watts (Positive = Deploy, Negative = Regen)
         last_node_id: number;
-        lateral_offset: number; // -1 (Inside) to 1 (Outside)
+        lateral_offset: number;
         target_offset?: number;
         reaction_end_time?: number;
     };
@@ -43,6 +45,8 @@ export interface RaceState {
         distance: number;
         speed: number;
         battery: number;
+        recovered_energy: number;
+        current_power?: number; // Watts
         last_node_id: number;
         lateral_offset: number;
         target_offset?: number;
@@ -111,4 +115,4 @@ export const TRACKS: Record<string, TrackNode[]> = {
     'silverstone': SILVERSTONE_TRACK
 };
 
-export const INITIAL_BATTERY = 100; // %
+export const INITIAL_BATTERY = 4_000_000; // 4MJ (Joules)
