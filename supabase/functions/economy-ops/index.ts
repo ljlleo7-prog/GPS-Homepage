@@ -20,57 +20,12 @@ serve(async (req) => {
 
     const { action, payload } = await req.json();
 
-    // 1. AWARD MISSION REWARD (Admin/System only)
+    // 1. AWARD MISSION REWARD (DEPRECATED & REMOVED)
+    // This action has been removed to enforce strict manual payout confirmation via the database trigger.
     if (action === 'award_mission_reward') {
-      const { submission_id, admin_user_id } = payload;
-      
-      // Verify admin (simplified check)
-      const { data: admin } = await supabaseClient.from('profiles').select('role').eq('id', admin_user_id).single();
-      // In real app, check if role === 'admin'
-
-      // Get submission details
-      const { data: submission } = await supabaseClient
-        .from('mission_submissions')
-        .select('*, missions(*)')
-        .eq('id', submission_id)
-        .single();
-
-      if (!submission) throw new Error('Submission not found');
-      if (submission.status === 'APPROVED') throw new Error('Already approved');
-
-      // Update submission status
-      await supabaseClient
-        .from('mission_submissions')
-        .update({ status: 'APPROVED' })
-        .eq('id', submission_id);
-
-      // Add Tokens to Wallet
-      const { data: wallet } = await supabaseClient
-        .from('wallets')
-        .select('id, token_balance, reputation_balance')
-        .eq('user_id', submission.user_id)
-        .single();
-
-      await supabaseClient
-        .from('wallets')
-        .update({
-          token_balance: wallet.token_balance + submission.missions.reward_tokens,
-          reputation_balance: wallet.reputation_balance + submission.missions.reward_rep
-        })
-        .eq('id', wallet.id);
-
-      // Log Ledger Entry
-      await supabaseClient.from('ledger_entries').insert({
-        wallet_id: wallet.id,
-        amount: submission.missions.reward_tokens,
-        currency: 'TOKEN',
-        operation_type: 'REWARD',
-        reference_id: submission_id,
-        description: `Mission Reward: ${submission.missions.title}`
-      });
-
-      return new Response(JSON.stringify({ success: true }), {
+      return new Response(JSON.stringify({ error: 'This action is deprecated. Please use the developer dashboard to approve missions.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
       });
     }
 

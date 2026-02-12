@@ -87,7 +87,7 @@ export default function Room({ roomId, driver, onLeave }: Props) {
           }
       })
       .on('broadcast', { event: 'strategy_update' }, (payload) => {
-          // Update local player cache for Host simulation
+          // Update local player cache for all clients
           setPlayers(prev => prev.map(p => {
               if (p.user_id === payload.payload.user_id) {
                   return { 
@@ -119,6 +119,11 @@ export default function Room({ roomId, driver, onLeave }: Props) {
           // Or actually, even host can use this for smoother 60fps UI between 1s ticks? 
           // Yes, let's do it for everyone for smoothness.
           if (!currentState || currentState.finished) return;
+
+          // CRITICAL FIX: Ensure we have complete player data before predicting
+          if (playersRef.current.length < 2 || !playersRef.current[0]?.one_lap_drivers || !playersRef.current[1]?.one_lap_drivers) {
+              return; // Don't predict without full driver data
+          }
 
           const p1 = playersRef.current[0];
           const p2 = playersRef.current[1];
@@ -277,12 +282,13 @@ export default function Room({ roomId, driver, onLeave }: Props) {
              // Points are handled by Host to ensure consistency
              (async () => {
                  try {
-                     const { data: pData } = await supabase.from('profiles').select('tokens').eq('id', user.id).single();
-                     if (pData) {
-                         await supabase.from('profiles').update({
-                             tokens: (pData.tokens || 0) + 5
-                         }).eq('id', user.id);
-                     }
+                     const { data: pData } = await supabase.from('wallets').select('token_balance').eq('user_id', user.id).single();
+                    
+                    if (pData) {
+                        await supabase.from('wallets').update({ 
+                            token_balance: (pData.token_balance || 0) + 5 
+                        }).eq('user_id', user.id);
+                    }
                  } catch (e) {
                      console.error('Error updating tokens:', e);
                  }
@@ -467,13 +473,86 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                       
                       const totalPoints = points * multiplier;
 
-                      // Winner: +1 Win, +Points
-                      const { data: wData } = await supabase.from('one_lap_drivers').select('wins, points').eq('user_id', currentState.winner_id).single();
+                      const loserId = isP1Winner ? p2.user_id : p1.user_id;
+
+                      // Winner: +1 Win, +Points, Update Best Gap
+                      const { data: wData, error: wError } = await supabase.from('one_lap_drivers').select('wins, points, best_gap_sec').eq('user_id', currentState.winner_id).single();
+                      if (wError) console.error('Error fetching winner data:', wError);
                       if (wData) {
-                          await supabase.from('one_lap_drivers').update({ 
+                          // Calculate Best Gap (More negative is better)
+                          const currentGap = -timeGap;
+                          const oldBest = wData.best_gap_sec !== undefined && wData.best_gap_sec !== null ? wData.best_gap_sec : 999;
+                          const newBest = Math.min(currentGap, oldBest);
+
+                          const { error: wUpdateError } = await supabase.from('one_lap_drivers').update({ 
                               wins: (wData.wins || 0) + 1, 
-                              points: (wData.points || 0) + totalPoints 
+                              points: (wData.points || 0) + totalPoints,
+                              best_gap_sec: newBest
                           }).eq('user_id', currentState.winner_id);
+                          if (wUpdateError) console.error('Error updating winner stats:', wUpdateError);
+                          
+                          // Update Leaderboard
+                          // Try RPC first, fallback to direct update if function missing
+                          const { error: rpcError } = await supabase.rpc('update_leaderboard_from_driver', { p_user_id: currentState.winner_id });
+                          if (rpcError) {
+                              const { data: existingLB } = await supabase.from('one_lap_leaderboard').select('races_played').eq('user_id', currentState.winner_id).single();
+                              await supabase.from('one_lap_leaderboard').upsert({
+                                  user_id: currentState.winner_id,
+                                  wins: (wData.wins || 0) + 1,
+                                  total_points: (wData.points || 0) + totalPoints,
+                                  races_played: (existingLB?.races_played || 0) + 1,
+                                  best_gap_sec: newBest,
+                                  updated_at: new Date().toISOString()
+                              });
+                          }
+                      }
+
+                      // Loser: +1 Loss
+                      const { data: lData, error: lError } = await supabase.from('one_lap_drivers').select('losses').eq('user_id', loserId).single();
+                      if (lError) console.error('Error fetching loser data:', lError);
+                      if (lData) {
+                          const { error: lUpdateError } = await supabase.from('one_lap_drivers').update({ 
+                              losses: (lData.losses || 0) + 1 
+                          }).eq('user_id', loserId);
+                          if (lUpdateError) console.error('Error updating loser stats:', lUpdateError);
+
+                          // Update Leaderboard
+                          await supabase.rpc('update_leaderboard_from_driver', { p_user_id: loserId });
+                      }
+
+                      // Update Prize Pool & Winner Balance
+                      try {
+                        const { data: prizePool, error: prizePoolError } = await supabase
+                          .from("minigame_prize_pools")
+                          .select("current_pool")
+                          .eq("game_key", "one_lap_duel")
+                          .single();
+
+                        if (prizePoolError) throw prizePoolError;
+
+                        const prizeAmount = Math.floor(prizePool.current_pool * 0.1); // Winner gets 10%
+                        const newPool = prizePool.current_pool + 2; // Prize pool increases by 2 every round (no exceptions)
+
+                        await supabase
+                          .from("minigame_prize_pools")
+                          .update({ current_pool: newPool })
+                          .eq("game_key", "one_lap_duel");
+                        
+                        const { data: winnerWallet, error: winnerWalletError } = await supabase
+                            .from('wallets')
+                            .select('token_balance')
+                            .eq('user_id', currentState.winner_id)
+                            .single();
+
+                        if (winnerWalletError) throw winnerWalletError;
+
+                        await supabase
+                            .from('wallets')
+                            .update({ token_balance: (winnerWallet.token_balance || 0) + prizeAmount })
+                            .eq('user_id', currentState.winner_id);
+
+                      } catch (e) {
+                          console.error("Failed to process prize pool:", e);
                       }
                   }
               }
@@ -521,21 +600,23 @@ export default function Room({ roomId, driver, onLeave }: Props) {
       const currentNodeId = myPlayerState.last_node_id;
 
       if (type === 'line') {
-          // Limitation: 1 change per node (sector proxy)
-          if (lastLineChangeNodeRef.current === currentNodeId) {
-             showToast(t('minigame_onelapduel.room.strategy_limit') || 'Strategy Locked for this Sector!', 'error');
-             return; 
-          }
-          lastLineChangeNodeRef.current = currentNodeId;
-      }
-      
-      lastStrategyUpdate.current = now;
+        // Single-line strategy limit removed per user request
+    }
+    
+    lastStrategyUpdate.current = now;
 
-      const newStrategy = {
-          ...strategy,
-          [type === 'ers' ? 'current_ers' : 'current_line']: value
-      };
-      setStrategy(newStrategy);
+    const newStrategy = {
+        ...strategy,
+        [type === 'ers' ? 'current_ers' : 'current_line']: value
+    };
+    setStrategy(newStrategy);
+
+    // Update players state immediately for local user (since we might not receive own broadcast)
+    setPlayers(prev => prev.map(p => 
+        p.user_id === user?.id 
+            ? { ...p, strategy: newStrategy }
+            : p
+    ));
 
       // Broadcast to Host
       await supabase.channel(`room:${roomId}`).send({

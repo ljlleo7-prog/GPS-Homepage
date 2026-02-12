@@ -40,6 +40,8 @@ export interface RaceState {
         lateral_offset: number;
         target_offset?: number;
         reaction_end_time?: number;
+        movement_mask?: 'free' | 'blocked_left' | 'blocked_right';
+        last_strategy_line?: RacingLine;
     };
     p2: {
         distance: number;
@@ -51,6 +53,8 @@ export interface RaceState {
         lateral_offset: number;
         target_offset?: number;
         reaction_end_time?: number;
+        movement_mask?: 'free' | 'blocked_left' | 'blocked_right';
+        last_strategy_line?: RacingLine;
     };
     starting_grid?: {
         p1: number; // 1 or 2

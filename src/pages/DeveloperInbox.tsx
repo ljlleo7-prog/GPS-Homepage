@@ -357,22 +357,6 @@ const DeveloperInbox = () => {
     }
   };
 
-  const handleApproveMission = async (id: string) => {
-    if (!confirm(t('developer.inbox.confirms.approve_mission'))) return;
-    try {
-        // Assuming mission_submissions table has a status column
-        // We might need to trigger payout too. The trigger 'process_mission_payout' handles it on update.
-        const { error } = await supabase
-            .from('mission_submissions')
-            .update({ status: 'APPROVED' })
-            .eq('id', id);
-
-        if (error) throw error;
-        fetchInbox();
-    } catch (error: any) {
-        alert(error.message || t('developer.inbox.alerts.approve_mission_failed'));
-    }
-  };
 
   const handleRejectMission = async (id: string) => {
     if (!confirm(t('developer.inbox.confirms.reject_mission'))) return;

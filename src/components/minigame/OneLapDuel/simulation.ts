@@ -50,10 +50,10 @@ const ERS_MAX_REGEN = 250000; // 250 kW (ICE Harvesting Limit)
 const BRAKING_MAX_REGEN = 350000; // 350 kW (Kinetic Braking Limit)
 
 // Helper to get available ERS power based on speed and mode
-const getERSLimit = (speedKmh: number, mode: ERSMode, isBehind: boolean): number => {
+const getERSLimit = (speedKmh: number, mode: ERSMode, isBehind: boolean, driver?: DriverStats): number => {
     // 1. Overtake Mode Exception (Must be behind)
     if (mode === 'overtake' && isBehind) {
-        return ERS_MAX_POWER; // Always 350 kW, no tapering
+        return ERS_MAX_POWER * (driver ? (0.98 + driver.ers_efficiency_skill / 500) : 1); // Always 350 kW, no tapering
     }
 
     // 2. Speed-Dependent Tapering (2026 Regs)
@@ -76,6 +76,11 @@ const getERSLimit = (speedKmh: number, mode: ERSMode, isBehind: boolean): number
         speedLimit = 350000 - (200000 * ratio);
     }
 
+    // Apply ERS Efficiency Skill
+    if (driver) {
+        speedLimit *= (0.98 + driver.ers_efficiency_skill / 500);
+    }
+
     // 3. Mode-Specific Scaling
     if (mode === 'recharge') return 0; // Recharge mode doesn't deploy
     
@@ -84,7 +89,7 @@ const getERSLimit = (speedKmh: number, mode: ERSMode, isBehind: boolean): number
     // Also user: "normal deployment" (Neutral) should be 250kW max.
     if (mode === 'neutral') {
         if (speedKmh > 320) return 0;
-        speedLimit = Math.min(speedLimit, 250000); // Max 250kW in Neutral
+        speedLimit = Math.min(speedLimit, 250000 * (driver ? (0.98 + driver.ers_efficiency_skill / 500) : 1)); // Max 250kW in Neutral
     }
     // Hotlap uses full speedLimit curve (max 350kW)
 
@@ -114,6 +119,7 @@ interface PhysicsState {
     lateral_offset: number; // -1 to 1
     distance: number; // Meters
     recovered_energy: number; // Joules (Track 9MJ limit)
+    movement_mask?: 'free' | 'blocked_left' | 'blocked_right';
 }
 
 export const calculateGap = (distA: number, distB: number, trackLength: number) => {
@@ -137,7 +143,7 @@ export const calculatePhysicsStep = (
   targetOffset: number,
   ignoreNextNodeForBraking: boolean = false
 ): PhysicsState => {
-  let { speed, battery, lateral_offset } = currentState; // speed is m/s
+  let { speed, battery, lateral_offset, movement_mask } = currentState; // speed is m/s
   const prevLateralOffset = lateral_offset;
   
   // 1. Lateral Movement towards Target
@@ -146,8 +152,25 @@ export const calculatePhysicsStep = (
   // Opportunity line is aggressive, Defense is standard, Clean is standard
   const lateralSpeed = baseLateralSpeed * decisionFactor * dt; 
   
-  if (lateral_offset < targetOffset) lateral_offset = Math.min(targetOffset, lateral_offset + lateralSpeed);
-  else if (lateral_offset > targetOffset) lateral_offset = Math.max(targetOffset, lateral_offset - lateralSpeed);
+  let allowed = true;
+  // Check Movement Mask
+  // If we want to move Left (target < current), check if blocked_left
+  if (targetOffset < lateral_offset && movement_mask === 'blocked_left') allowed = false;
+  // If we want to move Right (target > current), check if blocked_right
+  if (targetOffset > lateral_offset && movement_mask === 'blocked_right') allowed = false;
+
+  if (allowed) {
+      if (lateral_offset < targetOffset) {
+          lateral_offset = Math.min(targetOffset, lateral_offset + lateralSpeed);
+          // If we moved Right, we block Left moves for this sector
+          if (lateral_offset > prevLateralOffset + 0.0001) movement_mask = 'blocked_left';
+      }
+      else if (lateral_offset > targetOffset) {
+          lateral_offset = Math.max(targetOffset, lateral_offset - lateralSpeed);
+          // If we moved Left, we block Right moves for this sector
+          if (lateral_offset < prevLateralOffset - 0.0001) movement_mask = 'blocked_right';
+      }
+  }
 
   // 1.1 Line Change Penalty (Induced Drag / Friction)
   // "Changing lines cost temporary 1% speed drop"
@@ -200,21 +223,35 @@ export const calculatePhysicsStep = (
 
   // Max Acceleration Force (Engine + ERS)
   let availablePower = BASE_ENGINE_POWER; 
+
+  // Morale Instability: Random Performance Drops
+  // If morale < 50, chance of "hesitation" or "mistake"
+  let moraleMultiplier = 1.0;
+  if (driver.morale < 50) {
+      
+      const dropChancePerSecond = ((100 - driver.morale) / 100)*((100 - driver.morale) / 100) * 0.05; 
+      const dropChance = dropChancePerSecond * dt;
+      
+      if (Math.random() < dropChance) {
+           moraleMultiplier = 0.4; // 60% momentary power/braking loss
+      }
+  }
   
   // ERS Deployment
   if (battery > 0) {
-      const ersLimit = getERSLimit(speed * 3.6, ers, isBehind);
+      const ersLimit = getERSLimit(speed * 3.6, ers, isBehind, driver);
       availablePower += ersLimit;
   }
 
-  availablePower *= (1 + driver.acceleration_skill / 2000);
+  availablePower *= (0.98 + driver.acceleration_skill / 500);
+  availablePower *= moraleMultiplier; // Apply Morale Drop
   
   const maxEngineForce = availablePower / effectiveSpeed;
   const maxAccelForce = maxEngineForce - resistiveForce; // Net force available for acceleration
 
   // Max Deceleration Force (Brakes)
   // Base braking force + Skill modifier
-  const maxBrakingForce = 4.5 * MASS * GRAVITY * (1 + driver.braking_skill/500); 
+  const maxBrakingForce = 4.5 * MASS * GRAVITY * (0.95 + driver.braking_skill/200) * moraleMultiplier; // Apply Morale Drop 
   const maxDecelForce = maxBrakingForce + resistiveForce; // Net force available for deceleration (Brakes + Drag helps)
 
   // 4. Determine Target Velocities & Acceleration Demand
@@ -235,7 +272,7 @@ export const calculatePhysicsStep = (
       // Apply Dirty Air Penalty
       cornerSpeed *= corneringMultiplier;
 
-      cornerSpeed *= (1 + (driver.cornering_skill / 2000));
+      cornerSpeed *= (0.99 + (driver.cornering_skill / 1000));
       targetExitSpeedMs = cornerSpeed;
   } else {
       // Straight: Uncapped exit speed (allow physics to push max speed)
@@ -309,10 +346,10 @@ export const calculatePhysicsStep = (
        // Taking 250kW might stall the car if total power is low.
        // Total ICE Power ~420kW.
        // If we take 250kW, we have 170kW left for wheels.
-       iceHarvestPower = ERS_MAX_REGEN;
+       iceHarvestPower = ERS_MAX_REGEN * (driver ? (0.98 + driver.ers_efficiency_skill / 500) : 1);
        
        // Ensure we don't take more than what the engine produces
-       const icePowerAvailable = BASE_ENGINE_POWER * (1 + driver.acceleration_skill / 2000);
+       const icePowerAvailable = BASE_ENGINE_POWER * (0.99 + driver.acceleration_skill / 1000);
        if (iceHarvestPower > icePowerAvailable * 0.8) {
            iceHarvestPower = icePowerAvailable * 0.8; // Leave 20% for movement at least
        }
@@ -335,10 +372,10 @@ export const calculatePhysicsStep = (
           // Calculate ERS contribution ratio
           // Total Power Used = Force * Speed
           const totalPower = (targetNetForce + resistiveForce) * speed;
-          const icePower = BASE_ENGINE_POWER * (1 + driver.acceleration_skill / 2000);
+          const icePower = BASE_ENGINE_POWER * (0.99 + driver.acceleration_skill / 1000);
           
           if (totalPower > icePower) {
-              const ersPower = Math.min(totalPower - icePower, getERSLimit(speed * 3.6, ers, isBehind));
+              const ersPower = Math.min(totalPower - icePower, getERSLimit(speed * 3.6, ers, isBehind, driver));
               energyChange -= ersPower * dt;
           }
       }
@@ -353,7 +390,7 @@ export const calculatePhysicsStep = (
           
           // Cap at BRAKING Max Regen (350kW)
           // "actual braking can regenerate at most 350kW"
-          const harvestPower = Math.min(BRAKING_MAX_REGEN, brakingPower);
+          const harvestPower = Math.min(BRAKING_MAX_REGEN * (driver ? (0.98 + driver.ers_efficiency_skill / 500) : 1), brakingPower);
           
           // Check 9MJ Quota
           if (currentState.recovered_energy < MAX_RECOVERY_JOULES) {
@@ -367,6 +404,8 @@ export const calculatePhysicsStep = (
   // Apply Acceleration
   const a_actual = targetNetForce / MASS;
   speed += a_actual * dt;
+  
+  speed = Math.max(0, speed);
   
   speed = Math.max(0, speed);
 
@@ -390,7 +429,7 @@ export const calculatePhysicsStep = (
   battery = Math.max(0, Math.min(MAX_BATTERY_JOULES, battery + energyChange));
   const recovered_energy = currentState.recovered_energy + recoveredEnergyDelta;
 
-  return { speed, battery, lateral_offset, distance: currentState.distance, recovered_energy };
+  return { speed, battery, lateral_offset, distance: currentState.distance, recovered_energy, movement_mask };
 };
 
 export const getInitialRaceState = (track: TrackNode[]): RaceState => {
@@ -443,33 +482,59 @@ export const advanceRaceState = (
     const p1Node = getNode(newState.p1.distance);
     const p2Node = getNode(newState.p2.distance);
 
+    // Reset movement mask if entered new node
+    if (newState.p1.last_node_id !== p1Node.id) {
+        newState.p1.movement_mask = 'free';
+    }
+    if (newState.p2.last_node_id !== p2Node.id) {
+        newState.p2.movement_mask = 'free';
+    }
+
     newState.p1.last_node_id = p1Node.id;
     newState.p2.last_node_id = p2Node.id;
 
     // --- Decision Making & Line Strategy ---
-    const updateTargetOffset = (playerState: RaceState['p1'], opponentState: RaceState['p2'], strategy: PlayerStrategy, driver: DriverStats, isHuman: boolean) => {
-        // IMPROVEMENT: If player is HUMAN, remove artificial reaction delay for better responsiveness.
+    const updateTargetOffset = (playerState: RaceState['p1'], opponentState: RaceState['p2'], strategy: PlayerStrategy, driver: DriverStats) => {
         const now = newState.time;
-        const isReacting = now < (playerState.reaction_end_time || 0);
         
-        if (!isReacting || isHuman) {
-            if (!isHuman) {
-                // AI / Opponent Logic with Delay
-                const reactionDelay = 1 + (Math.random() * (100 - driver.decision_making_skill) / 50);
-                playerState.reaction_end_time = now + reactionDelay;
-            }
+        // Initialize if missing
+        if (!playerState.last_strategy_line) playerState.last_strategy_line = strategy.current_line;
 
-            playerState.target_offset = getTargetOffset(strategy.current_line, opponentState.lateral_offset);
+        // Check if user wants a different line
+        if (strategy.current_line !== playerState.last_strategy_line) {
+             // We want to change.
+             if (playerState.reaction_end_time === undefined) {
+                 // Start Timer
+                 let delay = 1.5 - driver.decision_making_skill / 10;
+                 
+                 
+                 if (delay > 0) {
+                     playerState.reaction_end_time = now + delay;
+                 } else {
+                     // Instant
+                     playerState.last_strategy_line = strategy.current_line;
+                     playerState.reaction_end_time = undefined;
+                 }
+             } else {
+                 // Timer running
+                 if (now >= playerState.reaction_end_time) {
+                     // Timer finished, apply change
+                     playerState.last_strategy_line = strategy.current_line;
+                     playerState.reaction_end_time = undefined;
+                 }
+             }
+        } else {
+            // Strategies match, clear timer if any (e.g. user switched back)
+            playerState.reaction_end_time = undefined;
         }
+
+        // Use last_strategy_line for target
+        playerState.target_offset = getTargetOffset(playerState.last_strategy_line, opponentState.lateral_offset);
     };
 
-    // Assuming p1 is Human (or Host's local player) and p2 is Opponent? 
-    // Actually this runs on Host for BOTH players.
-    // We need to know who is a "bot" vs "human".
-    // For now, assume both are human players since it's a multiplayer duel.
-    // Remove delay for BOTH.
-    updateTargetOffset(newState.p1, newState.p2, p1.strategy, p1.driver, true);
-    updateTargetOffset(newState.p2, newState.p1, p2.strategy, p2.driver, true);
+    // Update Targets with Reaction Time Logic
+    updateTargetOffset(newState.p1, newState.p2, p1.strategy, p1.driver);
+    updateTargetOffset(newState.p2, newState.p1, p2.strategy, p2.driver);
 
     // --- Physics Simulation (Sub-stepping for accuracy) ---
     const SUB_STEPS = 10;
@@ -480,14 +545,16 @@ export const advanceRaceState = (
         battery: newState.p1.battery, 
         lateral_offset: newState.p1.lateral_offset || 0,
         distance: newState.p1.distance,
-        recovered_energy: newState.p1.recovered_energy || 0
+        recovered_energy: newState.p1.recovered_energy || 0,
+        movement_mask: newState.p1.movement_mask
     };
     const p2State = { 
         speed: newState.p2.speed / 3.6, 
         battery: newState.p2.battery, 
         lateral_offset: newState.p2.lateral_offset || 0,
         distance: newState.p2.distance,
-        recovered_energy: newState.p2.recovered_energy || 0
+        recovered_energy: newState.p2.recovered_energy || 0,
+        movement_mask: newState.p2.movement_mask
     };
 
     for (let i = 0; i < SUB_STEPS; i++) {
@@ -500,8 +567,8 @@ export const advanceRaceState = (
 
         const p1Res = calculatePhysicsStep(
             SUB_DT, 
-            { speed: p1State.speed, battery: p1State.battery, lateral_offset: p1State.lateral_offset, distance: p1State.distance, recovered_energy: p1State.recovered_energy }, 
-            { speed: p2State.speed, battery: p2State.battery, lateral_offset: p2State.lateral_offset, distance: p2State.distance, recovered_energy: p2State.recovered_energy },
+            { speed: p1State.speed, battery: p1State.battery, lateral_offset: p1State.lateral_offset, distance: p1State.distance, recovered_energy: p1State.recovered_energy, movement_mask: p1State.movement_mask }, 
+            { speed: p2State.speed, battery: p2State.battery, lateral_offset: p2State.lateral_offset, distance: p2State.distance, recovered_energy: p2State.recovered_energy, movement_mask: p2State.movement_mask },
             gapP1toP2,
             p1NodeCurrent, p1NextCurrent, (p1State.distance % trackLength) - p1NodeCurrent.start_dist!, 
             p1.driver, p1.strategy.current_ers, p1.strategy.current_line,
@@ -513,6 +580,7 @@ export const advanceRaceState = (
         p1State.lateral_offset = p1Res.lateral_offset;
         p1State.distance += p1State.speed * SUB_DT;
         p1State.recovered_energy = p1Res.recovered_energy;
+        p1State.movement_mask = p1Res.movement_mask;
         
         // P2 Step
         const p2NodeCurrent = getNode(p2State.distance);
@@ -523,8 +591,8 @@ export const advanceRaceState = (
 
         const p2Res = calculatePhysicsStep(
             SUB_DT, 
-            { speed: p2State.speed, battery: p2State.battery, lateral_offset: p2State.lateral_offset, distance: p2State.distance, recovered_energy: p2State.recovered_energy }, 
-            { speed: p1State.speed, battery: p1State.battery, lateral_offset: p1State.lateral_offset, distance: p1State.distance, recovered_energy: p1State.recovered_energy },
+            { speed: p2State.speed, battery: p2State.battery, lateral_offset: p2State.lateral_offset, distance: p2State.distance, recovered_energy: p2State.recovered_energy, movement_mask: p2State.movement_mask }, 
+            { speed: p1State.speed, battery: p1State.battery, lateral_offset: p1State.lateral_offset, distance: p1State.distance, recovered_energy: p1State.recovered_energy, movement_mask: p1State.movement_mask },
             gapP2toP1,
             p2NodeCurrent, p2NextCurrent, (p2State.distance % trackLength) - p2NodeCurrent.start_dist!, 
             p2.driver, p2.strategy.current_ers, p2.strategy.current_line,
@@ -536,6 +604,7 @@ export const advanceRaceState = (
         p2State.lateral_offset = p2Res.lateral_offset;
         p2State.distance += p2State.speed * SUB_DT;
         p2State.recovered_energy = p2Res.recovered_energy;
+        p2State.movement_mask = p2Res.movement_mask;
     }
 
     if (p1State.distance > trackLength && p2State.distance > trackLength) {
@@ -574,6 +643,7 @@ export const advanceRaceState = (
     newState.p1.lateral_offset = p1State.lateral_offset;
     newState.p1.distance = p1State.distance;
     newState.p1.recovered_energy = p1State.recovered_energy;
+    newState.p1.movement_mask = p1State.movement_mask;
     // @ts-ignore
     newState.p1.current_power = p1Power;
 
@@ -582,6 +652,7 @@ export const advanceRaceState = (
     newState.p2.lateral_offset = p2State.lateral_offset;
     newState.p2.distance = p2State.distance;
     newState.p2.recovered_energy = p2State.recovered_energy;
+    newState.p2.movement_mask = p2State.movement_mask;
     // @ts-ignore
     newState.p2.current_power = p2Power;
 
