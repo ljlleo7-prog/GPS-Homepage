@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { DriverStats, MONZA_TRACK, PlayerStrategy, TRACKS, INITIAL_BATTERY, RaceState, ERSMode, RacingLine, TrackNode } from './types';
-import { getInitialRaceState, advanceRaceState, calculatePhysicsStep, getTrackNodeAtDist, SimulationResult, calculateGap, MAX_BATTERY_JOULES, getTargetOffset } from './simulation';
+import { getInitialRaceState, advanceRaceState, advanceRaceStateDelta, calculatePhysicsStep, getTrackNodeAtDist, SimulationResult, calculateGap, MAX_BATTERY_JOULES, getTargetOffset } from './simulation';
 import { Check, User, Zap, MousePointer2, AlertTriangle, Play, Battery, Gauge, Wind, Activity, Map, Trash2, UserMinus, LogOut, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -115,128 +115,35 @@ export default function Room({ roomId, driver, onLeave }: Props) {
   useEffect(() => {
       clientLoopRef.current = setInterval(() => {
           const currentState = raceStateRef.current;
-          // Only predict if we are NOT the host (Host has the source of truth engine)
-          // Or actually, even host can use this for smoother 60fps UI between 1s ticks? 
-          // Yes, let's do it for everyone for smoothness.
           if (!currentState || currentState.finished) return;
-
-          // CRITICAL FIX: Ensure we have complete player data before predicting
           if (playersRef.current.length < 2 || !playersRef.current[0]?.one_lap_drivers || !playersRef.current[1]?.one_lap_drivers) {
-              return; // Don't predict without full driver data
+              return;
           }
-
           const p1 = playersRef.current[0];
           const p2 = playersRef.current[1];
-          if (!p1 || !p2) return;
-
-          const dt = 0.05; // 50ms
-
-          // Predict P1
-          const trackLength = currentTrack[currentTrack.length - 1].end_dist!;
-
-          // Helper to get nodes
-          const getNodes = (dist: number) => {
-              const modDist = dist % trackLength;
-              const node = getTrackNodeAtDist(currentTrack, modDist);
-              const idx = currentTrack.indexOf(node);
-              const nextNode = currentTrack[(idx + 1) % currentTrack.length];
-              const wrapsNext = nextNode.start_dist! < node.start_dist!;
-              return { node, nextNode, distInNode: modDist - node.start_dist!, wrapsNext };
-          };
-
-          const p1Nodes = getNodes(currentState.p1.distance);
-          const gapP1toP2 = calculateGap(currentState.p1.distance % trackLength, currentState.p2.distance % trackLength, trackLength);
-          
-          // Use helper to predict target offset immediately based on strategy
-          // This ensures client reacts to "Defense"/"Attack" even before server tick
-          const p1TargetOffset = getTargetOffset(p1.strategy.current_line, currentState.p2.lateral_offset || 0);
-          
-          // Safe driver fallback to prevent NaNs
+          const dt = 0.05;
           const defaultDriver: DriverStats = { 
               user_id: 'fallback',
-              acceleration_skill: 50, 
-              braking_skill: 50, 
-              cornering_skill: 50, 
-              ers_efficiency_skill: 50, 
-              decision_making_skill: 50, 
+              acceleration_skill: 10, 
+              braking_skill: 10, 
+              cornering_skill: 10, 
+              ers_efficiency_skill: 10, 
+              decision_making_skill: 10, 
               morale: 100,
               daily_dev_accumulated: 0,
               last_training_update: new Date().toISOString(),
               training_mode: 'rest',
               focused_skills: []
           };
-          const p1Driver = p1.one_lap_drivers || defaultDriver;
-
-          const p1Res = calculatePhysicsStep(dt, {
-              speed: (currentState.p1.speed || 0) / 3.6,
-              battery: currentState.p1.battery || 0, // NaN guard
-              lateral_offset: currentState.p1.lateral_offset || 0,
-              distance: currentState.p1.distance || 0,
-              recovered_energy: currentState.p1.recovered_energy || 0
-          }, {
-              speed: (currentState.p2.speed || 0) / 3.6,
-              battery: currentState.p2.battery || 0,
-              lateral_offset: currentState.p2.lateral_offset || 0,
-              distance: currentState.p2.distance || 0,
-              recovered_energy: currentState.p2.recovered_energy || 0
-          }, 
-          gapP1toP2,
-          p1Nodes.node, p1Nodes.nextNode, p1Nodes.distInNode, 
-          p1Driver,
-          p1.strategy.current_ers, p1.strategy.current_line, 
-          p1TargetOffset, // Use calculated target instead of potentially stale state
-          p1Nodes.wrapsNext);
-
-          // Predict P2
-          const p2Nodes = getNodes(currentState.p2.distance);
-          const gapP2toP1 = calculateGap(currentState.p2.distance % trackLength, currentState.p1.distance % trackLength, trackLength);
-          
-          const p2TargetOffset = getTargetOffset(p2.strategy.current_line, currentState.p1.lateral_offset || 0);
-          const p2Driver = p2.one_lap_drivers || defaultDriver;
-
-          const p2Res = calculatePhysicsStep(dt, {
-              speed: (currentState.p2.speed || 0) / 3.6,
-              battery: currentState.p2.battery || 0,
-              lateral_offset: currentState.p2.lateral_offset || 0,
-              distance: currentState.p2.distance || 0,
-              recovered_energy: currentState.p2.recovered_energy || 0
-          }, {
-              speed: (currentState.p1.speed || 0) / 3.6,
-              battery: currentState.p1.battery || 0,
-              lateral_offset: currentState.p1.lateral_offset || 0,
-              distance: currentState.p1.distance || 0,
-              recovered_energy: currentState.p1.recovered_energy || 0
-          }, 
-          gapP2toP1,
-          p2Nodes.node, p2Nodes.nextNode, p2Nodes.distInNode, 
-          p2Driver, 
-          p2.strategy.current_ers, p2.strategy.current_line, 
-          p2TargetOffset, 
-          p2Nodes.wrapsNext);
-
-          // Update State (Optimistic)
-          updateRaceState({
-              ...currentState,
-              p1: {
-                  ...currentState.p1,
-                  speed: p1Res.speed * 3.6,
-                  battery: p1Res.battery,
-                  lateral_offset: p1Res.lateral_offset,
-                  distance: currentState.p1.distance + (p1Res.speed * dt),
-                  recovered_energy: p1Res.recovered_energy
-              },
-              p2: {
-                  ...currentState.p2,
-                  speed: p2Res.speed * 3.6,
-                  battery: p2Res.battery,
-                  lateral_offset: p2Res.lateral_offset,
-                  distance: currentState.p2.distance + (p2Res.speed * dt),
-                  recovered_energy: p2Res.recovered_energy
-              }
-          });
-
+          const predicted = advanceRaceStateDelta(
+              currentState,
+              { id: p1.user_id, driver: p1.one_lap_drivers || defaultDriver, strategy: p1.strategy },
+              { id: p2.user_id, driver: p2.one_lap_drivers || defaultDriver, strategy: p2.strategy },
+              currentTrack,
+              dt
+          );
+          updateRaceState(predicted);
       }, 50);
-
       return () => {
           if (clientLoopRef.current) clearInterval(clientLoopRef.current);
       };

@@ -1,6 +1,10 @@
 {
   "common": {
-    "skip_for_now": "Skip for now"
+    "skip_for_now": "Skip for now",
+    "approve": "Approve",
+    "reject": "Reject",
+    "decline": "Decline",
+    "by": "by"
   },
   "navbar": {
     "home": "Home",
@@ -191,6 +195,16 @@
       "success": "Username set successfully!",
       "error_taken": "Username is already taken",
       "error_generic": "Failed to update username"
+    }
+  },
+  "developer": {
+    "inbox": {
+      "prompts": {
+        "password_confirm": "Enter your password to confirm this action"
+      },
+      "alerts": {
+        "password_incorrect": "Incorrect password"
+      }
     }
   },
   "contact": {

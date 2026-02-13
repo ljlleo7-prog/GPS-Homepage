@@ -378,6 +378,9 @@ const Missions = () => {
                                sub.status === 'REJECTED' ? t('economy.missions.status.rejected') : 
                                t('economy.missions.status.pending')}
                             </span>
+                                    {sub.status === 'REJECTED' && sub.admin_feedback && (
+                                      <span className="text-xs text-text-secondary">— {sub.admin_feedback}</span>
+                                    )}
                           </div>
                           {sub.status === 'APPROVED' && (
                             <div className="font-mono text-primary">

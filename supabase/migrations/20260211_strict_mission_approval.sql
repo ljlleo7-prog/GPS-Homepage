@@ -117,3 +117,45 @@ BEGIN
   RETURN jsonb_build_object('success', true, 'submission_id', p_submission_id);
 END;
 $$;
+
+-- 3. Developer Rejection Function
+-- Safely reject a mission submission and optionally record feedback
+CREATE OR REPLACE FUNCTION public.reject_mission_submission(
+  p_submission_id UUID,
+  p_feedback TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_submission public.mission_submissions%ROWTYPE;
+  v_developer_status TEXT;
+BEGIN
+  -- Permission check
+  SELECT developer_status INTO v_developer_status
+  FROM public.profiles
+  WHERE id = auth.uid();
+
+  IF v_developer_status != 'APPROVED' THEN
+    RAISE EXCEPTION 'Permission Denied: Only Approved Developers can reject submissions.';
+  END IF;
+
+  -- Ensure submission exists
+  SELECT * INTO v_submission FROM public.mission_submissions WHERE id = p_submission_id;
+  IF v_submission.id IS NULL THEN
+    RAISE EXCEPTION 'Submission not found.';
+  END IF;
+
+  -- Update status and feedback
+  UPDATE public.mission_submissions
+  SET 
+    status = 'REJECTED',
+    admin_feedback = COALESCE(p_feedback, admin_feedback),
+    updated_at = NOW()
+  WHERE id = p_submission_id;
+
+  RETURN jsonb_build_object('success', true, 'submission_id', p_submission_id);
+END;
+$$;

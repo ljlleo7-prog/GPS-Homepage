@@ -13,6 +13,7 @@ DECLARE
   v_pending_tests JSONB;
   v_pending_deliverables JSONB;
   v_interest_instruments JSONB;
+  v_deliverable_schedule JSONB;
 BEGIN
   v_user_id := auth.uid();
   SELECT (COALESCE(developer_status, 'NONE') = 'APPROVED') INTO v_is_dev FROM public.profiles WHERE id = v_user_id;
@@ -89,6 +90,24 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     v_interest_instruments := '[]'::jsonb;
   END;
+  -- Deliverable schedule including pre-issued/pre-rejected markers
+  BEGIN
+    SELECT jsonb_agg(t) INTO v_deliverable_schedule FROM (
+      SELECT 
+        d.id,
+        d.instrument_id,
+        d.due_date,
+        d.status,
+        i.title as instrument_title
+      FROM public.instrument_deliverables d
+      JOIN public.support_instruments i ON d.instrument_id = i.id
+      WHERE d.due_date >= NOW()
+        AND i.status != 'RESOLVED'
+        AND COALESCE(i.is_driver_bet, false) = false
+    ) t;
+  EXCEPTION WHEN OTHERS THEN
+    v_deliverable_schedule := '[]'::jsonb;
+  END;
   RETURN jsonb_build_object(
     'success', true,
     'pending_devs', COALESCE(v_pending_devs, '[]'::jsonb),
@@ -97,7 +116,8 @@ BEGIN
     'pending_acks', COALESCE(v_pending_acks, '[]'::jsonb),
     'pending_tests', COALESCE(v_pending_tests, '[]'::jsonb),
     'pending_deliverables', COALESCE(v_pending_deliverables, '[]'::jsonb),
-    'interest_instruments', COALESCE(v_interest_instruments, '[]'::jsonb)
+    'interest_instruments', COALESCE(v_interest_instruments, '[]'::jsonb),
+    'deliverable_schedule', COALESCE(v_deliverable_schedule, '[]'::jsonb)
   );
 END;
 $$;

@@ -130,6 +130,18 @@ const SupportMarkets = () => {
     setLoading(false);
   };
 
+  const verifyPassword = async () => {
+    const email = user?.email || '';
+    const pwd = prompt(t('developer.inbox.prompts.password_confirm') || 'Enter password to confirm');
+    if (pwd === null) return false;
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password: pwd });
+    if (authError) {
+      alert(t('developer.inbox.alerts.password_incorrect') || 'Incorrect password');
+      return false;
+    }
+    return true;
+  };
+
   const handleSupport = async (instrument: Instrument) => {
     // Rep Gating > 50
     if (!wallet || wallet.reputation_balance <= 50) {
@@ -167,6 +179,8 @@ const SupportMarkets = () => {
             return;
         }
 
+        const ok = await verifyPassword();
+        if (!ok) { setCreating(false); return; }
         const result = await createDriverBet(
             newTitle,
             newDesc,
@@ -195,7 +209,9 @@ const SupportMarkets = () => {
             return;
         }
 
-        const result = await createUserCampaign(
+      const ok = await verifyPassword();
+      if (!ok) { setCreating(false); return; }
+      const result = await createUserCampaign(
           'MARKET',
           newTitle,
           newDesc,
@@ -237,7 +253,8 @@ const SupportMarkets = () => {
       if (!proofUrl || !proofUrl.trim()) return;
 
       if (!confirm(t('economy.market.alerts.resolve_confirm', { side }))) return;
-      
+      const ok = await verifyPassword();
+      if (!ok) return;
       const result = await resolveDriverBet(instrumentId, side, proofUrl);
       if (result.success) {
           alert(t('economy.market.alerts.resolve_success'));
@@ -258,6 +275,8 @@ const SupportMarkets = () => {
           alert(t('economy.market.alerts.buy_integer'));
           return;
       }
+      const ok = await verifyPassword();
+      if (!ok) return;
       const result = await buyDriverBetTicket(instrument.id, side, qty);
       if (result.success) {
           alert(t('economy.market.alerts.buy_success', { qty, side }));
@@ -275,6 +294,8 @@ const SupportMarkets = () => {
       }
 
       if (!confirm(`Are you sure you want to sell ${qty} tickets back to the official issuer for ${instrument.refund_price || 0.9} TKN/ticket?`)) return;
+      const ok = await verifyPassword();
+      if (!ok) return;
 
       const { data, error } = await supabase.rpc('sell_ticket_to_official', {
           p_instrument_id: instrument.id,
@@ -299,7 +320,8 @@ const SupportMarkets = () => {
   const handleDelete = async (id: string, mode: 'MARKET' | 'EVERYWHERE') => {
       const modeText = mode === 'MARKET' ? t('economy.market.alerts.delete_mode_market') : t('economy.market.alerts.delete_mode_everywhere');
       if (!confirm(t('economy.market.alerts.delete_confirm', { mode: modeText }))) return;
-      
+      const ok = await verifyPassword();
+      if (!ok) return;
       const result = await deleteCampaign(id, mode);
       if (result.success) {
           alert(t('economy.market.alerts.delete_success'));

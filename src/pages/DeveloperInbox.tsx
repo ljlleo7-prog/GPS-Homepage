@@ -15,6 +15,7 @@ interface InboxData {
   pending_deliverables: PendingDeliverable[];
   // Interest-bearing instruments for calendar schedule
   interest_instruments?: InterestInstrument[];
+  deliverable_schedule?: DeliverableScheduleItem[];
 }
 
 interface Mission {
@@ -93,12 +94,20 @@ interface InterestInstrument {
   deliverable_condition: string | null;
 }
 
-type CalendarEventType = 'deliverable' | 'mission' | 'bet' | 'dev_request' | 'ack' | 'test';
+type CalendarEventType = 'deliverable' | 'deliverable_ok' | 'deliverable_no' | 'mission' | 'bet' | 'dev_request' | 'ack' | 'test';
 
 interface CalendarEvent {
   dateKey: string;
   type: CalendarEventType;
   label: string;
+}
+
+interface DeliverableScheduleItem {
+  id: string;
+  instrument_id: string;
+  due_date: string;
+  status: 'PENDING' | 'ISSUED' | 'REJECTED' | 'MISSED_PENALTY';
+  instrument_title: string;
 }
 
 const DeveloperInbox = () => {
@@ -167,7 +176,8 @@ const DeveloperInbox = () => {
             pending_acks: result.pending_acks,
             pending_tests: result.pending_tests || [],
             pending_deliverables: result.pending_deliverables || [],
-            interest_instruments: (result as any).interest_instruments || []
+            interest_instruments: (result as any).interest_instruments || [],
+            deliverable_schedule: (result as any).deliverable_schedule || []
           };
           setData(nextData);
         } else {
@@ -277,29 +287,49 @@ const DeveloperInbox = () => {
 
   const handlePrepareAward = async (submissionId: string) => {
       try {
-          // Get submission to find mission_id
-          const { data: sub, error: subError } = await supabase
+          // Step 1: Get submission to find mission_id
+          const { data: subRow, error: subErr } = await supabase
               .from('mission_submissions')
-              .select('*, mission:missions(*)')
+              .select('mission_id')
               .eq('id', submissionId)
               .single();
-          
-          if (subError) throw subError;
-          
-          // Find the submission in our local state to pass UI details
+          if (subErr) throw subErr;
+
+          // Step 2: Get mission details separately to avoid embed coercion errors
+          const { data: missionRow, error: missionErr } = await supabase
+              .from('missions')
+              .select('*')
+              .eq('id', subRow.mission_id)
+              .single();
+          if (missionErr) throw missionErr;
+
           const localSub = data.pending_missions.find(p => p.id === submissionId);
-          
           setSelectedSubmission(localSub || null);
-          setSelectedMissionDetails(sub.mission);
-          setAwardForm({ tokens: sub.mission.reward_min || 0, rep: sub.mission.reward_rep_min || 0 });
+          setSelectedMissionDetails(missionRow);
+          setAwardForm({ tokens: missionRow.reward_min || 0, rep: missionRow.reward_rep_min || 0 });
           setShowAwardModal(true);
       } catch (error: any) {
           alert(t('developer.inbox.mission_control.error_prepare_award', { error: error.message }));
       }
   };
 
+  const verifyPassword = async () => {
+      const user = (await supabase.auth.getUser()).data.user;
+      const email = user?.email || '';
+      const pwd = prompt(t('developer.inbox.prompts.password_confirm') || 'Enter password to confirm');
+      if (pwd === null) return false;
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password: pwd });
+      if (authError) {
+          alert(t('developer.inbox.alerts.password_incorrect') || 'Incorrect password');
+          return false;
+      }
+      return true;
+  };
+
   const handleSubmitAward = async () => {
       if (!selectedSubmission || !selectedMissionDetails) return;
+      const ok = await verifyPassword();
+      if (!ok) return;
       
       // Validate
       if (awardForm.tokens < (selectedMissionDetails.reward_min || 0) || awardForm.tokens > (selectedMissionDetails.reward_max || 0)) {
@@ -312,16 +342,15 @@ const DeveloperInbox = () => {
       }
 
       try {
-          const { error } = await supabase
-              .from('mission_submissions')
-              .update({
-                  status: 'APPROVED',
-                  payout_tokens: awardForm.tokens,
-                  payout_rep: awardForm.rep
-              })
-              .eq('id', selectedSubmission.id);
-
+          const { data, error } = await supabase.rpc('approve_mission_submission', {
+              p_submission_id: selectedSubmission.id,
+              p_payout_tokens: awardForm.tokens,
+              p_payout_rep: awardForm.rep
+          });
           if (error) throw error;
+          if (data && data.success !== true) {
+              throw new Error(data?.message || 'RPC approve_mission_submission failed');
+          }
           
           setShowAwardModal(false);
           fetchInbox(); // Refresh inbox
@@ -332,6 +361,8 @@ const DeveloperInbox = () => {
 
   const handleApproveDev = async (id: string) => {
     if (!confirm(t('developer.inbox.confirms.approve_dev'))) return;
+    const ok = await verifyPassword();
+    if (!ok) return;
     const result = await approveDeveloperAccess(id);
     if (result.success) {
       fetchInbox();
@@ -342,6 +373,8 @@ const DeveloperInbox = () => {
 
   const handleDeclineDev = async (id: string) => {
     if (!confirm(t('developer.inbox.confirms.decline_dev'))) return;
+    const ok = await verifyPassword();
+    if (!ok) return;
     const msg = prompt(t('developer.inbox.prompts.decline_reason') || '');
     if (msg === null) return;
     try {
@@ -360,13 +393,19 @@ const DeveloperInbox = () => {
 
   const handleRejectMission = async (id: string) => {
     if (!confirm(t('developer.inbox.confirms.reject_mission'))) return;
+    const ok = await verifyPassword();
+    if (!ok) return;
+    const msg = prompt(t('developer.inbox.prompts.decline_reason') || '');
+    if (msg === null) return;
     try {
-        const { error } = await supabase
-            .from('mission_submissions')
-            .update({ status: 'REJECTED' })
-            .eq('id', id);
-
+        const { data, error } = await supabase.rpc('reject_mission_submission', {
+            p_submission_id: id,
+            p_feedback: (msg || '').trim()
+        });
         if (error) throw error;
+        if (data && data.success !== true) {
+            throw new Error(data?.message || 'RPC reject_mission_submission failed');
+        }
         fetchInbox();
     } catch (error: any) {
         alert(error.message || t('developer.inbox.alerts.reject_mission_failed'));
@@ -393,6 +432,8 @@ const DeveloperInbox = () => {
   const handleResolveBetAction = async (id: string, side: 'A' | 'B') => {
       const proofUrl = prompt(t('developer.inbox.prompts.proof_url'), 'https://example.com');
       if (proofUrl === null) return; // Cancelled
+      const ok = await verifyPassword();
+      if (!ok) return;
 
       const result = await resolveDriverBet(id, side, proofUrl);
       if (result.success) {
@@ -419,6 +460,8 @@ const DeveloperInbox = () => {
 
   const handleApproveTest = async (id: string) => {
     if (!confirm(t('developer.inbox.confirms.approve_test'))) return;
+    const ok = await verifyPassword();
+    if (!ok) return;
     const result = await approveTestPlayerRequest(id);
     if (result.success) {
       fetchInbox();
@@ -429,6 +472,8 @@ const DeveloperInbox = () => {
 
   const handleDeclineTest = async (id: string) => {
     if (!confirm(t('developer.inbox.confirms.decline_test'))) return;
+    const ok = await verifyPassword();
+    if (!ok) return;
     const msg = prompt(t('developer.inbox.prompts.decline_reason') || '');
     if (msg === null) return;
     const result = await declineTestPlayerRequest(id, msg || '');
@@ -441,6 +486,8 @@ const DeveloperInbox = () => {
 
   const handleProcessDeliverable = async (id: string, action: 'ISSUE' | 'REJECT') => {
       if (!confirm(t('developer.inbox.confirms.process_deliverable', { action }) || `Are you sure you want to ${action} this deliverable?`)) return;
+      const ok = await verifyPassword();
+      if (!ok) return;
       try {
           const { data, error } = await supabase.rpc('process_deliverable', {
               p_deliverable_id: id,
@@ -543,6 +590,23 @@ const addInterestScheduleForMonth = () => {
 
 addInterestScheduleForMonth();
 
+// Overlay actual deliverable decisions (pre-issued/pre-rejected/pending)
+(data.deliverable_schedule || []).forEach((item: DeliverableScheduleItem) => {
+  const type = item.status === 'ISSUED'
+    ? ('deliverable_ok' as CalendarEventType)
+    : item.status === 'REJECTED'
+      ? ('deliverable_no' as CalendarEventType)
+      : ('deliverable' as CalendarEventType);
+  const key = buildDateKey(item.due_date);
+  if (!eventsByDate[key]) eventsByDate[key] = [];
+  eventsByDate[key].push({
+    dateKey: key,
+    type,
+    label: item.instrument_title
+  });
+  scheduledInstrumentIds.add(item.instrument_id);
+});
+
 data.pending_deliverables
   .filter(del => !scheduledInstrumentIds.has(del.instrument_id))
   .forEach(del => {
@@ -587,7 +651,9 @@ data.pending_deliverables
   }
 
   const eventStyles: Record<CalendarEventType, string> = {
-    deliverable: 'bg-pink-500/20 text-pink-200 border border-pink-500/40',
+  deliverable: 'bg-yellow-500/20 text-yellow-200 border border-yellow-500/40',
+  deliverable_ok: 'bg-green-500/20 text-green-200 border border-green-500/40',
+  deliverable_no: 'bg-red-500/20 text-red-200 border border-red-500/40',
     mission: 'bg-yellow-500/20 text-yellow-200 border border-yellow-500/40',
     bet: 'bg-red-500/20 text-red-200 border border-red-500/40',
     dev_request: 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40',

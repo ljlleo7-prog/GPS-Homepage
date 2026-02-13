@@ -1,6 +1,10 @@
 {
   "common": {
-    "skip_for_now": "暂时跳过"
+    "skip_for_now": "暂时跳过",
+    "approve": "批准",
+    "reject": "拒绝",
+    "decline": "拒绝",
+    "by": "提交者"
   },
   "navbar": {
     "home": "首页",
@@ -191,6 +195,16 @@
       "success": "用户名设置成功！",
       "error_taken": "用户名已被占用",
       "error_generic": "更新用户名失败"
+    }
+  },
+  "developer": {
+    "inbox": {
+      "prompts": {
+        "password_confirm": "请输入密码以确认此操作"
+      },
+      "alerts": {
+        "password_incorrect": "密码错误"
+      }
     }
   },
   "contact": {

@@ -694,3 +694,158 @@ export const advanceRaceState = (
 
     return newState;
 };
+
+export const advanceRaceStateDelta = (
+    prevState: RaceState,
+    p1: { driver: DriverStats; strategy: PlayerStrategy; id: string },
+    p2: { driver: DriverStats; strategy: PlayerStrategy; id: string },
+    track: TrackNode[],
+    dt: number
+): RaceState => {
+    const newState = JSON.parse(JSON.stringify(prevState));
+    newState.time += dt;
+    const trackLength = track[track.length - 1].end_dist!;
+    const getNode = (dist: number) => getTrackNodeAtDist(track, dist % trackLength);
+    const getNextNode = (node: TrackNode) => track[(track.indexOf(node) + 1) % track.length];
+
+    newState.p1.last_node_id = getNode(newState.p1.distance).id;
+    newState.p2.last_node_id = getNode(newState.p2.distance).id;
+
+    const updateTargetOffset = (playerState: RaceState['p1'], opponentState: RaceState['p2'], strategy: PlayerStrategy, driver: DriverStats) => {
+        const now = newState.time;
+        if (!playerState.last_strategy_line) playerState.last_strategy_line = strategy.current_line;
+        if (strategy.current_line !== playerState.last_strategy_line) {
+            if (playerState.reaction_end_time === undefined) {
+                let delay = 1.5 - driver.decision_making_skill / 10;
+                if (delay > 0) {
+                    playerState.reaction_end_time = now + delay;
+                } else {
+                    playerState.last_strategy_line = strategy.current_line;
+                    playerState.reaction_end_time = undefined;
+                }
+            } else {
+                if (now >= playerState.reaction_end_time) {
+                    playerState.last_strategy_line = strategy.current_line;
+                    playerState.reaction_end_time = undefined;
+                }
+            }
+        } else {
+            playerState.reaction_end_time = undefined;
+        }
+        playerState.target_offset = getTargetOffset(playerState.last_strategy_line, opponentState.lateral_offset);
+    };
+
+    updateTargetOffset(newState.p1, newState.p2, p1.strategy, p1.driver);
+    updateTargetOffset(newState.p2, newState.p1, p2.strategy, p2.driver);
+
+    const SUB_STEPS = Math.max(1, Math.ceil(dt / 0.05));
+    const SUB_DT = dt / SUB_STEPS;
+
+    const p1State = { 
+        speed: newState.p1.speed / 3.6, 
+        battery: newState.p1.battery, 
+        lateral_offset: newState.p1.lateral_offset || 0,
+        distance: newState.p1.distance,
+        recovered_energy: newState.p1.recovered_energy || 0,
+        movement_mask: newState.p1.movement_mask
+    };
+    const p2State = { 
+        speed: newState.p2.speed / 3.6, 
+        battery: newState.p2.battery, 
+        lateral_offset: newState.p2.lateral_offset || 0,
+        distance: newState.p2.distance,
+        recovered_energy: newState.p2.recovered_energy || 0,
+        movement_mask: newState.p2.movement_mask
+    };
+
+    for (let i = 0; i < SUB_STEPS; i++) {
+        const p1NodeCurrent = getNode(p1State.distance);
+        const p1NextCurrent = getNextNode(p1NodeCurrent);
+        const p1WrapsNext = p1NextCurrent.start_dist! < p1NodeCurrent.start_dist!;
+        const gapP1toP2 = calculateGap(p1State.distance % trackLength, p2State.distance % trackLength, trackLength);
+        const p1Res = calculatePhysicsStep(
+            SUB_DT, 
+            { speed: p1State.speed, battery: p1State.battery, lateral_offset: p1State.lateral_offset, distance: p1State.distance, recovered_energy: p1State.recovered_energy, movement_mask: p1State.movement_mask }, 
+            { speed: p2State.speed, battery: p2State.battery, lateral_offset: p2State.lateral_offset, distance: p2State.distance, recovered_energy: p2State.recovered_energy, movement_mask: p2State.movement_mask },
+            gapP1toP2,
+            p1NodeCurrent, p1NextCurrent, (p1State.distance % trackLength) - p1NodeCurrent.start_dist!, 
+            p1.driver, p1.strategy.current_ers, p1.strategy.current_line,
+            newState.p1.target_offset ?? 0,
+            p1WrapsNext
+        );
+        p1State.speed = p1Res.speed;
+        p1State.battery = p1Res.battery;
+        p1State.lateral_offset = p1Res.lateral_offset;
+        p1State.distance += p1State.speed * SUB_DT;
+        p1State.recovered_energy = p1Res.recovered_energy;
+        p1State.movement_mask = p1Res.movement_mask;
+        
+        const p2NodeCurrent = getNode(p2State.distance);
+        const p2NextCurrent = getNextNode(p2NodeCurrent);
+        const p2WrapsNext = p2NextCurrent.start_dist! < p2NodeCurrent.start_dist!;
+        const gapP2toP1 = calculateGap(p2State.distance % trackLength, p1State.distance % trackLength, trackLength);
+        const p2Res = calculatePhysicsStep(
+            SUB_DT, 
+            { speed: p2State.speed, battery: p2State.battery, lateral_offset: p2State.lateral_offset, distance: p2State.distance, recovered_energy: p2State.recovered_energy, movement_mask: p2State.movement_mask }, 
+            { speed: p1State.speed, battery: p1State.battery, lateral_offset: p1State.lateral_offset, distance: p1State.distance, recovered_energy: p1State.recovered_energy, movement_mask: p1State.movement_mask },
+            gapP2toP1,
+            p2NodeCurrent, p2NextCurrent, (p2State.distance % trackLength) - p2NodeCurrent.start_dist!, 
+            p2.driver, p2.strategy.current_ers, p2.strategy.current_line,
+            newState.p2.target_offset ?? 0,
+            p2WrapsNext
+        );
+        p2State.speed = p2Res.speed;
+        p2State.battery = p2Res.battery;
+        p2State.lateral_offset = p2Res.lateral_offset;
+        p2State.distance += p2State.speed * SUB_DT;
+        p2State.recovered_energy = p2Res.recovered_energy;
+        p2State.movement_mask = p2Res.movement_mask;
+    }
+
+    if (p1State.distance > trackLength && p2State.distance > trackLength) {
+        newState.finished = true;
+        if (p1State.distance > p2State.distance) {
+            newState.winner_id = p1.id;
+        } else {
+            newState.winner_id = p2.id;
+        }
+    }
+
+    const p1Power = (newState.p1.battery - p1State.battery) / dt;
+    const p2Power = (newState.p2.battery - p2State.battery) / dt;
+
+    newState.p1.speed = p1State.speed * 3.6;
+    newState.p1.battery = p1State.battery;
+    newState.p1.lateral_offset = p1State.lateral_offset;
+    newState.p1.distance = p1State.distance;
+    newState.p1.recovered_energy = p1State.recovered_energy;
+    newState.p1.movement_mask = p1State.movement_mask;
+    // @ts-ignore
+    newState.p1.current_power = p1Power;
+
+    newState.p2.speed = p2State.speed * 3.6;
+    newState.p2.battery = p2State.battery;
+    newState.p2.lateral_offset = p2State.lateral_offset;
+    newState.p2.distance = p2State.distance;
+    newState.p2.recovered_energy = p2State.recovered_energy;
+    newState.p2.movement_mask = p2State.movement_mask;
+    // @ts-ignore
+    newState.p2.current_power = p2Power;
+
+    newState.logs.push({
+        time: newState.time,
+        nodeId: newState.p1.last_node_id,
+        p1_dist: newState.p1.distance,
+        p2_dist: newState.p2.distance,
+        p1_speed: newState.p1.speed,
+        p2_speed: newState.p2.speed,
+        p1_battery: newState.p1.battery,
+        p2_battery: newState.p2.battery,
+        p1_recovered: newState.p1.recovered_energy,
+        p2_recovered: newState.p2.recovered_energy,
+        gap: newState.p1.distance - newState.p2.distance,
+        events: []
+    });
+
+    return newState;
+};
