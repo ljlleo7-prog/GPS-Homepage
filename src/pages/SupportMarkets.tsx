@@ -3,8 +3,9 @@ import { supabase } from '../lib/supabase';
 import { useEconomy } from '../context/EconomyContext';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, AlertTriangle, Ticket, Plus, Trash2, XCircle } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Ticket, Plus, Trash2, XCircle, Activity } from 'lucide-react';
 import { TicketMarket } from '../components/economy/TicketMarket';
+import PriceTrend from '../components/economy/PriceTrend';
 import { PolicyInfo } from '../components/common/PolicyInfo';
 import { useTranslation } from 'react-i18next';
 
@@ -20,7 +21,7 @@ interface Instrument {
   ticket_type_id?: string;
   ticket_type_a_id?: string;
   ticket_type_b_id?: string;
-  refund_schedule?: any[];
+  refund_schedule?: { date: string; amount: number }[];
   is_driver_bet?: boolean;
   deletion_status?: 'NONE' | 'DELISTED_MARKET' | 'DELETED_EVERYWHERE';
   side_a_name?: string;
@@ -31,21 +32,24 @@ interface Instrument {
   open_date?: string;
   winning_side?: 'A' | 'B';
   resolution_status?: string;
+  resolution_price?: number;
   deliverable_frequency?: string;
   deliverable_cost_per_ticket?: number;
   deliverable_condition?: string;
   refund_price?: number;
 }
 
+type UserTicketPosition = { ticket_type_id: string; balance: number };
+
 const SupportMarkets = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { wallet, enterPosition, createUserCampaign, createDriverBet, buyDriverBetTicket, resolveDriverBet, deleteCampaign, refreshEconomy } = useEconomy();
   const [instruments, setInstruments] = useState<Instrument[]>([]);
-  const [userPositions, setUserPositions] = useState<any[]>([]);
+  const [userPositions, setUserPositions] = useState<UserTicketPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState<{[key: string]: string}>({});
-  const [activeView, setActiveView] = useState<'instruments' | 'tickets'>('instruments');
+  const [activeView, setActiveView] = useState<'instruments' | 'tickets' | 'dashboard'>('dashboard');
 
   // Create Campaign Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -70,11 +74,15 @@ const SupportMarkets = () => {
   const [ticketLimit, setTicketLimit] = useState('');
   const [endDate, setEndDate] = useState('');
   const [openDate, setOpenDate] = useState('');
+  const [noisePct, setNoisePct] = useState('0');
+  const [flexPct, setFlexPct] = useState('0');
 
   const [creating, setCreating] = useState(false);
   const [viewingHolders, setViewingHolders] = useState<{id: string, side: 'A' | 'B' | 'General'} | null>(null);
   const [holdersList, setHoldersList] = useState<{username: string, balance: number}[]>([]);
   const [driverBetStats, setDriverBetStats] = useState<{[key: string]: {side_a_sold: number, side_b_sold: number}}>({});
+  const [officialPrices, setOfficialPrices] = useState<{[key: string]: number}>({});
+  const [trendInterval, setTrendInterval] = useState<'1d' | '1w' | '1m'>('1w');
 
   useEffect(() => {
     fetchInstruments();
@@ -126,21 +134,52 @@ const SupportMarkets = () => {
       .neq('deletion_status', 'DELETED_EVERYWHERE'); // Hide fully deleted ones
     
     if (error) console.error(error);
-    else setInstruments(data || []);
+    else {
+      setInstruments(data || []);
+      const prices: {[key: string]: number} = {};
+      for (const ins of data || []) {
+        const { data: priceData } = await supabase.rpc('get_official_price', { p_instrument_id: ins.id });
+        if (priceData) prices[ins.id] = priceData as number;
+      }
+      setOfficialPrices(prices);
+    }
     setLoading(false);
   };
 
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordBusy, setPasswordBusy] = useState(false);
   const verifyPassword = async () => {
-    const email = user?.email || '';
-    const pwd = prompt(t('developer.inbox.prompts.password_confirm') || 'Enter password to confirm');
-    if (pwd === null) return false;
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password: pwd });
-    if (authError) {
-      alert(t('developer.inbox.alerts.password_incorrect') || 'Incorrect password');
-      return false;
-    }
-    return true;
+    setPasswordInput('');
+    setPasswordBusy(false);
+    setPasswordModalOpen(true);
+    return new Promise<boolean>((resolve) => {
+      const onConfirm = async () => {
+        setPasswordBusy(true);
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email: user?.email || '',
+          password: passwordInput
+        });
+        setPasswordBusy(false);
+        if (authError) {
+          alert(t('developer.inbox.alerts.password_incorrect') || 'Incorrect password');
+          resolve(false);
+        } else {
+          setPasswordModalOpen(false);
+          resolve(true);
+        }
+      };
+      const onCancel = () => {
+        setPasswordModalOpen(false);
+        resolve(false);
+      };
+      // Attach handlers to component state for modal buttons
+      setPasswordConfirmHandler(() => onConfirm);
+      setPasswordCancelHandler(() => onCancel);
+    });
   };
+  const [passwordConfirmHandler, setPasswordConfirmHandler] = useState<(() => void) | null>(null);
+  const [passwordCancelHandler, setPasswordCancelHandler] = useState<(() => void) | null>(null);
 
   const handleSupport = async (instrument: Instrument) => {
     // Rep Gating > 50
@@ -189,14 +228,16 @@ const SupportMarkets = () => {
             parseInt(ticketLimit),
             new Date(endDate).toISOString(),
             new Date(openDate).toISOString(),
-            sideB
+            sideB,
+            parseFloat(noisePct),
+            parseFloat(flexPct)
         );
 
         if (result.success) {
             alert(t('economy.market.alerts.driver_bet_created'));
             setShowCreateModal(false);
             setNewTitle(''); setNewDesc(''); setIsDriverBet(false);
-            setSideA(''); setSideB(''); setTicketPrice(''); setTicketLimit(''); setEndDate(''); setOpenDate('');
+            setSideA(''); setSideB(''); setTicketPrice(''); setTicketLimit(''); setEndDate(''); setOpenDate(''); setNoisePct('0'); setFlexPct('0');
             fetchInstruments();
         } else {
             alert(result.message);
@@ -411,6 +452,13 @@ const SupportMarkets = () => {
               <Ticket className="w-4 h-4 mr-2" />
               {t('economy.market.tabs.tickets')}
             </button>
+            <button
+              onClick={() => setActiveView('dashboard')}
+              className={`px-6 py-2 font-mono flex items-center ${activeView === 'dashboard' ? 'text-primary border-b-2 border-primary' : 'text-text-secondary hover:text-white'}`}
+            >
+              <Activity className="w-4 h-4 mr-2" />
+              {t('economy.market.tabs.dashboard') || 'Dashboard'}
+            </button>
           </div>
 
           {/* Create Campaign Button */}
@@ -549,7 +597,21 @@ const SupportMarkets = () => {
                         <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                             <div className="bg-white/5 p-2 rounded">
                                 <div className="text-text-secondary">{t('economy.market.labels.price')}</div>
-                                <div className="text-white">{instrument.ticket_price} {t('economy.wallet.currency.tkn')}</div>
+                                <div className="text-white">{(officialPrices[instrument.id] ?? instrument.ticket_price) ?? 0} {t('economy.wallet.currency.tkn')}</div>
+                                <div className="mt-1 flex gap-2">
+                                  <button
+                                    onClick={() => { setActiveView('dashboard'); }}
+                                    className="text-[10px] text-primary hover:text-primary/80 border border-primary/30 px-2 py-0.5 rounded"
+                                  >
+                                    {t('economy.market.actions.view_trend') || 'View Trend'}
+                                  </button>
+                                  <button
+                                    onClick={() => setActiveView('tickets')}
+                                    className="text-[10px] text-green-400 hover:text-green-300 border border-green-500/40 px-2 py-0.5 rounded"
+                                  >
+                                    {t('economy.market.actions.go_purchase') || 'Go to Purchase'}
+                                  </button>
+                                </div>
                             </div>
                             <div className="bg-white/5 p-2 rounded">
                                 <div className="text-text-secondary">{t('economy.market.labels.limit')}</div>
@@ -558,6 +620,9 @@ const SupportMarkets = () => {
                             <div className="bg-white/5 p-2 rounded col-span-2">
                                 <div className="text-text-secondary">{t('economy.market.labels.result') || 'Result Release'}</div>
                                 <div className="text-white font-bold text-yellow-500">{instrument.open_date ? new Date(instrument.open_date).toLocaleString() : '-'}</div>
+                                <div className="text-[11px] text-white/60 mt-1">
+                                  {t('economy.market.labels.resolution_policy') || 'Resolution Policy'}: {t('economy.market.labels.resolution_policy_current_end') || 'Current price at ending date'}
+                                </div>
                             </div>
                         </div>
 
@@ -597,7 +662,7 @@ const SupportMarkets = () => {
                         )}
 
                         {/* Resolution Controls for Creator/Dev */}
-                        {(wallet?.reputation_balance! > 70 || user?.id === instrument.creator_id) && instrument.resolution_status !== 'RESOLVED' && (
+                        {(((wallet?.reputation_balance ?? 0) > 70) || user?.id === instrument.creator_id) && instrument.resolution_status !== 'RESOLVED' && (
                             <div className="pt-2 border-t border-white/10">
                                 <div className="text-xs text-text-secondary mb-1">{t('economy.market.labels.declare_result')}</div>
                                 {!isReleaseDatePassed(instrument.open_date) && (
@@ -718,10 +783,94 @@ const SupportMarkets = () => {
               </motion.div>
             )})}
           </div>
-        ) : (
+        ) : activeView === 'tickets' ? (
           <TicketMarket />
+        ) : (
+          <div className="mt-6 space-y-4">
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setActiveView('instruments')}
+                className="text-xs bg-white/5 text-white/80 border border-white/10 px-3 py-1 rounded hover:bg-white/10"
+              >
+                {t('economy.market.actions.back_markets') || 'Back to Markets'}
+              </button>
+              <button
+                onClick={() => setActiveView('tickets')}
+                className="text-xs bg-green-500/20 text-green-400 border border-green-500/40 px-3 py-1 rounded hover:bg-green-500/30"
+              >
+                {t('economy.market.actions.go_purchase') || 'Go to Purchase'}
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {instruments.map((instrument) => (
+                <div key={instrument.id} className="space-y-4">
+                  {instrument.is_driver_bet ? (
+                    <>
+                      {instrument.ticket_type_a_id && (
+                        <PriceTrend
+                          ticketTypeId={instrument.ticket_type_a_id}
+                          title={`${instrument.title} • ${instrument.side_a_name?.split('|')[0] || 'A'}`}
+                          interval={trendInterval}
+                          onClose={() => {}}
+                          onIntervalChange={(i) => setTrendInterval(i)}
+                        />
+                      )}
+                      {instrument.ticket_type_b_id && (
+                        <PriceTrend
+                          ticketTypeId={instrument.ticket_type_b_id}
+                          title={`${instrument.title} • ${instrument.side_b_name?.split('|')[0] || 'B'}`}
+                          interval={trendInterval}
+                          onClose={() => {}}
+                          onIntervalChange={(i) => setTrendInterval(i)}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    instrument.ticket_type_id ? (
+                      <PriceTrend
+                        ticketTypeId={instrument.ticket_type_id}
+                        title={instrument.title}
+                        interval={trendInterval}
+                        onClose={() => {}}
+                        onIntervalChange={(i) => setTrendInterval(i)}
+                      />
+                    ) : null
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
+      {passwordModalOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-surface border border-white/20 rounded-lg p-6 max-w-sm w-full">
+            <h3 className="text-xl font-bold text-white mb-4">{t('developer.inbox.prompts.password_confirm')}</h3>
+            <input
+              type="password"
+              className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white mb-4"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              placeholder={t('auth.login.password_placeholder')}
+            />
+            <div className="flex gap-3">
+              <button
+                className="flex-1 bg-white/10 text-white py-2 rounded hover:bg-white/20"
+                onClick={() => passwordCancelHandler && passwordCancelHandler()}
+              >
+                {t('economy.market.actions.cancel')}
+              </button>
+              <button
+                className="flex-1 bg-primary text-background font-bold py-2 rounded hover:bg-primary/90"
+                disabled={passwordBusy}
+                onClick={() => passwordConfirmHandler && passwordConfirmHandler()}
+              >
+                {passwordBusy ? t('economy.market.ticket.processing') : t('auth.login.submit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Campaign Modal */}
       <AnimatePresence>
@@ -821,6 +970,28 @@ const SupportMarkets = () => {
                                     className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
                                     value={ticketLimit}
                                     onChange={(e) => setTicketLimit(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm text-text-secondary mb-1">Noise Range (%)</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                    value={noisePct}
+                                    onChange={(e) => setNoisePct(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm text-text-secondary mb-1">Price Flexibility (factor)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                    value={flexPct}
+                                    onChange={(e) => setFlexPct(e.target.value)}
                                 />
                             </div>
                         </div>

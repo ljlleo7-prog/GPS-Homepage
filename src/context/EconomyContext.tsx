@@ -31,6 +31,7 @@ interface EconomyContextType {
   enterPosition: (instrumentId: string, amount: number) => Promise<{ success: boolean; message?: string }>;
   createTicketListing: (ticketId: string, quantity: number, price: number, password: string) => Promise<{ success: boolean; message?: string }>;
   purchaseTicketListing: (listingId: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  withdrawTicketListing: (listingId: string, password: string) => Promise<{ success: boolean; message?: string }>;
   claimDailyBonus: () => Promise<{ success: boolean; amount?: number; message?: string }>;
   requestDeveloperAccess: () => Promise<{ success: boolean; message?: string }>;
   approveDeveloperAccess: (targetUserId: string) => Promise<{ success: boolean; message?: string }>;
@@ -59,7 +60,9 @@ interface EconomyContextType {
     ticketLimit: number,
     endDate: string,
     openDate: string,
-    sideB?: string
+    sideB?: string,
+    noisePct?: number,
+    flexPct?: number
   ) => Promise<{ success: boolean; message?: string; data?: any }>;
   buyDriverBetTicket: (
     instrumentId: string,
@@ -96,6 +99,7 @@ const EconomyContext = createContext<EconomyContextType>({
   enterPosition: async () => ({ success: false }),
   createTicketListing: async () => ({ success: false }),
   purchaseTicketListing: async () => ({ success: false }),
+  withdrawTicketListing: async () => ({ success: false }),
   claimDailyBonus: async () => ({ success: false }),
   requestDeveloperAccess: async () => ({ success: false }),
   approveDeveloperAccess: async () => ({ success: false }),
@@ -307,6 +311,29 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
+  const withdrawTicketListing = async (listingId: string, password: string) => {
+    if (!user || !user.email) return { success: false, message: 'Not authenticated' };
+
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: password
+    });
+    if (authError) return { success: false, message: 'Incorrect password' };
+
+    try {
+      const { data, error } = await supabase.rpc('withdraw_ticket_listing', {
+        p_listing_id: listingId
+      });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      await refreshEconomy();
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error withdrawing listing:', error);
+      return { success: false, message: error.message || 'Failed to withdraw listing' };
+    }
+  };
+
   const claimDailyBonus = async () => {
     if (!user) return { success: false, message: 'Not authenticated' };
     try {
@@ -420,7 +447,9 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     ticketLimit: number,
     endDate: string,
     openDate: string,
-    sideB?: string
+    sideB?: string,
+    noisePct?: number,
+    flexPct?: number
   ) => {
     if (!user) return { success: false, message: 'Not authenticated' };
     try {
@@ -432,7 +461,9 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
         p_ticket_limit: ticketLimit,
         p_official_end_date: endDate,
         p_open_date: openDate,
-        p_side_b_name: sideB
+        p_side_b_name: sideB,
+        p_noise_pct: noisePct ?? 0,
+        p_flex_pct: flexPct ?? 0
       });
 
       if (error) throw error;
@@ -666,6 +697,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       enterPosition,
       createTicketListing, 
       purchaseTicketListing,
+      withdrawTicketListing,
       claimDailyBonus,
       requestDeveloperAccess,
       approveDeveloperAccess,

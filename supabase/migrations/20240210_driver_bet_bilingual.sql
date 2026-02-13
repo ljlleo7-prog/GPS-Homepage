@@ -7,7 +7,9 @@ CREATE OR REPLACE FUNCTION public.create_driver_bet(
   p_ticket_limit INTEGER,
   p_official_end_date TIMESTAMPTZ,
   p_open_date TIMESTAMPTZ,
-  p_side_b_name TEXT DEFAULT NULL
+  p_side_b_name TEXT DEFAULT NULL,
+  p_noise_pct NUMERIC DEFAULT 0,
+  p_flex_pct NUMERIC DEFAULT 0
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -56,7 +58,9 @@ BEGIN
     ticket_limit,
     official_end_date,
     open_date,
-    resolution_status
+    resolution_status,
+    dynamic_noise_pct,
+    dynamic_flex_pct
   ) VALUES (
     v_user_id,
     p_title,
@@ -71,7 +75,9 @@ BEGIN
     p_ticket_limit,
     p_official_end_date,
     p_open_date,
-    'OPEN'
+    'OPEN',
+    COALESCE(p_noise_pct, 0),
+    COALESCE(p_flex_pct, 0)
   ) RETURNING id INTO v_instrument_id;
 
   -- Create Ticket Types

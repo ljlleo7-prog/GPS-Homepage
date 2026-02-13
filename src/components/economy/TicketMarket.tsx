@@ -32,12 +32,13 @@ interface UserTicketBalance {
 export const TicketMarket = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { wallet, createTicketListing, purchaseTicketListing, refreshEconomy } = useEconomy();
+  const { wallet, createTicketListing, purchaseTicketListing, withdrawTicketListing, refreshEconomy } = useEconomy();
   const [activeTab, setActiveTab] = useState<'market' | 'holdings'>('market');
   
   const [listings, setListings] = useState<TicketListing[]>([]);
   const [holdings, setHoldings] = useState<UserTicketBalance[]>([]);
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
+  const [avgPrices, setAvgPrices] = useState<Record<string, number>>({});
   
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -48,7 +49,7 @@ export const TicketMarket = () => {
   const [sellQty, setSellQty] = useState('');
   const [sellPrice, setSellPrice] = useState('');
   const [password, setPassword] = useState('');
-  const [modalOpen, setModalOpen] = useState<'buy' | 'sell' | null>(null);
+  const [modalOpen, setModalOpen] = useState<'buy' | 'sell' | 'withdraw' | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -73,6 +74,17 @@ export const TicketMarket = () => {
           .eq('user_id', user.id)
           .gt('balance', 0);
         setHoldings(holdingsData || []);
+
+        // Compute average purchase price per ticket type (weighted)
+        const nextAvg: Record<string, number> = {};
+        await Promise.all((holdingsData || []).map(async (h: UserTicketBalance) => {
+          const { data: avgVal } = await supabase
+            .rpc('get_avg_buy_price', { p_ticket_type_id: h.ticket_type_id });
+          if (avgVal !== null && avgVal !== undefined) {
+            nextAvg[h.ticket_type_id] = parseFloat(Number(avgVal).toFixed(4));
+          }
+        }));
+        setAvgPrices(nextAvg);
       }
     } catch (error) {
       console.error(error);
@@ -125,6 +137,21 @@ export const TicketMarket = () => {
     }
   };
 
+  const handleWithdraw = async () => {
+    if (!selectedListing || !password) return;
+    setProcessing(true);
+    const result = await withdrawTicketListing(selectedListing.id, password);
+    setProcessing(false);
+    if (result.success) {
+      alert(t('economy.market.ticket.alerts.withdraw_success') || 'Listing withdrawn');
+      setModalOpen(null);
+      setPassword('');
+      fetchData();
+    } else {
+      alert((t('economy.market.ticket.alerts.error_prefix') || 'Error: ') + (result.message || 'Failed to withdraw'));
+    }
+  };
+
   if (loading) return <div className="text-center py-8">{t('economy.missions.loading')}</div>;
 
   return (
@@ -145,6 +172,12 @@ export const TicketMarket = () => {
       </div>
 
       {activeTab === 'market' ? (
+        <>
+        <div className="bg-green-500/10 border border-green-500/30 text-green-300 rounded p-3 mb-4">
+          <div className="font-mono text-sm">
+            {t('economy.market.ticket.civil_market_banner') || 'Trade on the Civil Market to boost mobility. You can withdraw your listing anytime until sold.'}
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {listings.length === 0 ? (
             <div className="col-span-full text-center text-text-secondary py-8">{t('economy.market.ticket.no_listings')}</div>
@@ -162,18 +195,26 @@ export const TicketMarket = () => {
                   <div>{t('economy.market.ticket.price')}: {listing.price_per_unit} / {t('economy.market.ticket.unit')}</div>
                   <div className="font-bold text-white mt-1">{t('economy.market.ticket.total')}: {listing.price_per_unit * listing.quantity} {t('economy.wallet.tokens')}</div>
                 </div>
-                {user && user.id !== listing.seller_id && (
+                {user && user.id !== listing.seller_id ? (
                   <button
                     onClick={() => { setSelectedListing(listing); setModalOpen('buy'); }}
                     className="w-full bg-green-500/20 text-green-400 border border-green-500/50 py-2 rounded hover:bg-green-500/30 transition-colors"
                   >
                     {t('economy.market.ticket.buy')}
                   </button>
-                )}
+                ) : user && user.id === listing.seller_id ? (
+                  <button
+                    onClick={() => { setSelectedListing(listing); setModalOpen('withdraw'); }}
+                    className="w-full bg-red-500/20 text-red-400 border border-red-500/50 py-2 rounded hover:bg-red-500/30 transition-colors"
+                  >
+                    {t('economy.market.ticket.withdraw') || 'Withdraw'}
+                  </button>
+                ) : null}
               </motion.div>
             ))
           )}
         </div>
+        </>
       ) : (
         <div className="space-y-4">
           {holdings.length === 0 ? (
@@ -185,6 +226,11 @@ export const TicketMarket = () => {
                   <h4 className="text-white font-bold">{holding.ticket_types.title}</h4>
                   <p className="text-sm text-text-secondary">{holding.ticket_types.description}</p>
                   <div className="mt-2 text-primary font-mono">{holding.balance} {t('economy.market.ticket.units')}</div>
+                  {avgPrices[holding.ticket_type_id] !== undefined && (
+                    <div className="mt-1 text-xs text-white/70 font-mono">
+                      {t('economy.market.ticket.avg_buy_price') || 'Avg Buy'}: {avgPrices[holding.ticket_type_id]} / {t('economy.market.ticket.unit')}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => { setSellTicketId(holding.ticket_type_id); setModalOpen('sell'); }}
@@ -264,6 +310,33 @@ export const TicketMarket = () => {
               <button onClick={() => setModalOpen(null)} className="flex-1 bg-white/10 text-white py-2 rounded hover:bg-white/20">{t('economy.market.actions.cancel')}</button>
               <button onClick={handleSell} disabled={processing} className="flex-1 bg-primary text-background font-bold py-2 rounded hover:bg-primary/90">
                 {processing ? t('economy.market.ticket.processing') : t('economy.market.ticket.list_for_sale')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Withdraw Modal */}
+      {modalOpen === 'withdraw' && selectedListing && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-surface border border-white/20 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-white mb-4">{t('economy.market.ticket.withdraw')} {selectedListing.ticket_types.title}</h3>
+            <p className="text-text-secondary mb-4">
+              {t('economy.market.ticket.qty')}: {selectedListing.quantity} × {selectedListing.price_per_unit} = <span className="text-white font-bold">{selectedListing.quantity * selectedListing.price_per_unit} {t('economy.wallet.tokens')}</span>
+            </p>
+            <div className="mb-4">
+              <label className="block text-xs text-text-secondary mb-1">{t('economy.market.ticket.confirm_password')}</label>
+              <input
+                type="password"
+                className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <div className="flex space-x-3">
+              <button onClick={() => setModalOpen(null)} className="flex-1 bg-white/10 text-white py-2 rounded hover:bg-white/20">{t('economy.market.actions.cancel')}</button>
+              <button onClick={handleWithdraw} disabled={processing} className="flex-1 bg-primary text-background font-bold py-2 rounded hover:bg-primary/90">
+                {processing ? t('economy.market.ticket.processing') : (t('economy.market.ticket.withdraw') || 'Withdraw')}
               </button>
             </div>
           </div>

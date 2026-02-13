@@ -313,17 +313,22 @@ const DeveloperInbox = () => {
       }
   };
 
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordResolver, setPasswordResolver] = useState<((value: boolean) => void) | null>(null);
+  const [passwordEmail, setPasswordEmail] = useState<string>('');
+
   const verifyPassword = async () => {
-      const user = (await supabase.auth.getUser()).data.user;
-      const email = user?.email || '';
-      const pwd = prompt(t('developer.inbox.prompts.password_confirm') || 'Enter password to confirm');
-      if (pwd === null) return false;
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password: pwd });
-      if (authError) {
-          alert(t('developer.inbox.alerts.password_incorrect') || 'Incorrect password');
-          return false;
-      }
-      return true;
+    const user = (await supabase.auth.getUser()).data.user;
+    const email = user?.email || '';
+    setPasswordEmail(email || '');
+    return new Promise<boolean>((resolve) => {
+      setPasswordResolver(() => resolve);
+      setPasswordInput('');
+      setPasswordBusy(false);
+      setPasswordModalOpen(true);
+    });
   };
 
   const handleSubmitAward = async () => {
@@ -484,7 +489,35 @@ const DeveloperInbox = () => {
     }
   };
 
-  const handleProcessDeliverable = async (id: string, action: 'ISSUE' | 'REJECT') => {
+  const handleCleanupIssuedDuplicates = async () => {
+    const ok = await verifyPassword();
+    if (!ok) return;
+    try {
+      const { data, error } = await supabase.rpc('cleanup_issued_deliverable_duplicates');
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      alert('Cleanup completed');
+      fetchInbox();
+    } catch (error: any) {
+      alert(error.message || 'Cleanup failed');
+    }
+  };
+  const handleDisableVariablePrice = async (instrumentId: string) => {
+    const ok = await verifyPassword();
+    if (!ok) return;
+    try {
+      const { data, error } = await supabase.rpc('disable_variable_price', { p_instrument_id: instrumentId });
+      if (error) throw error;
+      if (data && data.success !== true) {
+        throw new Error(data?.message || 'RPC disable_variable_price failed');
+      }
+      alert(t('developer.inbox.alerts.disable_variable_price_success') || 'Variable price disabled');
+      fetchInbox();
+    } catch (error: any) {
+      alert(t('developer.inbox.alerts.disable_variable_price_failed') || (error.message || 'Failed to disable variable price'));
+    }
+  };
+  const handleProcessDeliverable = async (id: string, instrumentId: string, action: 'ISSUE' | 'REJECT') => {
       if (!confirm(t('developer.inbox.confirms.process_deliverable', { action }) || `Are you sure you want to ${action} this deliverable?`)) return;
       const ok = await verifyPassword();
       if (!ok) return;
@@ -495,11 +528,18 @@ const DeveloperInbox = () => {
           });
           
           if (error) throw error;
+          if (action === 'ISSUE') {
+              try {
+                  await supabase.rpc('cleanup_issued_deliverable_duplicates', {
+                      p_instrument_id: instrumentId
+                  });
+              } catch (e) {}
+          }
           if (data && !data.success) throw new Error(data.message);
           
           fetchInbox();
       } catch (error: any) {
-          alert(error.message || t('developer.inbox.alerts.process_deliverable_failed') || 'Failed to process deliverable');
+          alert(error.message || t('developer.inbox.alerts.process_failed'));
       }
   };
 
@@ -592,18 +632,28 @@ addInterestScheduleForMonth();
 
 // Overlay actual deliverable decisions (pre-issued/pre-rejected/pending)
 (data.deliverable_schedule || []).forEach((item: DeliverableScheduleItem) => {
-  const type = item.status === 'ISSUED'
-    ? ('deliverable_ok' as CalendarEventType)
-    : item.status === 'REJECTED'
-      ? ('deliverable_no' as CalendarEventType)
-      : ('deliverable' as CalendarEventType);
   const key = buildDateKey(item.due_date);
-  if (!eventsByDate[key]) eventsByDate[key] = [];
-  eventsByDate[key].push({
-    dateKey: key,
-    type,
-    label: item.instrument_title
-  });
+  const items = eventsByDate[key] || [];
+  let updated = false;
+  for (let i = 0; i < items.length; i += 1) {
+    const ev = items[i];
+    if (ev.type === 'deliverable' && ev.label === item.instrument_title) {
+      ev.type = item.status === 'ISSUED'
+        ? ('deliverable_ok' as CalendarEventType)
+        : item.status === 'REJECTED'
+          ? ('deliverable_no' as CalendarEventType)
+          : ('deliverable' as CalendarEventType);
+      updated = true;
+      break;
+    }
+  }
+  if (!updated) {
+    addEvent(item.due_date, item.status === 'ISSUED'
+      ? ('deliverable_ok' as CalendarEventType)
+      : item.status === 'REJECTED'
+        ? ('deliverable_no' as CalendarEventType)
+        : ('deliverable' as CalendarEventType), item.instrument_title);
+  }
   scheduledInstrumentIds.add(item.instrument_id);
 });
 
@@ -765,6 +815,51 @@ data.pending_deliverables
                                             </div>
                                         )}
                                     </div>
+      {passwordModalOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-surface border border-white/20 rounded-lg p-6 max-w-sm w-full">
+            <h3 className="text-xl font-bold text-white mb-4">{t('developer.inbox.prompts.password_confirm')}</h3>
+            <input
+              type="password"
+              className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white mb-4"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              placeholder={t('auth.login.password_placeholder')}
+            />
+            <div className="flex gap-3">
+              <button
+                className="flex-1 bg-white/10 text-white py-2 rounded hover:bg-white/20"
+                onClick={() => {
+                  setPasswordModalOpen(false);
+                  if (passwordResolver) passwordResolver(false);
+                }}
+              >
+                {t('economy.market.actions.cancel')}
+              </button>
+              <button
+                className="flex-1 bg-primary text-background font-bold py-2 rounded hover:bg-primary/90"
+                disabled={passwordBusy}
+                onClick={async () => {
+                  setPasswordBusy(true);
+                  const { error: authError } = await supabase.auth.signInWithPassword({
+                    email: passwordEmail,
+                    password: passwordInput
+                  });
+                  setPasswordBusy(false);
+                  if (authError) {
+                    alert(t('developer.inbox.alerts.password_incorrect'));
+                  } else {
+                    setPasswordModalOpen(false);
+                    if (passwordResolver) passwordResolver(true);
+                  }
+                }}
+              >
+                {passwordBusy ? t('economy.market.ticket.processing') : t('auth.login.submit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
                                 </div>
                             );
                         })}
@@ -947,6 +1042,14 @@ data.pending_deliverables
                                                         {t('developer.inbox.actions.side_b')}: {bet.side_b_name}
                                                     </button>
                                                 </div>
+                                                <div className="mt-3">
+                                                  <button
+                                                    onClick={() => handleDisableVariablePrice(bet.id)}
+                                                    className="text-xs bg-white/5 border border-white/10 rounded px-2 py-1 text-text-secondary hover:text-white hover:bg-white/10"
+                                                  >
+                                                    {t('developer.inbox.actions.disable_variable_price') || 'Disable Variable Price'}
+                                                  </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -962,15 +1065,27 @@ data.pending_deliverables
                         <EmptyState message={t('developer.inbox.empty.pending_deliverables') || 'No pending deliverables.'} />
                     ) : (
                         <div className="grid gap-4">
-                            {data.pending_deliverables.map(del => (
-                                <Card key={del.id}>
+                            <div className="flex justify-end mb-2">
+                              <button
+                                onClick={handleCleanupIssuedDuplicates}
+                                className="px-3 py-1 bg-white/5 border border-white/10 rounded text-xs text-text-secondary hover:bg-white/10"
+                              >
+                                Clean Duplicates
+                              </button>
+                            </div>
+                            {data.pending_deliverables.map(del => {
+                                const key = buildDateKey(del.due_date);
+                                const statusItem = (data.deliverable_schedule || []).find((s: any) => s.instrument_id === del.instrument_id && buildDateKey(s.due_date) === key);
+                                const status = statusItem?.status || null;
+                                const isLocked = status === 'ISSUED' || status === 'REJECTED';
+                                return (<Card key={del.id}>
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1 mr-4">
                                             <div className="flex items-center gap-2 mb-1">
                         <span className="bg-pink-500/20 text-pink-400 text-xs px-2 py-0.5 rounded border border-pink-500/30 font-mono">
                           {t('developer.inbox.actions.deliverable_tag') || 'DELIVERABLE'}
                         </span>
-                        <h3 className="font-bold text-white text-lg flex items-center">
+                        <h3 className={`font-bold text-lg flex items-center ${status === 'ISSUED' ? 'text-green-400' : status === 'REJECTED' ? 'text-red-400' : 'text-white'}`}>
                           {del.instrument_title}
                           {isApproachingDeadline(del.due_date) && <RedDot />}
                         </h3>
@@ -982,21 +1097,26 @@ data.pending_deliverables
                                                 <p className="bg-black/20 p-2 rounded border border-white/5 italic">{del.deliverable_condition}</p>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col gap-2">
-                                            <ActionButton 
-                                                onClick={() => handleProcessDeliverable(del.id, 'ISSUE')} 
-                                                variant="approve"
-                                                label={t('developer.inbox.actions.issue') || 'Issue'}
-                                            />
-                                            <ActionButton 
-                                                onClick={() => handleProcessDeliverable(del.id, 'REJECT')} 
-                                                variant="reject"
-                                                label={t('developer.inbox.actions.reject') || 'Reject'}
-                                            />
-                                        </div>
+                                        {isLocked ? (
+                                            <span className={`px-3 py-1 border rounded text-xs font-mono ${status === 'ISSUED' ? 'bg-green-500/10 border-green-500/30 text-green-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
+                                              {status === 'ISSUED' ? (t('developer.inbox.status.issued') || 'Issued') : (t('developer.inbox.status.rejected') || 'Rejected')}
+                                            </span>
+                                        ) : (
+                                            <div className="flex flex-col gap-2">
+                                                <ActionButton 
+                                                    onClick={() => handleProcessDeliverable(del.id, del.instrument_id, 'ISSUE')} 
+                                                    variant="approve"
+                                                    label={t('developer.inbox.actions.issue') || 'Issue'}
+                                                />
+                                                <ActionButton 
+                                                    onClick={() => handleProcessDeliverable(del.id, del.instrument_id, 'REJECT')} 
+                                                    variant="reject"
+                                                    label={t('developer.inbox.actions.reject') || 'Reject'}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
-                                </Card>
-                            ))}
+                                </Card>)})}
                         </div>
                     )}
                 </Section>

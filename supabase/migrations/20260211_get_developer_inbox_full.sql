@@ -121,3 +121,93 @@ BEGIN
   );
 END;
 $$;
+
+-- Allow seller to withdraw an ACTIVE listing and restore tickets from escrow
+CREATE OR REPLACE FUNCTION public.withdraw_ticket_listing(
+  p_listing_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_seller_id UUID;
+  v_ticket_type_id UUID;
+  v_quantity INTEGER;
+  v_status TEXT;
+BEGIN
+  SELECT seller_id, ticket_type_id, quantity, status
+  INTO v_seller_id, v_ticket_type_id, v_quantity, v_status
+  FROM public.ticket_listings
+  WHERE id = p_listing_id;
+
+  IF v_status IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Listing not found');
+  END IF;
+
+  IF v_seller_id != v_user_id THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Not your listing');
+  END IF;
+
+  IF v_status != 'ACTIVE' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Listing not active');
+  END IF;
+
+  UPDATE public.ticket_listings
+  SET status = 'WITHDRAWN'
+  WHERE id = p_listing_id;
+
+  INSERT INTO public.user_ticket_balances (user_id, ticket_type_id, balance)
+  VALUES (v_seller_id, v_ticket_type_id, v_quantity)
+  ON CONFLICT (user_id, ticket_type_id)
+  DO UPDATE SET balance = user_ticket_balances.balance + EXCLUDED.balance;
+
+  RETURN jsonb_build_object('success', true);
+END;
+$$;
+-- Cleanup duplicates of ISSUED deliverables to avoid repetitive costs
+CREATE OR REPLACE FUNCTION public.cleanup_issued_deliverable_duplicates(
+  p_instrument_id UUID DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID := auth.uid();
+  v_is_dev BOOLEAN;
+  v_deleted_count INTEGER := 0;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = v_user_id AND developer_status = 'APPROVED'
+  ) INTO v_is_dev;
+
+  IF NOT v_is_dev THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Access Denied');
+  END IF;
+
+  WITH dup AS (
+    SELECT id
+    FROM (
+      SELECT 
+        id,
+        instrument_id,
+        due_date,
+        ROW_NUMBER() OVER (PARTITION BY instrument_id, due_date ORDER BY created_at ASC) AS rn
+      FROM public.instrument_deliverables
+      WHERE status = 'ISSUED'
+        AND (p_instrument_id IS NULL OR instrument_id = p_instrument_id)
+    ) x
+    WHERE rn > 1
+  )
+  DELETE FROM public.instrument_deliverables d
+  USING dup
+  WHERE d.id = dup.id;
+  GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
+
+  RETURN jsonb_build_object('success', true, 'deleted', COALESCE(v_deleted_count, 0));
+END;
+$$;

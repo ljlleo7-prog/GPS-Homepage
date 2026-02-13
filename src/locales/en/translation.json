@@ -333,7 +333,8 @@
       "disclaimer": "Experimental Economy. No real money involved.",
       "tabs": {
         "instruments": "Official Instruments",
-        "tickets": "Civil Ticket Market"
+        "tickets": "Civil Ticket Market",
+        "dashboard": "Dashboard"
       },
       "instrument": {
         "frequency": "Interest Freq",
@@ -413,6 +414,9 @@
         "limit": "Limit",
         "sales_end": "Sales End",
         "result": "Result",
+        "resolution_policy": "Resolution Policy",
+        "resolution_policy_current_end": "Current price at ending date",
+        "resolution_price": "Resolution Price",
         "buy_action": "Buy",
         "buy_one_tkn": "Buy (1 Tkn)",
         "sell_back": "Sell Back",
@@ -432,7 +436,11 @@
         "delist": "Delist",
         "delist_title": "Delist from Market (Trading continues)",
         "delete": "Delete",
-        "delete_title": "Delete Everywhere (Refunds users)"
+        "delete_title": "Delete Everywhere (Refunds users)",
+        "view_trend": "View Trend",
+        "go_purchase": "Go to Purchase",
+        "back_markets": "Back to Markets",
+        "no_trend_selected": "No instrument selected. Use “View Trend” to open its price plot."
       },
       "ticket": {
         "market_tab": "Market Listings",
@@ -456,6 +464,7 @@
         },
         "unit": "unit",
         "units": "units",
+        "avg_buy_price": "Avg Buy",
         "list_for_sale": "List for Sale",
         "create_type_btn": "Launch Campaign",
         "create_type_title": "Launch New Campaign",
@@ -895,7 +904,8 @@
         "side_b": "Side B",
         "by": "by",
         "unknown": "Unknown",
-        "tester_tag": "TESTER"
+        "tester_tag": "TESTER",
+        "disable_variable_price": "Disable Variable Price"
       },
       "labels": {
         "user": "User",
@@ -924,7 +934,9 @@
         "approve_mission_failed": "Failed to approve mission",
         "reject_mission_failed": "Failed to reject mission",
         "process_deliverable_failed": "Failed to process deliverable",
-        "acknowledge_failed": "Failed to acknowledge"
+        "acknowledge_failed": "Failed to acknowledge",
+        "disable_variable_price_success": "Variable price disabled",
+        "disable_variable_price_failed": "Failed to disable variable price"
       }
     },
     "test_request": {

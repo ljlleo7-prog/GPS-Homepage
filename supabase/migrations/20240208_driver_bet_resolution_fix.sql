@@ -35,6 +35,20 @@ DECLARE
   v_bankrupt BOOLEAN := false;
   v_available_payout NUMERIC;
   v_side_name TEXT;
+  
+  v_total_a INTEGER;
+  v_total_b INTEGER;
+  v_total_sold INTEGER;
+  v_base NUMERIC;
+  v_flex NUMERIC;
+  v_limit INTEGER;
+  v_open TIMESTAMPTZ;
+  v_end TIMESTAMPTZ;
+  v_total_interval NUMERIC;
+  v_time_factor NUMERIC;
+  v_demand_ratio NUMERIC;
+  v_resolution_price NUMERIC;
+  v_total_payout NUMERIC;
 BEGIN
   -- Get Instrument
   SELECT * INTO v_instrument FROM public.support_instruments WHERE id = p_instrument_id;
@@ -64,28 +78,46 @@ BEGIN
      RETURN jsonb_build_object('success', false, 'message', 'Insufficient authority to resolve. Rep > 70 or Developer status required.');
   END IF;
 
-  -- Calculate Pool
-  DECLARE
-    v_total_a INTEGER;
-    v_total_b INTEGER;
-  BEGIN
-    SELECT COALESCE(SUM(balance), 0) INTO v_total_a FROM public.user_ticket_balances WHERE ticket_type_id = v_instrument.ticket_type_a_id;
-    SELECT COALESCE(SUM(balance), 0) INTO v_total_b FROM public.user_ticket_balances WHERE ticket_type_id = v_instrument.ticket_type_b_id;
-    
-    v_total_pool := (v_total_a + v_total_b) * v_instrument.ticket_price;
-    
-    IF p_winning_side = 'A' THEN
-        v_winning_ticket_count := v_total_a;
-        v_winning_type_id := v_instrument.ticket_type_a_id;
-        v_losing_type_id := v_instrument.ticket_type_b_id;
-        v_side_name := v_instrument.side_a_name;
-    ELSE
-        v_winning_ticket_count := v_total_b;
-        v_winning_type_id := v_instrument.ticket_type_b_id;
-        v_losing_type_id := v_instrument.ticket_type_a_id;
-        v_side_name := v_instrument.side_b_name;
-    END IF;
-  END;
+  -- Totals
+  SELECT COALESCE(SUM(balance), 0) INTO v_total_a FROM public.user_ticket_balances WHERE ticket_type_id = v_instrument.ticket_type_a_id;
+  SELECT COALESCE(SUM(balance), 0) INTO v_total_b FROM public.user_ticket_balances WHERE ticket_type_id = v_instrument.ticket_type_b_id;
+  v_total_sold := v_total_a + v_total_b;
+  
+  IF p_winning_side = 'A' THEN
+      v_winning_ticket_count := v_total_a;
+      v_winning_type_id := v_instrument.ticket_type_a_id;
+      v_losing_type_id := v_instrument.ticket_type_b_id;
+      v_side_name := v_instrument.side_a_name;
+  ELSE
+      v_winning_ticket_count := v_total_b;
+      v_winning_type_id := v_instrument.ticket_type_b_id;
+      v_losing_type_id := v_instrument.ticket_type_a_id;
+      v_side_name := v_instrument.side_b_name;
+  END IF;
+  
+  -- Resolution Price Policy: Current price at ending date (no noise)
+  v_base := COALESCE(v_instrument.ticket_price, 1.0);
+  v_flex := COALESCE(v_instrument.dynamic_flex_pct, 0);
+  v_limit := COALESCE(v_instrument.ticket_limit, 0);
+  v_open := COALESCE(v_instrument.open_date, v_instrument.created_at);
+  v_end := COALESCE(v_instrument.official_end_date, v_open);
+  IF v_end <= v_open THEN
+    v_total_interval := 1;
+  ELSE
+    v_total_interval := EXTRACT(EPOCH FROM (v_end - v_open));
+  END IF;
+  v_time_factor := CASE WHEN v_total_interval = 0 THEN 0 ELSE 1 END;
+  IF v_limit IS NULL OR v_limit = 0 THEN
+    v_demand_ratio := 0;
+  ELSE
+    v_demand_ratio := GREATEST(0, LEAST(1, (v_total_sold::NUMERIC / v_limit::NUMERIC)));
+  END IF;
+  v_resolution_price := v_base * (1 + v_flex * ((0.5 * v_time_factor + 0.5 * v_demand_ratio) - 0.5));
+  IF v_resolution_price < 0.1 THEN
+    v_resolution_price := 0.1;
+  END IF;
+  
+  v_total_payout := v_winning_ticket_count::NUMERIC * v_resolution_price;
 
   IF v_winning_ticket_count = 0 THEN
     -- Edge case: No winning tickets sold.
@@ -95,7 +127,7 @@ BEGIN
     -- Let's just proceed to close it.
     v_payout_per_ticket := 0;
   ELSE
-    v_payout_per_ticket := v_total_pool / v_winning_ticket_count;
+    v_payout_per_ticket := v_resolution_price;
   END IF;
 
   -- Check Host Solvency
@@ -104,7 +136,7 @@ BEGIN
 
   -- If there are winners, we need to pay them
   IF v_winning_ticket_count > 0 THEN
-      IF v_host_balance < v_total_pool THEN
+      IF v_host_balance < v_total_payout THEN
         v_bankrupt := true;
         v_available_payout := v_host_balance; -- All they have
         
@@ -118,14 +150,14 @@ BEGIN
         VALUES (v_creator_wallet_id, -v_host_balance, 'TOKEN', 'BANKRUPTCY', 'Failed to pay bet: ' || v_instrument.title);
 
       ELSE
-        v_available_payout := v_total_pool;
+        v_available_payout := v_total_payout;
         -- Deduct from Host
         UPDATE public.wallets 
-        SET token_balance = token_balance - v_total_pool 
+        SET token_balance = token_balance - v_total_payout 
         WHERE id = v_creator_wallet_id;
         
         INSERT INTO public.ledger_entries (wallet_id, amount, currency, operation_type, description)
-        VALUES (v_creator_wallet_id, -v_total_pool, 'TOKEN', 'BET_PAYOUT', 'Payout for: ' || v_instrument.title);
+        VALUES (v_creator_wallet_id, -v_total_payout, 'TOKEN', 'BET_PAYOUT', 'Payout for: ' || v_instrument.title);
       END IF;
 
       -- Distribute to Winners
@@ -134,8 +166,8 @@ BEGIN
         FROM public.user_ticket_balances 
         WHERE ticket_type_id = v_winning_type_id AND balance > 0
       LOOP
-        -- Calculate share
-        v_payout_amount := (v_holder.balance::NUMERIC / v_winning_ticket_count::NUMERIC) * v_available_payout;
+        -- Calculate payout per holder (scaled if bankrupt)
+        v_payout_amount := v_holder.balance::NUMERIC * v_payout_per_ticket * (v_available_payout / v_total_payout);
         
         UPDATE public.wallets
         SET token_balance = token_balance + v_payout_amount

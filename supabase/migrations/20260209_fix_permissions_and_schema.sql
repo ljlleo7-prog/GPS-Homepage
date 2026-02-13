@@ -86,4 +86,10 @@ CREATE POLICY "Creator View Transactions" ON public.ticket_transactions
         )
     );
 
+-- 2.5 Allow buyers to view their own purchase history
+DROP POLICY IF EXISTS "Buyer View Own Transactions" ON public.ticket_transactions;
+CREATE POLICY "Buyer View Own Transactions" ON public.ticket_transactions
+    FOR SELECT
+    USING (buyer_id = auth.uid());
+
 RAISE NOTICE 'Permissions and Schema Fixed';

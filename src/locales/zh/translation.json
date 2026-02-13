@@ -334,7 +334,8 @@
       "disclaimer": "非真实金融工具。仅用于社区互动。",
       "tabs": {
         "instruments": "官方市场",
-        "tickets": "民间市场"
+        "tickets": "民间市场",
+        "dashboard": "仪表盘"
       },
       "instrument": {
         "support_btn": "支持",
@@ -417,6 +418,9 @@
         "limit": "限额",
         "sales_end": "销售截止",
         "result": "结果",
+        "resolution_policy": "结算规则",
+        "resolution_policy_current_end": "以截止日期的当前价格结算",
+        "resolution_price": "结算价格",
         "buy_action": "购买",
         "buy_one_tkn": "购买 (1 代币)",
         "sell_back": "卖回",
@@ -436,7 +440,11 @@
         "delist": "退市",
         "delist_title": "从市场退市 (交易继续)",
         "delete": "删除",
-        "delete_title": "彻底删除 (退款给用户)"
+        "delete_title": "彻底删除 (退款给用户)",
+        "view_trend": "查看趋势",
+        "go_purchase": "前往购买",
+        "back_markets": "返回市场",
+        "no_trend_selected": "未选择任何品种。请在市场中点击“查看趋势”打开价格走势。"
       },
       "ticket": {
         "market_tab": "交易市场",
