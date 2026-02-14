@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
-import { DriverStats, MONZA_TRACK, PlayerStrategy, TRACKS, INITIAL_BATTERY, RaceState, ERSMode, RacingLine, TrackNode } from './types';
+import { DriverStats, MONZA_TRACK, PlayerStrategy, TRACKS, INITIAL_BATTERY, RaceState, ERSMode, RacingLine, TrackNode, RaceLogEntry } from './types';
 import { getInitialRaceState, advanceRaceState, advanceRaceStateDelta, calculatePhysicsStep, getTrackNodeAtDist, SimulationResult, calculateGap, MAX_BATTERY_JOULES, getTargetOffset } from './simulation';
 import { Check, User, Zap, MousePointer2, AlertTriangle, Play, Battery, Gauge, Wind, Activity, Map, Trash2, UserMinus, LogOut, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -322,6 +322,23 @@ export default function Room({ roomId, driver, onLeave }: Props) {
   const playersRef = useRef(players);
   useEffect(() => { playersRef.current = players; }, [players]);
 
+  const asFinite = (n: number, fallback = 0) => (Number.isFinite(n) ? n : fallback);
+  const sanitizeLogs = (logs: RaceLogEntry[]): RaceLogEntry[] =>
+    logs.map((l: RaceLogEntry) => ({
+      time: asFinite(Number(l.time)),
+      nodeId: l.nodeId,
+      p1_dist: asFinite(Number(l.p1_dist)),
+      p2_dist: asFinite(Number(l.p2_dist)),
+      p1_speed: asFinite(Number(l.p1_speed)),
+      p2_speed: asFinite(Number(l.p2_speed)),
+      p1_battery: asFinite(Number(l.p1_battery)),
+      p2_battery: asFinite(Number(l.p2_battery)),
+      p1_recovered: asFinite(Number(l.p1_recovered)),
+      p2_recovered: asFinite(Number(l.p2_recovered)),
+      gap: asFinite(Number(l.gap)),
+      events: Array.isArray(l.events) ? l.events : []
+    }));
+
   const startRaceEngineRef = async () => {
       const initialState = getInitialRaceState(currentTrack);
       
@@ -339,10 +356,11 @@ export default function Room({ roomId, driver, onLeave }: Props) {
           if (currentState.finished) {
               if (raceIntervalRef.current) clearInterval(raceIntervalRef.current);
               
+              const sanitized = sanitizeLogs(currentState.logs);
               await supabase.from('one_lap_races').insert([{
                   room_id: roomId,
                   winner_id: currentState.winner_id,
-                  simulation_log: currentState.logs
+                  simulation_log: sanitized
               }]);
               await supabase.from('one_lap_rooms').update({ status: 'finished' }).eq('id', roomId);
 
@@ -358,9 +376,11 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                       const loserState = isP1Winner ? currentState.p2 : currentState.p1;
                       
                       // Calculate Time Gap
-                      const gapDist = Math.abs(winnerState.distance - loserState.distance);
-                      const loserSpeedMs = Math.max(5, loserState.speed / 3.6); // Min 5m/s to avoid infinity
-                      const timeGap = gapDist / loserSpeedMs;
+                      const gapDist = Math.abs(asFinite(winnerState.distance) - asFinite(loserState.distance));
+                      const loserSpeedMsRaw = asFinite(loserState.speed / 3.6);
+                      const loserSpeedMs = loserSpeedMsRaw > 0 ? loserSpeedMsRaw : 5;
+                      const computedTimeGap = gapDist / loserSpeedMs;
+                      const timeGap = Number.isFinite(computedTimeGap) ? computedTimeGap : 0.5;
                       
                       let points = 0;
                       if (timeGap < 0.2) points = 1;
@@ -389,7 +409,7 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                           // Calculate Best Gap (More negative is better)
                           const currentGap = -timeGap;
                           const oldBest = wData.best_gap_sec !== undefined && wData.best_gap_sec !== null ? wData.best_gap_sec : 999;
-                          const newBest = Math.min(currentGap, oldBest);
+                          const newBest = Number.isFinite(currentGap) ? Math.min(currentGap, oldBest) : oldBest;
 
                           const { error: wUpdateError } = await supabase.from('one_lap_drivers').update({ 
                               wins: (wData.wins || 0) + 1, 
@@ -427,40 +447,6 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                           await supabase.rpc('update_leaderboard_from_driver', { p_user_id: loserId });
                       }
 
-                      // Update Prize Pool & Winner Balance
-                      try {
-                        const { data: prizePool, error: prizePoolError } = await supabase
-                          .from("minigame_prize_pools")
-                          .select("current_pool")
-                          .eq("game_key", "one_lap_duel")
-                          .single();
-
-                        if (prizePoolError) throw prizePoolError;
-
-                        const prizeAmount = Math.floor(prizePool.current_pool * 0.1); // Winner gets 10%
-                        const newPool = prizePool.current_pool + 2; // Prize pool increases by 2 every round (no exceptions)
-
-                        await supabase
-                          .from("minigame_prize_pools")
-                          .update({ current_pool: newPool })
-                          .eq("game_key", "one_lap_duel");
-                        
-                        const { data: winnerWallet, error: winnerWalletError } = await supabase
-                            .from('wallets')
-                            .select('token_balance')
-                            .eq('user_id', currentState.winner_id)
-                            .single();
-
-                        if (winnerWalletError) throw winnerWalletError;
-
-                        await supabase
-                            .from('wallets')
-                            .update({ token_balance: (winnerWallet.token_balance || 0) + prizeAmount })
-                            .eq('user_id', currentState.winner_id);
-
-                      } catch (e) {
-                          console.error("Failed to process prize pool:", e);
-                      }
                   }
               }
 

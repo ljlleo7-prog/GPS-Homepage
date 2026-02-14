@@ -334,7 +334,10 @@
       "tabs": {
         "instruments": "Official Instruments",
         "tickets": "Civil Ticket Market",
-        "dashboard": "Dashboard"
+        "dashboard": "Dashboard",
+        "official": "Official",
+        "civil": "Civil Market",
+        "holdings": "My Holdings"
       },
       "instrument": {
         "frequency": "Interest Freq",
@@ -429,7 +432,8 @@
         "driver_bet": "DRIVER BET",
         "invested": "INVESTED",
         "delisted": "DELISTED",
-        "your_tickets": "Your Tickets"
+        "your_tickets": "Your Tickets",
+        "official_sale_ended": "Official sale ended"
       },
       "actions": {
         "cancel": "Cancel",

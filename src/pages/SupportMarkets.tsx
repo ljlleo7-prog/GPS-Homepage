@@ -4,7 +4,7 @@ import { useEconomy } from '../context/EconomyContext';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, AlertTriangle, Ticket, Plus, Trash2, XCircle, Activity } from 'lucide-react';
-import { TicketMarket } from '../components/economy/TicketMarket';
+import { TicketMarket, MyHoldings } from '../components/economy/TicketMarket';
 import PriceTrend from '../components/economy/PriceTrend';
 import { PolicyInfo } from '../components/common/PolicyInfo';
 import { useTranslation } from 'react-i18next';
@@ -49,7 +49,7 @@ const SupportMarkets = () => {
   const [userPositions, setUserPositions] = useState<UserTicketPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState<{[key: string]: string}>({});
-  const [activeView, setActiveView] = useState<'instruments' | 'tickets' | 'dashboard'>('dashboard');
+  const [activeView, setActiveView] = useState<'official' | 'civil' | 'dashboard' | 'holdings'>('dashboard');
 
   // Create Campaign Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -81,7 +81,7 @@ const SupportMarkets = () => {
   const [viewingHolders, setViewingHolders] = useState<{id: string, side: 'A' | 'B' | 'General'} | null>(null);
   const [holdersList, setHoldersList] = useState<{username: string, balance: number}[]>([]);
   const [driverBetStats, setDriverBetStats] = useState<{[key: string]: {side_a_sold: number, side_b_sold: number}}>({});
-  const [officialPrices, setOfficialPrices] = useState<{[key: string]: number}>({});
+  const [officialTicketPrices, setOfficialTicketPrices] = useState<{[key: string]: number}>({});
   const [trendInterval, setTrendInterval] = useState<'1d' | '1w' | '1m'>('1w');
 
   useEffect(() => {
@@ -131,17 +131,28 @@ const SupportMarkets = () => {
     const { data, error } = await supabase
       .from('support_instruments')
       .select('*')
-      .neq('deletion_status', 'DELETED_EVERYWHERE'); // Hide fully deleted ones
+      .neq('deletion_status', 'DELETED_EVERYWHERE')
+      .neq('resolution_status', 'RESOLVED');
     
     if (error) console.error(error);
     else {
       setInstruments(data || []);
       const prices: {[key: string]: number} = {};
       for (const ins of data || []) {
-        const { data: priceData } = await supabase.rpc('get_official_price', { p_instrument_id: ins.id });
-        if (priceData) prices[ins.id] = priceData as number;
+        if (ins.ticket_type_id) {
+          const { data: p } = await supabase.rpc('get_official_price_by_ticket_type', { p_ticket_type_id: ins.ticket_type_id });
+          if (p !== null && p !== undefined) prices[ins.ticket_type_id] = p as number;
+        }
+        if (ins.ticket_type_a_id) {
+          const { data: pa } = await supabase.rpc('get_official_price_by_ticket_type', { p_ticket_type_id: ins.ticket_type_a_id });
+          if (pa !== null && pa !== undefined) prices[ins.ticket_type_a_id] = pa as number;
+        }
+        if (ins.ticket_type_b_id) {
+          const { data: pb } = await supabase.rpc('get_official_price_by_ticket_type', { p_ticket_type_id: ins.ticket_type_b_id });
+          if (pb !== null && pb !== undefined) prices[ins.ticket_type_b_id] = pb as number;
+        }
       }
-      setOfficialPrices(prices);
+      setOfficialTicketPrices(prices);
     }
     setLoading(false);
   };
@@ -439,25 +450,32 @@ const SupportMarkets = () => {
 
           <div className="flex justify-center space-x-4 border-b border-white/10 pb-1">
             <button
-              onClick={() => setActiveView('instruments')}
-              className={`px-6 py-2 font-mono flex items-center ${activeView === 'instruments' ? 'text-primary border-b-2 border-primary' : 'text-text-secondary hover:text-white'}`}
+              onClick={() => setActiveView('official')}
+              className={`px-6 py-2 font-mono flex items-center ${activeView === 'official' ? 'text-primary border-b-2 border-primary' : 'text-text-secondary hover:text-white'}`}
             >
               <TrendingUp className="w-4 h-4 mr-2" />
-              {t('economy.market.tabs.instruments')}
+              {t('economy.market.tabs.official')}
             </button>
             <button
-              onClick={() => setActiveView('tickets')}
-              className={`px-6 py-2 font-mono flex items-center ${activeView === 'tickets' ? 'text-primary border-b-2 border-primary' : 'text-text-secondary hover:text-white'}`}
+              onClick={() => setActiveView('civil')}
+              className={`px-6 py-2 font-mono flex items-center ${activeView === 'civil' ? 'text-primary border-b-2 border-primary' : 'text-text-secondary hover:text-white'}`}
             >
               <Ticket className="w-4 h-4 mr-2" />
-              {t('economy.market.tabs.tickets')}
+              {t('economy.market.tabs.civil')}
             </button>
             <button
               onClick={() => setActiveView('dashboard')}
               className={`px-6 py-2 font-mono flex items-center ${activeView === 'dashboard' ? 'text-primary border-b-2 border-primary' : 'text-text-secondary hover:text-white'}`}
             >
               <Activity className="w-4 h-4 mr-2" />
-              {t('economy.market.tabs.dashboard') || 'Dashboard'}
+              {t('economy.market.tabs.dashboard')}
+            </button>
+            <button
+              onClick={() => setActiveView('holdings')}
+              className={`px-6 py-2 font-mono flex items-center ${activeView === 'holdings' ? 'text-primary border-b-2 border-primary' : 'text-text-secondary hover:text-white'}`}
+            >
+              <Ticket className="w-4 h-4 mr-2" />
+              {t('economy.market.tabs.holdings')}
             </button>
           </div>
 
@@ -486,7 +504,7 @@ const SupportMarkets = () => {
           </div>
         )}
 
-        {activeView === 'instruments' ? (
+        {activeView === 'official' ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {instruments.map((instrument) => {
               // Find if user has tickets for this instrument
@@ -513,6 +531,11 @@ const SupportMarkets = () => {
                 {isDelisted && (
                    <div className="absolute top-0 left-0 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-br-lg z-10">
                      {t('economy.market.labels.delisted')}
+                   </div>
+                )}
+                {instrument.official_end_date && new Date(instrument.official_end_date) < new Date() && instrument.resolution_status !== 'RESOLVED' && (
+                   <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-yellow-500/20 text-yellow-400 text-xs font-bold px-3 py-1 rounded-b z-10">
+                     {t('economy.market.labels.official_sale_ended')}
                    </div>
                 )}
                 
@@ -597,7 +620,7 @@ const SupportMarkets = () => {
                         <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                             <div className="bg-white/5 p-2 rounded">
                                 <div className="text-text-secondary">{t('economy.market.labels.price')}</div>
-                                <div className="text-white">{(officialPrices[instrument.id] ?? instrument.ticket_price) ?? 0} {t('economy.wallet.currency.tkn')}</div>
+                                <div className="text-white">{(officialTicketPrices[instrument.ticket_type_a_id] ?? instrument.ticket_price) ?? 0} {t('economy.wallet.currency.tkn')}</div>
                                 <div className="mt-1 flex gap-2">
                                   <button
                                     onClick={() => { setActiveView('dashboard'); }}
@@ -606,7 +629,7 @@ const SupportMarkets = () => {
                                     {t('economy.market.actions.view_trend') || 'View Trend'}
                                   </button>
                                   <button
-                                    onClick={() => setActiveView('tickets')}
+                                    onClick={() => setActiveView('civil')}
                                     className="text-[10px] text-green-400 hover:text-green-300 border border-green-500/40 px-2 py-0.5 rounded"
                                   >
                                     {t('economy.market.actions.go_purchase') || 'Go to Purchase'}
@@ -640,7 +663,7 @@ const SupportMarkets = () => {
                                         onClick={() => handleBuyDriverBet(instrument, 'A', parseInt(amount[`${instrument.id}_A`]))}
                                         className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30 truncate"
                                     >
-                                        {t('economy.market.labels.buy_action')} <BilingualText text={instrument.side_a_name} className="inline" />
+                                        {t('economy.market.labels.buy_action')} ({(officialTicketPrices[instrument.ticket_type_a_id] ?? instrument.ticket_price ?? 1).toFixed(2)} TKN) <BilingualText text={instrument.side_a_name} className="inline" />
                                     </button>
                                 </div>
                                 <div className="flex gap-2">
@@ -655,7 +678,7 @@ const SupportMarkets = () => {
                                         onClick={() => handleBuyDriverBet(instrument, 'B', parseInt(amount[`${instrument.id}_B`]))}
                                         className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30 truncate"
                                     >
-                                        {t('economy.market.labels.buy_action')} <BilingualText text={instrument.side_b_name} className="inline" />
+                                        {t('economy.market.labels.buy_action')} ({(officialTicketPrices[instrument.ticket_type_b_id] ?? instrument.ticket_price ?? 1).toFixed(2)} TKN) <BilingualText text={instrument.side_b_name} className="inline" />
                                     </button>
                                 </div>
                             </div>
@@ -717,8 +740,8 @@ const SupportMarkets = () => {
                             <div className="text-green-400 font-mono text-xs">{instrument.deliverable_frequency}</div>
                           </div>
                           <div className="bg-background/50 p-2 rounded">
-                            <div className="text-text-secondary text-xs">{t('economy.market.instrument.cost_per_ticket')}</div>
-                            <div className="text-white font-mono text-xs">{instrument.deliverable_cost_per_ticket} {t('economy.wallet.currency.tkn')}</div>
+                            <div className="text-text-secondary text-xs">{t('economy.market.labels.price')}</div>
+                            <div className="text-white font-mono text-xs">{((officialTicketPrices[instrument.ticket_type_id] ?? instrument.ticket_price) ?? 0).toFixed ? (officialTicketPrices[instrument.ticket_type_id] ?? instrument.ticket_price ?? 0).toFixed(2) : (officialTicketPrices[instrument.ticket_type_id] ?? instrument.ticket_price ?? 0)} {t('economy.wallet.currency.tkn')}</div>
                           </div>
                           <div className="col-span-2 bg-background/50 p-2 rounded">
                              <div className="text-text-secondary text-xs">{t('economy.market.instrument.condition')}</div>
@@ -741,7 +764,7 @@ const SupportMarkets = () => {
                         onClick={() => handleSupport(instrument)}
                         className="bg-primary text-background font-bold px-4 py-2 rounded hover:bg-primary/90 transition-colors text-sm font-mono whitespace-nowrap"
                     >
-                        {t('economy.market.labels.buy_one_tkn')}
+                        {t('economy.market.labels.buy_action')} ({((officialTicketPrices[instrument.ticket_type_id] ?? instrument.ticket_price) ?? 1).toFixed ? (officialTicketPrices[instrument.ticket_type_id] ?? instrument.ticket_price ?? 1).toFixed(2) : (officialTicketPrices[instrument.ticket_type_id] ?? instrument.ticket_price ?? 1)} {t('economy.wallet.currency.tkn')})
                     </button>
                     <button
                         onClick={() => handleSellBackToOfficial(instrument, parseInt(amount[instrument.id]))}
@@ -783,19 +806,21 @@ const SupportMarkets = () => {
               </motion.div>
             )})}
           </div>
-        ) : activeView === 'tickets' ? (
+        ) : activeView === 'civil' ? (
           <TicketMarket />
+        ) : activeView === 'holdings' ? (
+          <MyHoldings />
         ) : (
           <div className="mt-6 space-y-4">
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setActiveView('instruments')}
+                onClick={() => setActiveView('official')}
                 className="text-xs bg-white/5 text-white/80 border border-white/10 px-3 py-1 rounded hover:bg-white/10"
               >
                 {t('economy.market.actions.back_markets') || 'Back to Markets'}
               </button>
               <button
-                onClick={() => setActiveView('tickets')}
+                onClick={() => setActiveView('civil')}
                 className="text-xs bg-green-500/20 text-green-400 border border-green-500/40 px-3 py-1 rounded hover:bg-green-500/30"
               >
                 {t('economy.market.actions.go_purchase') || 'Go to Purchase'}
@@ -805,26 +830,17 @@ const SupportMarkets = () => {
               {instruments.map((instrument) => (
                 <div key={instrument.id} className="space-y-4">
                   {instrument.is_driver_bet ? (
-                    <>
-                      {instrument.ticket_type_a_id && (
-                        <PriceTrend
-                          ticketTypeId={instrument.ticket_type_a_id}
-                          title={`${instrument.title} • ${instrument.side_a_name?.split('|')[0] || 'A'}`}
-                          interval={trendInterval}
-                          onClose={() => {}}
-                          onIntervalChange={(i) => setTrendInterval(i)}
-                        />
-                      )}
-                      {instrument.ticket_type_b_id && (
-                        <PriceTrend
-                          ticketTypeId={instrument.ticket_type_b_id}
-                          title={`${instrument.title} • ${instrument.side_b_name?.split('|')[0] || 'B'}`}
-                          interval={trendInterval}
-                          onClose={() => {}}
-                          onIntervalChange={(i) => setTrendInterval(i)}
-                        />
-                      )}
-                    </>
+                    (instrument.ticket_type_a_id || instrument.ticket_type_b_id) ? (
+                      <PriceTrend
+                        instrumentId={instrument.id}
+                        ticketTypeAId={instrument.ticket_type_a_id || undefined}
+                        ticketTypeBId={instrument.ticket_type_b_id || undefined}
+                        title={instrument.title}
+                        interval={trendInterval}
+                        onClose={() => {}}
+                        onIntervalChange={(i) => setTrendInterval(i)}
+                      />
+                    ) : null
                   ) : (
                     instrument.ticket_type_id ? (
                       <PriceTrend

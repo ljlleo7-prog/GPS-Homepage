@@ -196,7 +196,8 @@ BEGIN
   UPDATE public.support_instruments
   SET resolution_status = 'RESOLVED',
       winning_side = p_winning_side,
-      status = 'RESOLVED'
+      status = 'RESOLVED',
+      deletion_status = 'DELETED_EVERYWHERE'
   WHERE id = p_instrument_id;
 
   -- 3. Auto-generate Forum Post

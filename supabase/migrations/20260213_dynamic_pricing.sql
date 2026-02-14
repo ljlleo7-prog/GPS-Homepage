@@ -123,21 +123,20 @@ BEGIN
       GROUP BY 1
       ORDER BY 1
     ) s;
-    -- Hourly civil with fallback to official price
+    -- Hourly civil (P2P only)
     SELECT COALESCE(
-      jsonb_agg(jsonb_build_object('t', h.ts, 'price', COALESCE(c.avg_price, public.get_official_price(v_instr_id))) ORDER BY h.ts),
+      jsonb_agg(jsonb_build_object('t', c.t, 'price', c.avg_price) ORDER BY c.t),
       '[]'::jsonb
     ) INTO v_civil
     FROM (
-      SELECT generate_series(date_trunc('hour', v_start), date_trunc('hour', NOW()), INTERVAL '1 hour') AS ts
-    ) h
-    LEFT JOIN (
       SELECT date_trunc('hour', created_at) AS t, AVG(price_per_unit) AS avg_price
       FROM public.ticket_transactions
       WHERE ticket_type_id = p_ticket_type_id
+        AND listing_id IS NOT NULL
         AND created_at >= v_start
       GROUP BY 1
-    ) c ON c.t = h.ts;
+      ORDER BY 1
+    ) c;
   ELSIF p_interval = '1w' THEN
     v_start := NOW() - INTERVAL '7 days';
     -- Hourly official
@@ -153,21 +152,20 @@ BEGIN
       GROUP BY 1
       ORDER BY 1
     ) s;
-    -- Hourly civil with fallback
+    -- Hourly civil (P2P only)
     SELECT COALESCE(
-      jsonb_agg(jsonb_build_object('t', h.ts, 'price', COALESCE(c.avg_price, public.get_official_price(v_instr_id))) ORDER BY h.ts),
+      jsonb_agg(jsonb_build_object('t', c.t, 'price', c.avg_price) ORDER BY c.t),
       '[]'::jsonb
     ) INTO v_civil
     FROM (
-      SELECT generate_series(date_trunc('hour', v_start), date_trunc('hour', NOW()), INTERVAL '1 hour') AS ts
-    ) h
-    LEFT JOIN (
       SELECT date_trunc('hour', created_at) AS t, AVG(price_per_unit) AS avg_price
       FROM public.ticket_transactions
       WHERE ticket_type_id = p_ticket_type_id
+        AND listing_id IS NOT NULL
         AND created_at >= v_start
       GROUP BY 1
-    ) c ON c.t = h.ts;
+      ORDER BY 1
+    ) c;
   ELSE
     v_start := NOW() - INTERVAL '30 days';
     -- Daily official
@@ -178,9 +176,9 @@ BEGIN
     FROM public.official_price_daily_history
     WHERE ticket_type_id = p_ticket_type_id
       AND day >= (CURRENT_DATE - INTERVAL '30 days');
-    -- Daily civil with fallback
+    -- Daily civil (P2P only)
     SELECT COALESCE(
-      jsonb_agg(jsonb_build_object('t', day, 'price', COALESCE(avg_price, public.get_official_price(v_instr_id))) ORDER BY day),
+      jsonb_agg(jsonb_build_object('t', day, 'price', avg_price) ORDER BY day),
       '[]'::jsonb
     ) INTO v_civil
     FROM public.civil_price_daily_history

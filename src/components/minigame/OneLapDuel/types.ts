@@ -62,7 +62,7 @@ export interface RaceState {
     };
     finished: boolean;
     winner_id: string | null;
-    logs: any[]; // For replay/history
+    logs: RaceLogEntry[]; // For replay/history
 }
 
 export type PlayerStrategy = {
@@ -120,3 +120,18 @@ export const TRACKS: Record<string, TrackNode[]> = {
 };
 
 export const INITIAL_BATTERY = 4_000_000; // 4MJ (Joules)
+
+export interface RaceLogEntry {
+  time: number;
+  nodeId: number;
+  p1_dist: number;
+  p2_dist: number;
+  p1_speed: number;
+  p2_speed: number;
+  p1_battery: number;
+  p2_battery: number;
+  p1_recovered: number;
+  p2_recovered: number;
+  gap: number;
+  events: unknown[];
+}

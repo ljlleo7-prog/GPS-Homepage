@@ -42,7 +42,7 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'message', 'Invalid ticket amount');
   END IF;
 
-  v_cost := p_amount * 1.0;
+  v_cost := p_amount * public.get_official_price_by_ticket_type(v_instrument.ticket_type_id);
 
   SELECT id INTO v_wallet_id FROM public.wallets WHERE user_id = v_user_id;
 
@@ -83,6 +83,9 @@ BEGIN
     JOIN public.profiles p ON w.user_id = p.id
     WHERE p.developer_status = 'APPROVED';
   END IF;
+
+  INSERT INTO public.official_price_history (instrument_id, ticket_type_id, price)
+  VALUES (p_instrument_id, v_instrument.ticket_type_id, public.get_official_price_by_ticket_type(v_instrument.ticket_type_id));
 
   RETURN jsonb_build_object('success', true);
 END;
@@ -174,6 +177,9 @@ BEGIN
 
   INSERT INTO public.ledger_entries (wallet_id, amount, currency, operation_type, description)
   VALUES (v_user_wallet_id, v_total_refund_amount, 'TOKEN', 'REFUND_RECEIVE', 'Refund received for ' || v_instrument.title);
+
+  INSERT INTO public.official_price_history (instrument_id, ticket_type_id, price)
+  VALUES (p_instrument_id, v_instrument.ticket_type_id, public.get_official_price_by_ticket_type(v_instrument.ticket_type_id));
 
   RETURN jsonb_build_object('success', true, 'message', 'Tickets sold back to official successfully.');
 END;
@@ -310,4 +316,3 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'message', 'Unexpected Error');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-

@@ -335,7 +335,10 @@
       "tabs": {
         "instruments": "官方市场",
         "tickets": "民间市场",
-        "dashboard": "仪表盘"
+        "dashboard": "仪表盘",
+        "official": "官方市场",
+        "civil": "民间市场",
+        "holdings": "我的持仓"
       },
       "instrument": {
         "support_btn": "支持",
@@ -433,7 +436,8 @@
         "driver_bet": "车手博弈",
         "invested": "已投资",
         "delisted": "已退市",
-        "your_tickets": "您的票据"
+        "your_tickets": "您的票据",
+        "official_sale_ended": "官方销售结束"
       },
       "actions": {
         "cancel": "取消",
@@ -468,6 +472,7 @@
         },
         "unit": "单位",
         "units": "单位",
+        "avg_buy_price": "平均买入",
         "list_for_sale": "上架出售",
         "create_type_btn": "发起活动",
         "create_type_title": "发起新活动",
