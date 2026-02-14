@@ -9,6 +9,14 @@ import PriceTrend from '../components/economy/PriceTrend';
 import { PolicyInfo } from '../components/common/PolicyInfo';
 import { useTranslation } from 'react-i18next';
 
+const formatTkn = (value?: number) => {
+  if (value === undefined || value === null || isNaN(Number(value))) return '...';
+  const abs = Math.abs(Number(value));
+  const intDigits = Math.floor(abs).toString().length;
+  const decimals = Math.max(2, Math.max(0, 4 - intDigits));
+  return Number(value).toFixed(decimals);
+};
+
 interface Instrument {
   id: string;
   title: string;
@@ -506,7 +514,10 @@ const SupportMarkets = () => {
 
         {activeView === 'official' ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {instruments.map((instrument) => {
+            {instruments
+              .slice()
+              .sort((a, b) => Number(!!a.is_driver_bet) - Number(!!b.is_driver_bet))
+              .map((instrument) => {
               // Find if user has tickets for this instrument
               const userTicket = userPositions.find(p => p.ticket_type_id === instrument.ticket_type_id);
               const userTicketA = instrument.ticket_type_a_id ? userPositions.find(p => p.ticket_type_id === instrument.ticket_type_a_id) : null;
@@ -620,7 +631,9 @@ const SupportMarkets = () => {
                         <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                             <div className="bg-white/5 p-2 rounded">
                                 <div className="text-text-secondary">{t('economy.market.labels.price')}</div>
-                                <div className="text-white">{(officialTicketPrices[instrument.ticket_type_a_id] ?? instrument.ticket_price) ?? 0} {t('economy.wallet.currency.tkn')}</div>
+                                <div className="text-white">
+                                  {formatTkn(officialTicketPrices[instrument.ticket_type_a_id])} {t('economy.wallet.currency.tkn')}
+                                </div>
                                 <div className="mt-1 flex gap-2">
                                   <button
                                     onClick={() => { setActiveView('dashboard'); }}
@@ -663,7 +676,7 @@ const SupportMarkets = () => {
                                         onClick={() => handleBuyDriverBet(instrument, 'A', parseInt(amount[`${instrument.id}_A`]))}
                                         className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30 truncate"
                                     >
-                                        {t('economy.market.labels.buy_action')} ({(officialTicketPrices[instrument.ticket_type_a_id] ?? instrument.ticket_price ?? 1).toFixed(2)} TKN) <BilingualText text={instrument.side_a_name} className="inline" />
+                                        {t('economy.market.labels.buy_action')} ({formatTkn(officialTicketPrices[instrument.ticket_type_a_id])} {t('economy.wallet.currency.tkn')}) <BilingualText text={instrument.side_a_name} className="inline" />
                                     </button>
                                 </div>
                                 <div className="flex gap-2">
@@ -678,7 +691,7 @@ const SupportMarkets = () => {
                                         onClick={() => handleBuyDriverBet(instrument, 'B', parseInt(amount[`${instrument.id}_B`]))}
                                         className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30 truncate"
                                     >
-                                        {t('economy.market.labels.buy_action')} ({(officialTicketPrices[instrument.ticket_type_b_id] ?? instrument.ticket_price ?? 1).toFixed(2)} TKN) <BilingualText text={instrument.side_b_name} className="inline" />
+                                        {t('economy.market.labels.buy_action')} ({formatTkn(officialTicketPrices[instrument.ticket_type_b_id])} {t('economy.wallet.currency.tkn')}) <BilingualText text={instrument.side_b_name} className="inline" />
                                     </button>
                                 </div>
                             </div>
@@ -741,7 +754,9 @@ const SupportMarkets = () => {
                           </div>
                           <div className="bg-background/50 p-2 rounded">
                             <div className="text-text-secondary text-xs">{t('economy.market.labels.price')}</div>
-                            <div className="text-white font-mono text-xs">{((officialTicketPrices[instrument.ticket_type_id] ?? instrument.ticket_price) ?? 0).toFixed ? (officialTicketPrices[instrument.ticket_type_id] ?? instrument.ticket_price ?? 0).toFixed(2) : (officialTicketPrices[instrument.ticket_type_id] ?? instrument.ticket_price ?? 0)} {t('economy.wallet.currency.tkn')}</div>
+                            <div className="text-white font-mono text-xs">
+                              {formatTkn(officialTicketPrices[instrument.ticket_type_id])} {t('economy.wallet.currency.tkn')}
+                            </div>
                           </div>
                           <div className="col-span-2 bg-background/50 p-2 rounded">
                              <div className="text-text-secondary text-xs">{t('economy.market.instrument.condition')}</div>
@@ -764,7 +779,7 @@ const SupportMarkets = () => {
                         onClick={() => handleSupport(instrument)}
                         className="bg-primary text-background font-bold px-4 py-2 rounded hover:bg-primary/90 transition-colors text-sm font-mono whitespace-nowrap"
                     >
-                        {t('economy.market.labels.buy_action')} ({((officialTicketPrices[instrument.ticket_type_id] ?? instrument.ticket_price) ?? 1).toFixed ? (officialTicketPrices[instrument.ticket_type_id] ?? instrument.ticket_price ?? 1).toFixed(2) : (officialTicketPrices[instrument.ticket_type_id] ?? instrument.ticket_price ?? 1)} {t('economy.wallet.currency.tkn')})
+                        {t('economy.market.labels.buy_action')} ({formatTkn(officialTicketPrices[instrument.ticket_type_id])} {t('economy.wallet.currency.tkn')})
                     </button>
                     <button
                         onClick={() => handleSellBackToOfficial(instrument, parseInt(amount[instrument.id]))}

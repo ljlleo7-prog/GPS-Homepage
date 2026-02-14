@@ -296,7 +296,13 @@ export default function PriceTrend({
     return d;
   };
   
-  const fmt = (n: number) => Number(n).toFixed(2);
+  const fmt = (n: number) => {
+    if (n === null || n === undefined || isNaN(Number(n))) return '...';
+    const abs = Math.abs(Number(n));
+    const intDigits = Math.floor(abs).toString().length;
+    const decimals = Math.max(2, Math.max(0, 4 - intDigits));
+    return Number(n).toFixed(decimals);
+  };
   const seriesStats = (series: { x: number; price: number }[]) => {
     if (!series.length) return { start: null as number | null, end: null as number | null, min: null as number | null, max: null as number | null };
     const prices = series.map(p => p.price);
