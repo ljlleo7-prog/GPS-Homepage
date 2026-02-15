@@ -130,15 +130,17 @@ BEGIN
         INSERT INTO public.ledger_entries (
             wallet_id, amount, currency, operation_type, reference_id, description
         ) VALUES (
-            v_winner_wallet_id, 5, 'TOKEN', 'REWARD', new.id, 'Victory in One Lap Duel'
+            v_winner_wallet_id, 5, 'TOKEN', 'WIN', new.id, 'Victory in One Lap Duel'
         );
     END IF;
     
     -- Prize Pool
-    UPDATE public.minigame_prize_pools
-    SET current_pool = current_pool + 2,
-        updated_at = NOW()
-    WHERE game_key = 'one_lap_duel';
+    INSERT INTO public.minigame_prize_pools (game_key, current_pool, updated_at)
+    VALUES ('one_lap_duel', 2, NOW())
+    ON CONFLICT (game_key) DO
+      UPDATE SET 
+        current_pool = public.minigame_prize_pools.current_pool + EXCLUDED.current_pool,
+        updated_at = NOW();
 
     -- 2. UPDATE LEADERBOARD (Upsert)
     
@@ -148,7 +150,12 @@ BEGIN
     ON CONFLICT (user_id) DO UPDATE
     SET wins = one_lap_leaderboard.wins + 1,
         total_points = one_lap_leaderboard.total_points + EXCLUDED.total_points,
-        best_gap_sec = LEAST(one_lap_leaderboard.best_gap_sec, EXCLUDED.best_gap_sec), -- Keep most negative (best)
+        best_gap_sec = CASE 
+            WHEN one_lap_leaderboard.best_gap_sec IS NULL 
+                 OR EXCLUDED.best_gap_sec < one_lap_leaderboard.best_gap_sec 
+            THEN EXCLUDED.best_gap_sec 
+            ELSE one_lap_leaderboard.best_gap_sec 
+        END,
         last_race_at = NOW();
 
     -- Loser (Update participation/points if we had loss points, but here just updating last_race and maybe gap?)

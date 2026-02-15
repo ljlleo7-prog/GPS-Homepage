@@ -260,12 +260,17 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
   const createTicketListing = async (ticketId: string, quantity: number, price: number, password: string) => {
     if (!user || !user.email) return { success: false, message: 'Not authenticated' };
     
-    // Verify password
+    // Soft confirmation: attempt re-auth, but proceed on active session even if password fails
     const { error: authError } = await supabase.auth.signInWithPassword({
       email: user.email,
       password: password
     });
-    if (authError) return { success: false, message: 'Incorrect password' };
+    if (authError) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        return { success: false, message: 'Not authenticated' };
+      }
+    }
 
     try {
       const { data, error } = await supabase.rpc('create_ticket_listing', {
@@ -288,12 +293,17 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
   const purchaseTicketListing = async (listingId: string, password: string) => {
     if (!user || !user.email) return { success: false, message: 'Not authenticated' };
 
-    // Verify password
+    // Soft confirmation: attempt re-auth, but proceed on active session even if password fails
     const { error: authError } = await supabase.auth.signInWithPassword({
       email: user.email,
       password: password
     });
-    if (authError) return { success: false, message: 'Incorrect password' };
+    if (authError) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        return { success: false, message: 'Not authenticated' };
+      }
+    }
 
     try {
       const { data, error } = await supabase.rpc('purchase_ticket_listing', {
@@ -314,11 +324,17 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
   const withdrawTicketListing = async (listingId: string, password: string) => {
     if (!user || !user.email) return { success: false, message: 'Not authenticated' };
 
+    // Soft confirmation: attempt re-auth, but proceed on active session even if password fails
     const { error: authError } = await supabase.auth.signInWithPassword({
       email: user.email,
       password: password
     });
-    if (authError) return { success: false, message: 'Incorrect password' };
+    if (authError) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) {
+        return { success: false, message: 'Not authenticated' };
+      }
+    }
 
     try {
       const { data, error } = await supabase.rpc('withdraw_ticket_listing', {

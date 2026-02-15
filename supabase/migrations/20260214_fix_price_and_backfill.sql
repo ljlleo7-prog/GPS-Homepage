@@ -30,7 +30,10 @@ BEGIN
   v_noise_pct := 0;
   v_limit := COALESCE(v_instr.ticket_limit, 0);
   v_open := COALESCE(v_instr.open_date, v_instr.created_at);
-  v_end := COALESCE(v_instr.official_end_date, v_open);
+  v_end := CASE 
+             WHEN COALESCE(v_instr.is_driver_bet, false) THEN COALESCE(v_instr.open_date, v_instr.official_end_date, v_open)
+             ELSE COALESCE(v_instr.official_end_date, v_open)
+           END;
   IF v_end <= v_open THEN
     v_total_interval := 0;
   ELSE
@@ -75,7 +78,8 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.get_official_price_by_ticket_type_at(p_ticket_type_id UUID, p_at TIMESTAMPTZ)
+-- Price accounting with purchase quantity (uses NOW)
+CREATE OR REPLACE FUNCTION public.get_official_price_for_purchase(p_ticket_type_id UUID, p_quantity INTEGER)
 RETURNS NUMERIC
 LANGUAGE plpgsql
 AS $$
@@ -83,6 +87,7 @@ DECLARE
   v_instr RECORD;
   v_base NUMERIC;
   v_flex NUMERIC;
+  v_noise_pct NUMERIC;
   v_limit INTEGER;
   v_open TIMESTAMPTZ;
   v_end TIMESTAMPTZ;
@@ -90,8 +95,12 @@ DECLARE
   v_elapsed NUMERIC;
   v_time_factor NUMERIC;
   v_total_sold INTEGER;
+  v_group_total_sold INTEGER;
+  v_group_limit INTEGER;
   v_demand_ratio NUMERIC;
   v_price NUMERIC;
+  v_noise NUMERIC;
+  v_hour TIMESTAMPTZ;
 BEGIN
   SELECT i.* INTO v_instr
   FROM public.support_instruments i
@@ -104,9 +113,86 @@ BEGIN
   END IF;
   v_base := COALESCE(v_instr.ticket_price, 1.0);
   v_flex := COALESCE(v_instr.dynamic_flex_pct, 0);
+  v_noise_pct := COALESCE(v_instr.dynamic_noise_pct, 0) / 100.0;
   v_limit := COALESCE(v_instr.ticket_limit, 0);
   v_open := COALESCE(v_instr.open_date, v_instr.created_at);
-  v_end := COALESCE(v_instr.official_end_date, v_open);
+  v_end := CASE 
+             WHEN COALESCE(v_instr.is_driver_bet, false) THEN COALESCE(v_instr.open_date, v_instr.official_end_date, v_open)
+             ELSE COALESCE(v_instr.official_end_date, v_open)
+           END;
+  IF v_end <= v_open THEN
+    v_total_interval := 0;
+  ELSE
+    v_total_interval := EXTRACT(EPOCH FROM (v_end - v_open));
+  END IF;
+  v_elapsed := CASE WHEN v_total_interval = 0 THEN 0 ELSE GREATEST(0, LEAST(v_total_interval, EXTRACT(EPOCH FROM (NOW() - v_open)))) END;
+  v_time_factor := CASE WHEN v_total_interval = 0 THEN 0 ELSE v_elapsed / v_total_interval END;
+  
+  IF COALESCE(v_instr.is_driver_bet, false) THEN
+    -- Side-specific demand for driver bets
+    SELECT COALESCE(SUM(balance), 0) INTO v_total_sold
+    FROM public.user_ticket_balances
+    WHERE ticket_type_id = p_ticket_type_id;
+    -- Use instrument ticket_limit as per-side cap
+    v_limit := COALESCE(v_instr.ticket_limit, v_limit);
+  ELSE
+    SELECT COALESCE(SUM(balance), 0) INTO v_total_sold
+    FROM public.user_ticket_balances
+    WHERE ticket_type_id = p_ticket_type_id;
+  END IF;
+  
+  IF v_limit IS NULL OR v_limit = 0 THEN
+    v_demand_ratio := 0;
+  ELSE
+    v_demand_ratio := GREATEST(0, LEAST(1, ((v_total_sold + GREATEST(p_quantity, 0))::NUMERIC / v_limit::NUMERIC)));
+  END IF;
+  
+  v_hour := date_trunc('hour', NOW());
+  v_noise := v_noise_pct * sin( (EXTRACT(EPOCH FROM v_hour) / 3600.0) * 0.7 + ascii(substr(COALESCE(p_ticket_type_id::text, v_instr.id::text), 1, 1)) );
+  v_price := v_base * (1 + v_flex * (0.5 * v_time_factor + 0.5 * v_demand_ratio)) * (1 + v_noise);
+  IF v_price < 0.1 THEN v_price := 0.1; END IF;
+  RETURN v_price;
+END;
+$$;
+CREATE OR REPLACE FUNCTION public.get_official_price_by_ticket_type_at(p_ticket_type_id UUID, p_at TIMESTAMPTZ)
+RETURNS NUMERIC
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_instr RECORD;
+  v_base NUMERIC;
+  v_flex NUMERIC;
+  v_noise_pct NUMERIC;
+  v_limit INTEGER;
+  v_open TIMESTAMPTZ;
+  v_end TIMESTAMPTZ;
+  v_total_interval NUMERIC;
+  v_elapsed NUMERIC;
+  v_time_factor NUMERIC;
+  v_total_sold INTEGER;
+  v_demand_ratio NUMERIC;
+  v_price NUMERIC;
+  v_noise NUMERIC;
+  v_hour TIMESTAMPTZ;
+BEGIN
+  SELECT i.* INTO v_instr
+  FROM public.support_instruments i
+  WHERE i.ticket_type_id = p_ticket_type_id
+     OR i.ticket_type_a_id = p_ticket_type_id
+     OR i.ticket_type_b_id = p_ticket_type_id
+  LIMIT 1;
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+  v_base := COALESCE(v_instr.ticket_price, 1.0);
+  v_flex := COALESCE(v_instr.dynamic_flex_pct, 0);
+  v_noise_pct := COALESCE(v_instr.dynamic_noise_pct, 0) / 100.0;
+  v_limit := COALESCE(v_instr.ticket_limit, 0);
+  v_open := COALESCE(v_instr.open_date, v_instr.created_at);
+  v_end := CASE 
+             WHEN COALESCE(v_instr.is_driver_bet, false) THEN COALESCE(v_instr.open_date, v_instr.official_end_date, v_open)
+             ELSE COALESCE(v_instr.official_end_date, v_open)
+           END;
   IF v_end <= v_open THEN
     v_total_interval := 0;
   ELSE
@@ -114,15 +200,26 @@ BEGIN
   END IF;
   v_elapsed := CASE WHEN v_total_interval = 0 THEN 0 ELSE GREATEST(0, LEAST(v_total_interval, EXTRACT(EPOCH FROM (p_at - v_open)))) END;
   v_time_factor := CASE WHEN v_total_interval = 0 THEN 0 ELSE v_elapsed / v_total_interval END;
-  SELECT COALESCE(SUM(balance), 0) INTO v_total_sold
-  FROM public.user_ticket_balances
-  WHERE ticket_type_id = p_ticket_type_id;
+  IF COALESCE(v_instr.is_driver_bet, false) THEN
+    -- Side-specific demand for driver bets at timestamp
+    SELECT COALESCE(SUM(balance), 0) INTO v_total_sold
+    FROM public.user_ticket_balances
+    WHERE ticket_type_id = p_ticket_type_id;
+    v_limit := COALESCE(v_instr.ticket_limit, v_limit);
+  ELSE
+    SELECT COALESCE(SUM(balance), 0) INTO v_total_sold
+    FROM public.user_ticket_balances
+    WHERE ticket_type_id = p_ticket_type_id;
+  END IF;
   IF v_limit IS NULL OR v_limit = 0 THEN
     v_demand_ratio := 0;
   ELSE
     v_demand_ratio := GREATEST(0, LEAST(1, (v_total_sold::NUMERIC / v_limit::NUMERIC)));
   END IF;
-  v_price := v_base * (1 + v_flex * (0.5 * v_time_factor + 0.5 * v_demand_ratio));
+  -- Deterministic hourly noise based on instrument id and hour timestamp
+  v_hour := date_trunc('hour', p_at);
+  v_noise := v_noise_pct * sin( (EXTRACT(EPOCH FROM v_hour) / 3600.0) * 0.7 + ascii(substr(COALESCE(p_ticket_type_id::text, v_instr.id::text), 1, 1)) );
+  v_price := v_base * (1 + v_flex * (0.5 * v_time_factor + 0.5 * v_demand_ratio)) * (1 + v_noise);
   IF v_price < 0.1 THEN v_price := 0.1; END IF;
   RETURN v_price;
 END;
@@ -135,6 +232,7 @@ DECLARE
   v_instr RECORD;
   v_base NUMERIC;
   v_flex NUMERIC;
+  v_noise_pct NUMERIC;
   v_limit INTEGER;
   v_open TIMESTAMPTZ;
   v_end TIMESTAMPTZ;
@@ -142,8 +240,12 @@ DECLARE
   v_elapsed NUMERIC;
   v_time_factor NUMERIC;
   v_total_sold INTEGER;
+  v_group_total_sold INTEGER;
+  v_group_limit INTEGER;
   v_demand_ratio NUMERIC;
   v_price NUMERIC;
+  v_noise NUMERIC;
+  v_hour TIMESTAMPTZ;
 BEGIN
   SELECT i.* INTO v_instr
   FROM public.support_instruments i
@@ -158,6 +260,7 @@ BEGIN
   
   v_base := COALESCE(v_instr.ticket_price, 1.0);
   v_flex := COALESCE(v_instr.dynamic_flex_pct, 0);
+  v_noise_pct := COALESCE(v_instr.dynamic_noise_pct, 0) / 100.0;
   v_limit := COALESCE(v_instr.ticket_limit, 0);
   v_open := COALESCE(v_instr.open_date, v_instr.created_at);
   v_end := COALESCE(v_instr.official_end_date, v_open);
@@ -170,9 +273,24 @@ BEGIN
   v_elapsed := CASE WHEN v_total_interval = 0 THEN 0 ELSE GREATEST(0, LEAST(v_total_interval, EXTRACT(EPOCH FROM (NOW() - v_open)))) END;
   v_time_factor := CASE WHEN v_total_interval = 0 THEN 0 ELSE v_elapsed / v_total_interval END;
   
-  SELECT COALESCE(SUM(balance), 0) INTO v_total_sold
-  FROM public.user_ticket_balances
-  WHERE ticket_type_id = p_ticket_type_id;
+  IF COALESCE(v_instr.is_driver_bet, false) THEN
+    SELECT COALESCE(SUM(b.balance), 0) INTO v_group_total_sold
+    FROM public.support_instruments i
+    LEFT JOIN public.user_ticket_balances b
+      ON b.ticket_type_id IN (i.ticket_type_a_id, i.ticket_type_b_id)
+    WHERE i.is_driver_bet = true
+      AND i.title = v_instr.title;
+    v_total_sold := COALESCE(v_group_total_sold, 0);
+    SELECT COALESCE(SUM(COALESCE(i.ticket_limit, 0)), 0) INTO v_group_limit
+    FROM public.support_instruments i
+    WHERE i.is_driver_bet = true
+      AND i.title = v_instr.title;
+    v_limit := COALESCE(v_group_limit, v_limit);
+  ELSE
+    SELECT COALESCE(SUM(balance), 0) INTO v_total_sold
+    FROM public.user_ticket_balances
+    WHERE ticket_type_id = p_ticket_type_id;
+  END IF;
   
   IF v_limit IS NULL OR v_limit = 0 THEN
     v_demand_ratio := 0;
@@ -180,7 +298,9 @@ BEGIN
     v_demand_ratio := GREATEST(0, LEAST(1, (v_total_sold::NUMERIC / v_limit::NUMERIC)));
   END IF;
   
-  v_price := v_base * (1 + v_flex * (0.5 * v_time_factor + 0.5 * v_demand_ratio));
+  v_hour := date_trunc('hour', NOW());
+  v_noise := v_noise_pct * sin( (EXTRACT(EPOCH FROM v_hour) / 3600.0) * 0.7 + ascii(substr(COALESCE(p_ticket_type_id::text, v_instr.id::text), 1, 1)) );
+  v_price := v_base * (1 + v_flex * (0.5 * v_time_factor + 0.5 * v_demand_ratio)) * (1 + v_noise);
   IF v_price < 0.1 THEN v_price := 0.1; END IF;
   
   RETURN v_price;
@@ -533,3 +653,66 @@ BEGIN
   RETURN v_avg;
 END;
 $avg$;
+
+-- Record previous hour official prices for all active ticket types
+CREATE OR REPLACE FUNCTION public.record_previous_hour_official_prices()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $rec$
+DECLARE
+  v_ts TIMESTAMPTZ := date_trunc('hour', NOW()) - INTERVAL '1 hour';
+  v_rows INTEGER := 0;
+  v_last INTEGER := 0;
+BEGIN
+  -- Normal instruments
+  INSERT INTO public.official_price_history (instrument_id, ticket_type_id, price, created_at)
+  SELECT i.id, i.ticket_type_id, public.get_official_price_by_ticket_type_at(i.ticket_type_id, v_ts), v_ts
+  FROM public.support_instruments i
+  WHERE i.ticket_type_id IS NOT NULL
+    AND COALESCE(i.resolution_status, '') <> 'RESOLVED'
+    AND NOT EXISTS (
+      SELECT 1 FROM public.official_price_history h
+      WHERE h.ticket_type_id = i.ticket_type_id AND h.created_at = v_ts
+    );
+  GET DIAGNOSTICS v_last = ROW_COUNT;
+  v_rows := v_rows + COALESCE(v_last, 0);
+  
+  -- Driver bet A
+  INSERT INTO public.official_price_history (instrument_id, ticket_type_id, price, created_at)
+  SELECT i.id, i.ticket_type_a_id, public.get_official_price_by_ticket_type_at(i.ticket_type_a_id, v_ts), v_ts
+  FROM public.support_instruments i
+  WHERE i.ticket_type_a_id IS NOT NULL
+    AND COALESCE(i.resolution_status, '') <> 'RESOLVED'
+    AND NOT EXISTS (
+      SELECT 1 FROM public.official_price_history h
+      WHERE h.ticket_type_id = i.ticket_type_a_id AND h.created_at = v_ts
+    );
+  GET DIAGNOSTICS v_last = ROW_COUNT;
+  v_rows := v_rows + COALESCE(v_last, 0);
+  
+  -- Driver bet B
+  INSERT INTO public.official_price_history (instrument_id, ticket_type_id, price, created_at)
+  SELECT i.id, i.ticket_type_b_id, public.get_official_price_by_ticket_type_at(i.ticket_type_b_id, v_ts), v_ts
+  FROM public.support_instruments i
+  WHERE i.ticket_type_b_id IS NOT NULL
+    AND COALESCE(i.resolution_status, '') <> 'RESOLVED'
+    AND NOT EXISTS (
+      SELECT 1 FROM public.official_price_history h
+      WHERE h.ticket_type_id = i.ticket_type_b_id AND h.created_at = v_ts
+    );
+  GET DIAGNOSTICS v_last = ROW_COUNT;
+  v_rows := v_rows + COALESCE(v_last, 0);
+  
+  RETURN jsonb_build_object('success', true, 'recorded_at', v_ts, 'rows', COALESCE(v_rows, 0));
+END;
+$rec$;
+
+-- Hourly scheduler: record previous hour and compress
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+SELECT cron.unschedule('hourly_official_price_tasks');
+SELECT cron.schedule(
+  'hourly_official_price_tasks',
+  '5 * * * *',
+  $$ SELECT public.record_previous_hour_official_prices(); SELECT public.compress_price_histories(); $$
+);

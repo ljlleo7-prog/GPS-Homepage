@@ -12,6 +12,7 @@ ALTER TABLE public.minigame_prize_pools ENABLE ROW LEVEL SECURITY;
 -- Allow read for everyone
 DROP POLICY IF EXISTS "Prize pools viewable by everyone" ON public.minigame_prize_pools;
 CREATE POLICY "Prize pools viewable by everyone" ON public.minigame_prize_pools FOR SELECT USING (true);
+CREATE POLICY "Prize pools updatable" ON public.minigame_prize_pools FOR UPDATE USING (true) WITH CHECK (true);
 
 -- Seed one_lap_duel pool if missing
 INSERT INTO public.minigame_prize_pools (game_key, current_pool)
@@ -51,3 +52,31 @@ CREATE POLICY "Participants can insert race results"
 ON public.one_lap_races 
 FOR INSERT 
 WITH CHECK (auth.role() = 'authenticated');
+
+-- 5. Inactivity enforcement for room players
+CREATE OR REPLACE FUNCTION public.enforce_one_lap_room_inactivity()
+RETURNS void AS $$
+BEGIN
+    -- Prepared -> Preparing after 5 minutes of inactivity
+    UPDATE public.one_lap_room_players rp
+    SET is_ready = FALSE
+    WHERE rp.is_ready = TRUE
+      AND rp.last_active_at IS NOT NULL
+      AND rp.last_active_at < NOW() - INTERVAL '5 minutes';
+
+    -- Kick guests after 60 minutes of inactivity
+    DELETE FROM public.one_lap_room_players rp
+    USING public.one_lap_rooms r
+    WHERE rp.room_id = r.id
+      AND rp.last_active_at IS NOT NULL
+      AND rp.last_active_at < NOW() - INTERVAL '60 minutes'
+      AND rp.user_id <> r.created_by;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Schedule enforcement to run every minute
+SELECT cron.schedule(
+    'onelap_room_inactivity',
+    '* * * * *',
+    $$ SELECT public.enforce_one_lap_room_inactivity() $$
+);

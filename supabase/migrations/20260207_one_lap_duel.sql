@@ -34,6 +34,10 @@ CREATE TABLE IF NOT EXISTS public.one_lap_room_players (
     PRIMARY KEY (room_id, user_id)
 );
 
+-- Activity tracking for inactivity timeout
+ALTER TABLE IF EXISTS public.one_lap_room_players
+    ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ DEFAULT NOW();
+
 -- 4. Race Results (History)
 CREATE TABLE IF NOT EXISTS public.one_lap_races (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

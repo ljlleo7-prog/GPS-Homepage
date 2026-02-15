@@ -470,6 +470,7 @@
         "units": "units",
         "avg_buy_price": "Avg Buy",
         "list_for_sale": "List for Sale",
+        "withdraw": "Withdraw",
         "create_type_btn": "Launch Campaign",
         "create_type_title": "Launch New Campaign",
         "create_type_desc": "Create a new prediction market ticket."
@@ -741,6 +742,7 @@
       "force_start": "Force Start",
       "waiting_for_players": "Waiting for players...",
       "waiting_opponent": "Waiting for opponent...",
+      "reload": "Reload",
       "waiting_all_ready": "Waiting for all players to be ready...",
       "ready": "Ready",
       "cancel_ready": "Cancel Ready",

@@ -98,15 +98,7 @@ export default function PriceTrend({
       setLoading(false);
     };
     fetchTrend();
-    let timer: any = null;
-    if (interval === '1d') {
-      timer = setInterval(() => {
-        setTickNow(Date.now());
-        fetchTrend();
-      }, 60000);
-    }
     return () => {
-      if (timer) clearInterval(timer);
     };
   }, [ticketTypeAId, ticketTypeBId, ticketTypeId, interval]);
 

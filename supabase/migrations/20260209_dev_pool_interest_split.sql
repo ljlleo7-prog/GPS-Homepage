@@ -42,7 +42,10 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'message', 'Invalid ticket amount');
   END IF;
 
-  v_cost := p_amount * public.get_official_price_by_ticket_type(v_instrument.ticket_type_id);
+  -- Quantity-aware price: midpoint between current and post-purchase price
+  PERFORM 1;
+  v_cost := p_amount * ((public.get_official_price_by_ticket_type(v_instrument.ticket_type_id) 
+                       + public.get_official_price_for_purchase(v_instrument.ticket_type_id, p_amount)) / 2.0);
 
   SELECT id INTO v_wallet_id FROM public.wallets WHERE user_id = v_user_id;
 

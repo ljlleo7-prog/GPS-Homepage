@@ -11,7 +11,18 @@ CREATE TABLE IF NOT EXISTS public.official_price_history (
 );
 
 ALTER TABLE public.official_price_history ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Official price history is viewable by everyone" ON public.official_price_history FOR SELECT USING (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' 
+      AND tablename = 'official_price_history' 
+      AND polname = 'Official price history is viewable by everyone'
+  ) THEN
+    EXECUTE 'CREATE POLICY "Official price history is viewable by everyone" ON public.official_price_history FOR SELECT USING (true)';
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION public.get_official_price(p_instrument_id UUID)
 RETURNS NUMERIC
@@ -93,6 +104,7 @@ CREATE OR REPLACE FUNCTION public.get_ticket_price_trend(
 )
 RETURNS JSONB
 LANGUAGE plpgsql
+SECURITY DEFINER
 AS $$
 DECLARE
   v_start TIMESTAMPTZ;
@@ -213,6 +225,7 @@ CREATE OR REPLACE FUNCTION public.buy_driver_bet_ticket(
 )
 RETURNS JSONB
 LANGUAGE plpgsql
+SECURITY DEFINER
 AS $$
 DECLARE
   v_user_id UUID := auth.uid();
@@ -286,7 +299,9 @@ BEGIN
   END IF;
   v_adjust := (0.5 * v_time_factor + 0.5 * v_demand_ratio) - 0.5;
   v_noise_pct := COALESCE(v_instrument.dynamic_noise_pct, 0) / 100.0 * ((random() * 2) - 1);
-  v_price := public.get_official_price_by_ticket_type(v_ticket_type_id);
+  -- Quantity-aware price midpoint (driver bets use side-specific demand)
+  v_price := (public.get_official_price_by_ticket_type(v_ticket_type_id)
+              + public.get_official_price_for_purchase(v_ticket_type_id, p_quantity)) / 2.0;
   IF v_price < 0.1 THEN
     v_price := 0.1;
   END IF;
@@ -376,7 +391,18 @@ CREATE TABLE IF NOT EXISTS public.official_price_daily_history (
   PRIMARY KEY (instrument_id, ticket_type_id, day)
 );
 ALTER TABLE public.official_price_daily_history ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Official daily price history is viewable by everyone" ON public.official_price_daily_history FOR SELECT USING (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' 
+      AND tablename = 'official_price_daily_history' 
+      AND polname = 'Official daily price history is viewable by everyone'
+  ) THEN
+    EXECUTE 'CREATE POLICY "Official daily price history is viewable by everyone" ON public.official_price_daily_history FOR SELECT USING (true)';
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE TABLE IF NOT EXISTS public.civil_price_daily_history (
   ticket_type_id UUID REFERENCES public.ticket_types(id) ON DELETE CASCADE NOT NULL,
@@ -385,7 +411,18 @@ CREATE TABLE IF NOT EXISTS public.civil_price_daily_history (
   PRIMARY KEY (ticket_type_id, day)
 );
 ALTER TABLE public.civil_price_daily_history ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Civil daily price history is viewable by everyone" ON public.civil_price_daily_history FOR SELECT USING (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE schemaname = 'public' 
+      AND tablename = 'civil_price_daily_history' 
+      AND polname = 'Civil daily price history is viewable by everyone'
+  ) THEN
+    EXECUTE 'CREATE POLICY "Civil daily price history is viewable by everyone" ON public.civil_price_daily_history FOR SELECT USING (true)';
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Backfill official hourly history with current price from creation to now
 CREATE OR REPLACE FUNCTION public.fill_official_history_backfill(p_instrument_id UUID)

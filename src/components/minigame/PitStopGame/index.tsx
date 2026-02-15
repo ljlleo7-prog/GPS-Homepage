@@ -611,9 +611,6 @@ export default function PitStopGame() {
                                                     <div className="text-gray-400 text-sm mb-1">
                                                         {t('minigame.pit_stop.too_slow')}
                                                     </div>
-                                                    <div className="text-sm text-gray-500">
-                                                        {t('minigame.pit_stop.reward_threshold')}
-                                                    </div>
                                                 </div>
                                             )}
                                         </div>

@@ -474,6 +474,7 @@
         "units": "单位",
         "avg_buy_price": "平均买入",
         "list_for_sale": "上架出售",
+        "withdraw": "撤回挂单",
         "create_type_btn": "发起活动",
         "create_type_title": "发起新活动",
         "create_type_desc": "创建新的预测市场票据。"
@@ -761,6 +762,7 @@
       "force_start": "强制开始",
       "waiting_for_players": "等待玩家...",
       "waiting_opponent": "等待对手...",
+      "reload": "刷新",
       "waiting_all_ready": "等待所有玩家准备...",
       "ready": "准备",
       "cancel_ready": "取消准备",
@@ -944,6 +946,7 @@
         "decline_test": "拒绝此请求？"
       },
       "prompts": {
+        "password_confirm": "请输入密码以确认此操作",
         "proof_url": "输入证明 URL（可选）：",
         "decline_reason": "请输入拒绝原因（将通知用户）："
       },

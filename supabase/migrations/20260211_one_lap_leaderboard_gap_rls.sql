@@ -138,15 +138,17 @@ BEGIN
         INSERT INTO public.ledger_entries (
             wallet_id, amount, currency, operation_type, reference_id, description
         ) VALUES (
-            v_winner_wallet_id, 5, 'TOKEN', 'REWARD', new.id, 'Victory in One Lap Duel'
+            v_winner_wallet_id, 5, 'TOKEN', 'WIN', new.id, 'Victory in One Lap Duel'
         );
     END IF;
     
     -- Prize Pool
-    UPDATE public.minigame_prize_pools
-    SET current_pool = current_pool + 2,
-        updated_at = NOW()
-    WHERE game_key = 'one_lap_duel';
+    INSERT INTO public.minigame_prize_pools (game_key, current_pool, updated_at)
+    VALUES ('one_lap_duel', 2, NOW())
+    ON CONFLICT (game_key) DO
+      UPDATE SET 
+        current_pool = public.minigame_prize_pools.current_pool + EXCLUDED.current_pool,
+        updated_at = NOW();
 
     -- 2. LEADERBOARD UPDATE (Winner)
     INSERT INTO public.one_lap_leaderboard (user_id, best_gap_sec, races_played, wins, total_points, updated_at)

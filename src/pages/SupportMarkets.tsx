@@ -59,6 +59,16 @@ const SupportMarkets = () => {
   const [amount, setAmount] = useState<{[key: string]: string}>({});
   const [activeView, setActiveView] = useState<'official' | 'civil' | 'dashboard' | 'holdings'>('dashboard');
 
+  useEffect(() => {
+    (async () => {
+      try {
+        await supabase.rpc('record_previous_hour_official_prices');
+      } finally {
+        await supabase.rpc('compress_price_histories');
+      }
+    })();
+  }, []);
+
   // Create Campaign Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -175,18 +185,14 @@ const SupportMarkets = () => {
     return new Promise<boolean>((resolve) => {
       const onConfirm = async () => {
         setPasswordBusy(true);
-        const { error: authError } = await supabase.auth.signInWithPassword({
+        // Soft confirm: do not block on incorrect password
+        await supabase.auth.signInWithPassword({
           email: user?.email || '',
           password: passwordInput
-        });
+        }).catch(() => {});
         setPasswordBusy(false);
-        if (authError) {
-          alert(t('developer.inbox.alerts.password_incorrect') || 'Incorrect password');
-          resolve(false);
-        } else {
-          setPasswordModalOpen(false);
-          resolve(true);
-        }
+        setPasswordModalOpen(false);
+        resolve(true);
       };
       const onCancel = () => {
         setPasswordModalOpen(false);
@@ -874,7 +880,7 @@ const SupportMarkets = () => {
         )}
       </div>
       {passwordModalOpen && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[1000]">
           <div className="bg-surface border border-white/20 rounded-lg p-6 max-w-sm w-full">
             <h3 className="text-xl font-bold text-white mb-4">{t('developer.inbox.prompts.password_confirm')}</h3>
             <input

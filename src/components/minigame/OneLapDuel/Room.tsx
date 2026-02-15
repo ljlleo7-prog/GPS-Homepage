@@ -33,12 +33,17 @@ export default function Room({ roomId, driver, onLeave }: Props) {
   const raceStateRef = useRef<RaceState | null>(null); // For loop access
   const raceIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const clientLoopRef = useRef<NodeJS.Timeout | null>(null); // Client-side prediction loop
+  const raceEngineRafRef = useRef<number | null>(null); // Host-side smooth engine
   const lastStrategyUpdate = useRef<number>(0); // Rate limiting
 
   const updateRaceState = (newState: RaceState | null) => {
       raceStateRef.current = newState;
       setRaceState(newState);
   };
+
+  // Authoritative state from host (last broadcast) for strict re-simulation
+  const authoritativeStateRef = useRef<RaceState | null>(null);
+  const authoritativeTsRef = useRef<number>(0);
 
   const lastLineChangeNodeRef = useRef<number>(-1);
   const [toast, setToast] = useState<{msg: string, type: 'error' | 'success'} | null>(null);
@@ -78,7 +83,10 @@ export default function Room({ roomId, driver, onLeave }: Props) {
         fetchRoomDetails(); 
       })
       .on('broadcast', { event: 'race_update' }, (payload) => {
-          updateRaceState(payload.payload);
+          const base = payload.payload as RaceState;
+          authoritativeStateRef.current = base;
+          authoritativeTsRef.current = performance.now();
+          updateRaceState(base);
       })
       .on('broadcast', { event: 'start_countdown' }, () => {
           // Trigger Countdown for Everyone
@@ -108,20 +116,61 @@ export default function Room({ roomId, driver, onLeave }: Props) {
       supabase.removeChannel(roomChannel);
       if (raceIntervalRef.current) clearInterval(raceIntervalRef.current);
       if (clientLoopRef.current) clearInterval(clientLoopRef.current);
+      if (raceEngineRafRef.current) cancelAnimationFrame(raceEngineRafRef.current);
     };
   }, [roomId]);
 
-  // Client-side Prediction Loop (Inertial Navigation)
+  // Heartbeat to mark activity while in the room/waiting zone
   useEffect(() => {
-      clientLoopRef.current = setInterval(() => {
-          const currentState = raceStateRef.current;
-          if (!currentState || currentState.finished) return;
-          if (playersRef.current.length < 2 || !playersRef.current[0]?.one_lap_drivers || !playersRef.current[1]?.one_lap_drivers) {
+    if (!user?.id) return;
+    const interval = setInterval(async () => {
+        try {
+            await supabase
+              .from('one_lap_room_players')
+              .update({ last_active_at: new Date().toISOString() })
+              .eq('room_id', roomId)
+              .eq('user_id', user.id);
+        } catch (e) {
+            // silent
+        }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [user?.id, roomId]);
+
+  // Ensure track geometry is initialized (start_dist/end_dist) before physics
+  const trackInitRef = useRef<string | null>(null);
+  useEffect(() => {
+      const key = (room?.track_id || 'monza') + ':' + currentTrack.length;
+      if (trackInitRef.current !== key) {
+          let dist = 0;
+          currentTrack.forEach((node) => {
+              node.start_dist = dist;
+              dist += node.length;
+              node.end_dist = dist;
+          });
+          trackInitRef.current = key;
+      }
+  }, [currentTrack, room?.track_id]);
+
+  const animationFrameRef = useRef<number | null>(null);
+  useEffect(() => {
+      let lastTs = performance.now();
+      const loop = () => {
+          const baseState = authoritativeStateRef.current;
+          if (!baseState || baseState.finished) {
+              animationFrameRef.current = requestAnimationFrame(loop);
               return;
           }
+          if (playersRef.current.length < 2) {
+              animationFrameRef.current = requestAnimationFrame(loop);
+              return;
+          }
+          const now = performance.now();
+          let dt = (now - lastTs) / 1000;
+          lastTs = now;
+          dt = Math.min(Math.max(dt, 0.016), 0.1);
           const p1 = playersRef.current[0];
           const p2 = playersRef.current[1];
-          const dt = 0.05;
           const defaultDriver: DriverStats = { 
               user_id: 'fallback',
               acceleration_skill: 10, 
@@ -135,19 +184,24 @@ export default function Room({ roomId, driver, onLeave }: Props) {
               training_mode: 'rest',
               focused_skills: []
           };
+          // Strict inertial navigation: re-simulate from last host tick based on elapsed time since that tick
+          const elapsedFromHost = (performance.now() - authoritativeTsRef.current) / 1000;
+          const effectiveDt = Math.min(Math.max(elapsedFromHost, 0), 1.0);
           const predicted = advanceRaceStateDelta(
-              currentState,
+              baseState,
               { id: p1.user_id, driver: p1.one_lap_drivers || defaultDriver, strategy: p1.strategy },
               { id: p2.user_id, driver: p2.one_lap_drivers || defaultDriver, strategy: p2.strategy },
               currentTrack,
-              dt
+              effectiveDt
           );
           updateRaceState(predicted);
-      }, 50);
-      return () => {
-          if (clientLoopRef.current) clearInterval(clientLoopRef.current);
+          animationFrameRef.current = requestAnimationFrame(loop);
       };
-  }, [currentTrack]); 
+      animationFrameRef.current = requestAnimationFrame(loop);
+      return () => {
+          if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      };
+  }, [currentTrack]);
 
   // Watch for Finish
   useEffect(() => {
@@ -341,21 +395,48 @@ export default function Room({ roomId, driver, onLeave }: Props) {
 
   const startRaceEngineRef = async () => {
       const initialState = getInitialRaceState(currentTrack);
-      
       let currentState = initialState;
       updateRaceState(currentState);
-
-      // Broadcast Start
+      authoritativeStateRef.current = currentState;
+      authoritativeTsRef.current = performance.now();
       supabase.channel(`room:${roomId}`).send({
           type: 'broadcast',
           event: 'race_update',
           payload: initialState
       });
-
-      raceIntervalRef.current = setInterval(async () => {
+      let lastTs = performance.now();
+      let tickAccum = 0;
+      const engine = async () => {
+          const now = performance.now();
+          let dt = (now - lastTs) / 1000;
+          lastTs = now;
+          dt = Math.min(Math.max(dt, 0.016), 0.1);
+          const p1 = playersRef.current[0];
+          const p2 = playersRef.current[1];
+          if (!p1 || !p2) {
+              raceEngineRafRef.current = requestAnimationFrame(engine);
+              return;
+          }
+          currentState = advanceRaceStateDelta(
+              currentState,
+              { id: p1.user_id, driver: p1.one_lap_drivers, strategy: p1.strategy },
+              { id: p2.user_id, driver: p2.one_lap_drivers, strategy: p2.strategy },
+              currentTrack,
+              dt
+          );
+          updateRaceState(currentState);
+          tickAccum += dt;
+          if (tickAccum >= 1.0) {
+              tickAccum -= 1.0;
+              authoritativeStateRef.current = currentState;
+              authoritativeTsRef.current = performance.now();
+              supabase.channel(`room:${roomId}`).send({
+                  type: 'broadcast',
+                  event: 'race_update',
+                  payload: currentState
+              });
+          }
           if (currentState.finished) {
-              if (raceIntervalRef.current) clearInterval(raceIntervalRef.current);
-              
               const sanitized = sanitizeLogs(currentState.logs);
               await supabase.from('one_lap_races').insert([{
                   room_id: roomId,
@@ -363,63 +444,43 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                   simulation_log: sanitized
               }]);
               await supabase.from('one_lap_rooms').update({ status: 'finished' }).eq('id', roomId);
-
-              // Explicit Stats Update (Fix for "Win not applied")
+              // Stats & leaderboard updates
               if (currentState.winner_id) {
-                  // Calculate Points based on New Policy
-                  const p1 = playersRef.current[0];
-                  const p2 = playersRef.current[1];
-                  
-                  if (p1 && p2) {
-                      const isP1Winner = currentState.winner_id === p1.user_id;
+                  const p1Local = playersRef.current[0];
+                  const p2Local = playersRef.current[1];
+                  if (p1Local && p2Local) {
+                      const isP1Winner = currentState.winner_id === p1Local.user_id;
                       const winnerState = isP1Winner ? currentState.p1 : currentState.p2;
                       const loserState = isP1Winner ? currentState.p2 : currentState.p1;
-                      
-                      // Calculate Time Gap
                       const gapDist = Math.abs(asFinite(winnerState.distance) - asFinite(loserState.distance));
                       const loserSpeedMsRaw = asFinite(loserState.speed / 3.6);
                       const loserSpeedMs = loserSpeedMsRaw > 0 ? loserSpeedMsRaw : 5;
                       const computedTimeGap = gapDist / loserSpeedMs;
                       const timeGap = Number.isFinite(computedTimeGap) ? computedTimeGap : 0.5;
-                      
                       let points = 0;
                       if (timeGap < 0.2) points = 1;
                       else if (timeGap < 0.5) points = 2;
                       else if (timeGap < 1.0) points = 3;
                       else if (timeGap < 2.0) points = 4;
                       else points = 5;
-                      
-                      // Overtake Multiplier (If Winner started P2/Behind)
-                      // Grid 1 = Ahead (0m), Grid 2 = Behind (-10m)
                       let multiplier = 1;
                       if (isP1Winner) {
                           if (currentState.starting_grid.p1 === 2) multiplier = 2;
                       } else {
                           if (currentState.starting_grid.p2 === 2) multiplier = 2;
                       }
-                      
                       const totalPoints = points * multiplier;
-
-                      const loserId = isP1Winner ? p2.user_id : p1.user_id;
-
-                      // Winner: +1 Win, +Points, Update Best Gap
-                      const { data: wData, error: wError } = await supabase.from('one_lap_drivers').select('wins, points, best_gap_sec').eq('user_id', currentState.winner_id).single();
-                      if (wError) console.error('Error fetching winner data:', wError);
+                      const loserId = isP1Winner ? p2Local.user_id : p1Local.user_id;
+                      const { data: wData } = await supabase.from('one_lap_drivers').select('wins, points, best_gap_sec').eq('user_id', currentState.winner_id).single();
                       if (wData) {
-                          // Calculate Best Gap (More negative is better)
                           const currentGap = -timeGap;
                           const oldBest = wData.best_gap_sec !== undefined && wData.best_gap_sec !== null ? wData.best_gap_sec : 999;
                           const newBest = Number.isFinite(currentGap) ? Math.min(currentGap, oldBest) : oldBest;
-
-                          const { error: wUpdateError } = await supabase.from('one_lap_drivers').update({ 
+                          await supabase.from('one_lap_drivers').update({ 
                               wins: (wData.wins || 0) + 1, 
                               points: (wData.points || 0) + totalPoints,
                               best_gap_sec: newBest
                           }).eq('user_id', currentState.winner_id);
-                          if (wUpdateError) console.error('Error updating winner stats:', wUpdateError);
-                          
-                          // Update Leaderboard
-                          // Try RPC first, fallback to direct update if function missing
                           const { error: rpcError } = await supabase.rpc('update_leaderboard_from_driver', { p_user_id: currentState.winner_id });
                           if (rpcError) {
                               const { data: existingLB } = await supabase.from('one_lap_leaderboard').select('races_played').eq('user_id', currentState.winner_id).single();
@@ -433,48 +494,20 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                               });
                           }
                       }
-
-                      // Loser: +1 Loss
-                      const { data: lData, error: lError } = await supabase.from('one_lap_drivers').select('losses').eq('user_id', loserId).single();
-                      if (lError) console.error('Error fetching loser data:', lError);
+                      const { data: lData } = await supabase.from('one_lap_drivers').select('losses').eq('user_id', loserId).single();
                       if (lData) {
-                          const { error: lUpdateError } = await supabase.from('one_lap_drivers').update({ 
+                          await supabase.from('one_lap_drivers').update({ 
                               losses: (lData.losses || 0) + 1 
                           }).eq('user_id', loserId);
-                          if (lUpdateError) console.error('Error updating loser stats:', lUpdateError);
-
-                          // Update Leaderboard
                           await supabase.rpc('update_leaderboard_from_driver', { p_user_id: loserId });
                       }
-
                   }
               }
-
               return;
           }
-
-          const p1 = playersRef.current[0];
-          const p2 = playersRef.current[1];
-
-          if (!p1 || !p2) return; // Safety check
-
-          currentState = advanceRaceState(
-              currentState,
-              { id: p1.user_id, driver: p1.one_lap_drivers, strategy: p1.strategy },
-              { id: p2.user_id, driver: p2.one_lap_drivers, strategy: p2.strategy },
-              currentTrack
-          );
-
-          updateRaceState(currentState);
-          
-          // Broadcast
-          supabase.channel(`room:${roomId}`).send({
-              type: 'broadcast',
-              event: 'race_update',
-              payload: currentState
-          });
-
-      }, 1000); // 1 tick per second
+          raceEngineRafRef.current = requestAnimationFrame(engine);
+      };
+      raceEngineRafRef.current = requestAnimationFrame(engine);
   };
 
   const runSimulation = () => {
@@ -511,6 +544,15 @@ export default function Room({ roomId, driver, onLeave }: Props) {
             : p
     ));
 
+    // Persist strategy and mark activity
+    if (user?.id) {
+        await supabase
+          .from('one_lap_room_players')
+          .update({ strategy: newStrategy, last_active_at: new Date().toISOString() })
+          .eq('room_id', roomId)
+          .eq('user_id', user.id);
+    }
+
       // Broadcast to Host
       await supabase.channel(`room:${roomId}`).send({
           type: 'broadcast',
@@ -545,7 +587,8 @@ export default function Room({ roomId, driver, onLeave }: Props) {
         .from('one_lap_room_players')
         .update({ 
             is_ready: newReady,
-            strategy: strategy
+                strategy: strategy,
+                last_active_at: new Date().toISOString()
         })
         .eq('room_id', roomId)
         .eq('user_id', user.id);
@@ -755,10 +798,10 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                             key={p.user_id}
                             className={`absolute z-${20-idx} flex flex-col items-center w-20`}
                             animate={{ 
-                                left: `${Math.min(95, Math.max(5, progress))}%`,
+                                left: `${5 + (progress * 0.9)}%`,
                                 top: `${50 + (lateral * 35)}%`
                             }}
-                            transition={{ ease: "linear", duration: 1 }}
+                            transition={{ ease: "linear", duration: 0.06 }}
                             style={{ x: '-50%', y: '-50%' }}
                         >
                              <div className={`w-10 h-5 ${idx===0 ? 'bg-blue-500' : 'bg-orange-500'} rounded shadow-lg border border-white/50 relative flex items-center justify-center`}>
@@ -972,6 +1015,16 @@ export default function Room({ roomId, driver, onLeave }: Props) {
              {players.length < 2 && (
                  <div className="p-4 rounded-lg border border-white/10 bg-black/20 flex items-center justify-center text-gray-500 animate-pulse">
                      {t('minigame_onelapduel.room.waiting_opponent')}
+                 </div>
+             )}
+             {!isRacing && (
+                 <div className="col-span-2 flex justify-end">
+                     <button
+                        onClick={() => fetchRoomDetails()}
+                        className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-sm border border-white/10 transition-colors"
+                     >
+                        {t('minigame_onelapduel.room.reload') || 'Reload'}
+                     </button>
                  </div>
              )}
         </div>
