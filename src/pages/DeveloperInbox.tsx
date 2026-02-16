@@ -94,7 +94,7 @@ interface InterestInstrument {
   deliverable_condition: string | null;
 }
 
-type CalendarEventType = 'deliverable' | 'deliverable_ok' | 'deliverable_no' | 'mission' | 'bet' | 'dev_request' | 'ack' | 'test';
+type CalendarEventType = 'deliverable' | 'deliverable_pre_ok' | 'deliverable_ok' | 'deliverable_no' | 'mission' | 'bet' | 'dev_request' | 'ack' | 'test';
 
 interface CalendarEvent {
   dateKey: string;
@@ -106,7 +106,7 @@ interface DeliverableScheduleItem {
   id: string;
   instrument_id: string;
   due_date: string;
-  status: 'PENDING' | 'ISSUED' | 'REJECTED' | 'MISSED_PENALTY';
+  status: 'PENDING' | 'PRE_ISSUED' | 'ISSUED' | 'REJECTED' | 'MISSED_PENALTY';
   instrument_title: string;
 }
 
@@ -517,7 +517,7 @@ const DeveloperInbox = () => {
       alert(t('developer.inbox.alerts.disable_variable_price_failed') || (error.message || 'Failed to disable variable price'));
     }
   };
-  const handleProcessDeliverable = async (id: string, instrumentId: string, action: 'ISSUE' | 'REJECT') => {
+  const handleProcessDeliverable = async (id: string, instrumentId: string, action: 'ISSUE' | 'REJECT' | 'PRE_ISSUE') => {
       if (!confirm(t('developer.inbox.confirms.process_deliverable', { action }) || `Are you sure you want to ${action} this deliverable?`)) return;
       const ok = await verifyPassword();
       if (!ok) return;
@@ -631,7 +631,7 @@ const addInterestScheduleForMonth = () => {
 addInterestScheduleForMonth();
 
 // Overlay actual deliverable decisions (pre-issued/pre-rejected/pending)
-(data.deliverable_schedule || []).forEach((item: DeliverableScheduleItem) => {
+  (data.deliverable_schedule || []).forEach((item: DeliverableScheduleItem) => {
   const key = buildDateKey(item.due_date);
   const items = eventsByDate[key] || [];
   let updated = false;
@@ -642,7 +642,9 @@ addInterestScheduleForMonth();
         ? ('deliverable_ok' as CalendarEventType)
         : item.status === 'REJECTED'
           ? ('deliverable_no' as CalendarEventType)
-          : ('deliverable' as CalendarEventType);
+          : item.status === 'PRE_ISSUED'
+            ? ('deliverable_pre_ok' as CalendarEventType)
+            : ('deliverable' as CalendarEventType);
       updated = true;
       break;
     }
@@ -652,7 +654,9 @@ addInterestScheduleForMonth();
       ? ('deliverable_ok' as CalendarEventType)
       : item.status === 'REJECTED'
         ? ('deliverable_no' as CalendarEventType)
-        : ('deliverable' as CalendarEventType), item.instrument_title);
+        : item.status === 'PRE_ISSUED'
+          ? ('deliverable_pre_ok' as CalendarEventType)
+          : ('deliverable' as CalendarEventType), item.instrument_title);
   }
   scheduledInstrumentIds.add(item.instrument_id);
 });
@@ -702,6 +706,7 @@ data.pending_deliverables
 
   const eventStyles: Record<CalendarEventType, string> = {
   deliverable: 'bg-yellow-500/20 text-yellow-200 border border-yellow-500/40',
+  deliverable_pre_ok: 'bg-green-500/10 text-green-200 border border-green-500/20',
   deliverable_ok: 'bg-green-500/20 text-green-200 border border-green-500/40',
   deliverable_no: 'bg-red-500/20 text-red-200 border border-red-500/40',
     mission: 'bg-yellow-500/20 text-yellow-200 border border-yellow-500/40',
@@ -1099,6 +1104,18 @@ data.pending_deliverables
                                             </span>
                                         ) : (
                                             <div className="flex flex-col gap-2">
+                                                {status === 'PRE_ISSUED' && (
+                                                  <span className="px-3 py-1 border rounded text-xs font-mono bg-green-500/10 border-green-500/30 text-green-300">
+                                                    {t('developer.inbox.status.pre_issued') || 'Pre-Issued'}
+                                                  </span>
+                                                )}
+                                                {status !== 'PRE_ISSUED' && (
+                                                  <ActionButton 
+                                                    onClick={() => handleProcessDeliverable(del.id, del.instrument_id, 'PRE_ISSUE')} 
+                                                    variant="approve"
+                                                    label={t('developer.inbox.actions.pre_issue') || 'Pre-Issue'}
+                                                  />
+                                                )}
                                                 <ActionButton 
                                                     onClick={() => handleProcessDeliverable(del.id, del.instrument_id, 'ISSUE')} 
                                                     variant="approve"

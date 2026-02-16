@@ -198,7 +198,7 @@ BEGIN
         due_date,
         ROW_NUMBER() OVER (PARTITION BY instrument_id, due_date ORDER BY created_at ASC) AS rn
       FROM public.instrument_deliverables
-      WHERE status = 'ISSUED'
+      WHERE status IN ('ISSUED','PRE_ISSUED')
         AND (p_instrument_id IS NULL OR instrument_id = p_instrument_id)
     ) x
     WHERE rn > 1

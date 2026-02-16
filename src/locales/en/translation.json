@@ -882,6 +882,7 @@
         "dev_requests": "Pending Developer Requests",
         "mission_submissions": "Pending Mission Submissions",
         "active_bets": "Active Driver Bets (Needs Resolution)",
+        "calendar": "Workload Calendar",
         "pending_deliverables": "Pending Deliverables",
         "forum_acks": "Forum Acknowledgements",
         "test_requests": "Test Player Requests"
@@ -911,14 +912,21 @@
         "by": "by",
         "unknown": "Unknown",
         "tester_tag": "TESTER",
-        "disable_variable_price": "Disable Variable Price"
+        "disable_variable_price": "Disable Variable Price",
+        "pre_issue": "Pre-Issue"
       },
       "labels": {
         "user": "User",
         "email": "Email",
         "due_date": "Due Date",
         "cost": "Cost",
-        "condition": "Condition"
+        "condition": "Condition",
+        "release_date": "Release Date"
+      },
+      "status": {
+        "issued": "Issued",
+        "rejected": "Rejected",
+        "pre_issued": "Pre-Issued"
       },
       "confirms": {
         "approve_dev": "Approve this user as developer?",
@@ -931,6 +939,7 @@
         "decline_test": "Decline this request?"
       },
       "prompts": {
+        "password_confirm": "Enter your password to confirm this action",
         "proof_url": "Enter proof URL (optional):",
         "decline_reason": "Enter decline reason (will be shown to the user):"
       },

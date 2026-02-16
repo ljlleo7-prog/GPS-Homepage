@@ -18,8 +18,13 @@ DECLARE
     v_instrument_id UUID;
     v_cost_per_ticket NUMERIC;
     v_ticket_type_id UUID;
-    v_total_tickets NUMERIC;
-    v_payout_amount NUMERIC;
+    v_total_tickets NUMERIC := 0;
+    v_total_payout NUMERIC := 0;
+    v_instrument_title TEXT;
+    v_dev_count INTEGER := 0;
+    v_cost_per_dev NUMERIC := 0;
+    v_holder RECORD;
+    v_dev RECORD;
 BEGIN
     -- 1. Check Permissions
     v_user_id := auth.uid();
@@ -35,7 +40,7 @@ BEGIN
     END IF;
 
     -- 2. Validate Action
-    IF p_action NOT IN ('ISSUE', 'REJECT') THEN
+    IF p_action NOT IN ('ISSUE', 'REJECT', 'PRE_ISSUE') THEN
         RETURN jsonb_build_object('success', false, 'message', 'Invalid Action');
     END IF;
 
@@ -53,18 +58,110 @@ BEGIN
     END IF;
 
     -- 4. Process Action
-    IF p_action = 'ISSUE' THEN
-        -- Get Instrument Info for Payout Calculation (if we were automating payouts)
-        -- For now, we just mark as ISSUED. 
-        -- NOTE: In a real scenario, this might trigger a payout from a reserve to ticket holders.
-        -- Or simply mark it as "Met", avoiding penalty.
+    IF p_action = 'PRE_ISSUE' THEN
+        UPDATE public.instrument_deliverables
+        SET status = 'PRE_ISSUED',
+            updated_at = NOW()
+        WHERE id = p_deliverable_id;
+        RETURN jsonb_build_object('success', true, 'message', 'Deliverable Pre-Issued');
+
+    ELSIF p_action = 'ISSUE' THEN
+        -- Fetch instrument info (cost per ticket and linked ticket type)
+        SELECT 
+            deliverable_cost_per_ticket,
+            ticket_type_id,
+            title
+        INTO 
+            v_cost_per_ticket,
+            v_ticket_type_id,
+            v_instrument_title
+        FROM public.support_instruments
+        WHERE id = v_instrument_id;
         
+        IF v_cost_per_ticket IS NULL THEN
+            v_cost_per_ticket := 0;
+        END IF;
+        
+        -- Compute total tickets for this instrument's ticket type (holders only)
+        IF v_ticket_type_id IS NOT NULL THEN
+            SELECT COALESCE(SUM(balance), 0) 
+            INTO v_total_tickets
+            FROM public.user_ticket_balances
+            WHERE ticket_type_id = v_ticket_type_id
+              AND balance > 0;
+        END IF;
+        
+        v_total_payout := COALESCE(v_total_tickets, 0) * COALESCE(v_cost_per_ticket, 0);
+        
+        -- Mark as ISSUED
         UPDATE public.instrument_deliverables
         SET status = 'ISSUED',
             updated_at = NOW()
         WHERE id = p_deliverable_id;
         
-        RETURN jsonb_build_object('success', true, 'message', 'Deliverable Issued Successfully');
+        -- Distribute payouts to ticket holders
+        IF v_ticket_type_id IS NOT NULL AND v_total_payout > 0 THEN
+            FOR v_holder IN 
+                SELECT user_id, balance 
+                FROM public.user_ticket_balances 
+                WHERE ticket_type_id = v_ticket_type_id 
+                  AND balance > 0
+            LOOP
+                -- Individual holder payout = balance * cost_per_ticket
+                UPDATE public.wallets
+                SET token_balance = token_balance + (COALESCE(v_cost_per_ticket, 0) * v_holder.balance)
+                WHERE user_id = v_holder.user_id;
+                
+                -- Ledger entry for holder (REWARD)
+                INSERT INTO public.ledger_entries (wallet_id, amount, currency, operation_type, description)
+                SELECT 
+                    id,
+                    COALESCE(v_cost_per_ticket, 0) * v_holder.balance,
+                    'TOKEN',
+                    'REWARD',
+                    'Deliverable Payout: ' || COALESCE(v_instrument_title, 'Unknown Instrument')
+                FROM public.wallets
+                WHERE user_id = v_holder.user_id;
+            END LOOP;
+        END IF;
+        
+        -- Charge developers equally to fund the payout
+        SELECT COUNT(*) INTO v_dev_count 
+        FROM public.profiles 
+        WHERE developer_status = 'APPROVED';
+        
+        IF v_dev_count > 0 AND v_total_payout > 0 THEN
+            v_cost_per_dev := v_total_payout / v_dev_count;
+            
+            FOR v_dev IN 
+                SELECT id AS user_id 
+                FROM public.profiles 
+                WHERE developer_status = 'APPROVED'
+            LOOP
+                -- Deduct from each developer wallet
+                UPDATE public.wallets 
+                SET token_balance = token_balance - v_cost_per_dev
+                WHERE user_id = v_dev.user_id;
+                
+                -- Ledger entry for developer deduction (SYSTEM)
+                INSERT INTO public.ledger_entries (wallet_id, amount, currency, operation_type, description)
+                SELECT 
+                    id,
+                    -v_cost_per_dev,
+                    'TOKEN',
+                    'SYSTEM',
+                    'Deliverable Funding: ' || COALESCE(v_instrument_title, 'Unknown Instrument')
+                FROM public.wallets
+                WHERE user_id = v_dev.user_id;
+            END LOOP;
+        END IF;
+        
+        RETURN jsonb_build_object(
+            'success', true, 
+            'message', 'Deliverable Issued Successfully',
+            'payout_total', COALESCE(v_total_payout, 0),
+            'ticket_type_id', v_ticket_type_id
+        );
 
     ELSIF p_action = 'REJECT' THEN
         -- Mark as REJECTED. This effectively means the team failed to deliver.

@@ -898,6 +898,7 @@
         "dev_requests": "待处理开发者申请",
         "mission_submissions": "待处理任务提交",
         "active_bets": "活跃车手博弈（需结算）",
+        "calendar": "工作负载日历",
         "pending_deliverables": "待处理交付物",
         "forum_acks": "论坛确认",
         "test_requests": "测试玩家申请"
@@ -926,14 +927,22 @@
         "side_b": "B方",
         "by": "提交者",
         "unknown": "未知",
-        "tester_tag": "测试员"
+        "tester_tag": "测试员",
+        "disable_variable_price": "禁用浮动价格",
+        "pre_issue": "预发布"
       },
       "labels": {
         "user": "用户",
         "email": "邮箱",
         "due_date": "截止日期",
         "cost": "成本",
-        "condition": "条件"
+        "condition": "条件",
+        "release_date": "发布日期"
+      },
+      "status": {
+        "issued": "已发布",
+        "rejected": "已拒绝",
+        "pre_issued": "已预发布"
       },
       "confirms": {
         "approve_dev": "批准此用户为开发者？",
@@ -956,7 +965,9 @@
         "approve_mission_failed": "批准任务失败",
         "reject_mission_failed": "拒绝任务失败",
         "process_deliverable_failed": "处理交付物失败",
-        "acknowledge_failed": "确认失败"
+        "acknowledge_failed": "确认失败",
+        "disable_variable_price_success": "已禁用浮动价格",
+        "disable_variable_price_failed": "禁用浮动价格失败"
       }
     },
     "test_request": {
