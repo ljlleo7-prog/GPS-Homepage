@@ -287,29 +287,49 @@ const DeveloperInbox = () => {
 
   const handlePrepareAward = async (submissionId: string) => {
       try {
-          // Step 1: Get submission to find mission_id
-          const { data: subRow, error: subErr } = await supabase
-              .from('mission_submissions')
-              .select('mission_id')
-              .eq('id', submissionId)
-              .single();
-          if (subErr) throw subErr;
+          const localSub = data.pending_missions.find(p => p.id === submissionId) || null;
+          setSelectedSubmission(localSub);
+          
+          // Prefer local missions list (viewable by everyone) to avoid restricted queries
+          let missionRow = missions.find(m => m.title === (localSub?.mission_title || '')) || null;
+          
+          // Fallback: query missions by title (safe SELECT), pick latest if multiple
+          if (!missionRow && localSub?.mission_title) {
+              const { data: missionList, error: missionErr } = await supabase
+                  .from('missions')
+                  .select('*')
+                  .eq('title', localSub.mission_title)
+                  .order('created_at', { ascending: false })
+                  .limit(1);
+              if (missionErr) throw missionErr;
+              missionRow = (Array.isArray(missionList) && missionList.length > 0) ? missionList[0] as Mission : null;
+          }
 
-          // Step 2: Get mission details separately to avoid embed coercion errors
-          const { data: missionRow, error: missionErr } = await supabase
-              .from('missions')
-              .select('*')
-              .eq('id', subRow.mission_id)
-              .single();
-          if (missionErr) throw missionErr;
+          // Final fallback: open modal with neutral defaults
+          if (!missionRow) {
+              setSelectedMissionDetails({
+                  id: '',
+                  title: localSub?.mission_title || '',
+                  description: '',
+                  reward_min: 0,
+                  reward_max: 0,
+                  reward_rep_min: 0,
+                  reward_rep_max: 0,
+                  deadline: null,
+                  status: 'PENDING',
+                  submission_count: 0
+              });
+              setAwardForm({ tokens: 0, rep: 0 });
+              setShowAwardModal(true);
+              return;
+          }
 
-          const localSub = data.pending_missions.find(p => p.id === submissionId);
-          setSelectedSubmission(localSub || null);
-          setSelectedMissionDetails(missionRow);
-          setAwardForm({ tokens: missionRow.reward_min || 0, rep: missionRow.reward_rep_min || 0 });
+          setSelectedMissionDetails(missionRow as Mission);
+          setAwardForm({ tokens: (missionRow as Mission).reward_min || 0, rep: (missionRow as Mission).reward_rep_min || 0 });
           setShowAwardModal(true);
-      } catch (error: any) {
-          alert(t('developer.inbox.mission_control.error_prepare_award', { error: error.message }));
+      } catch (error) {
+          const msg = (error as { message?: string })?.message || 'Unknown error';
+          alert(t('developer.inbox.mission_control.error_prepare_award', { error: msg }));
       }
   };
 
@@ -336,14 +356,20 @@ const DeveloperInbox = () => {
       const ok = await verifyPassword();
       if (!ok) return;
       
-      // Validate
-      if (awardForm.tokens < (selectedMissionDetails.reward_min || 0) || awardForm.tokens > (selectedMissionDetails.reward_max || 0)) {
-          alert(t('developer.inbox.mission_control.error_tokens_range', { min: selectedMissionDetails.reward_min, max: selectedMissionDetails.reward_max }));
-          return;
+      // Validate (skip strict range checks if mission ranges are unavailable)
+      const hasTokenRange = (selectedMissionDetails.reward_min || 0) !== 0 || (selectedMissionDetails.reward_max || 0) !== 0;
+      const hasRepRange = (selectedMissionDetails.reward_rep_min || 0) !== 0 || (selectedMissionDetails.reward_rep_max || 0) !== 0;
+      if (hasTokenRange) {
+        if (awardForm.tokens < (selectedMissionDetails.reward_min || 0) || awardForm.tokens > (selectedMissionDetails.reward_max || 0)) {
+            alert(t('developer.inbox.mission_control.error_tokens_range', { min: selectedMissionDetails.reward_min, max: selectedMissionDetails.reward_max }));
+            return;
+        }
       }
-      if (awardForm.rep < (selectedMissionDetails.reward_rep_min || 0) || awardForm.rep > (selectedMissionDetails.reward_rep_max || 0)) {
-          alert(t('developer.inbox.mission_control.error_rep_range', { min: selectedMissionDetails.reward_rep_min, max: selectedMissionDetails.reward_rep_max }));
-          return;
+      if (hasRepRange) {
+        if (awardForm.rep < (selectedMissionDetails.reward_rep_min || 0) || awardForm.rep > (selectedMissionDetails.reward_rep_max || 0)) {
+            alert(t('developer.inbox.mission_control.error_rep_range', { min: selectedMissionDetails.reward_rep_min, max: selectedMissionDetails.reward_rep_max }));
+            return;
+        }
       }
 
       try {

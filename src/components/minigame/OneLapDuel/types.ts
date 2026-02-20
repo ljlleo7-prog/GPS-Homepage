@@ -116,7 +116,130 @@ export const SILVERSTONE_TRACK: TrackNode[] = [
 export const TRACKS: Record<string, TrackNode[]> = {
     'monza': MONZA_TRACK,
     'spa': SPA_TRACK,
-    'silverstone': SILVERSTONE_TRACK
+    'silverstone': SILVERSTONE_TRACK,
+    'suzuka': [
+      { id: 0, type: 'straight', length: 400, base_speed_entry: 200, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'start_finish' },
+      { id: 1, type: 'turn', length: 200, base_speed_entry: 280, base_speed_exit: 120, drag_factor: 1.2, overtake_difficulty: 0.8, name_key: 'turn_1' },
+      { id: 2, type: 'turn', length: 300, base_speed_entry: 120, base_speed_exit: 160, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'turn_2' },
+      { id: 3, type: 'turn', length: 600, base_speed_entry: 160, base_speed_exit: 200, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_3' },
+      { id: 4, type: 'turn', length: 250, base_speed_entry: 200, base_speed_exit: 180, drag_factor: 1.1, overtake_difficulty: 0.6, name_key: 'turn_4' },
+      { id: 5, type: 'turn', length: 250, base_speed_entry: 180, base_speed_exit: 90, drag_factor: 1.2, overtake_difficulty: 0.8, name_key: 'turn_5' },
+      { id: 6, type: 'straight', length: 800, base_speed_entry: 90, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'long_straight' },
+      { id: 7, type: 'turn', length: 500, base_speed_entry: 280, base_speed_exit: 180, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'turn_6' },
+      { id: 8, type: 'straight', length: 1200, base_speed_entry: 180, base_speed_exit: 320, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'back_straight' },
+      { id: 9, type: 'turn', length: 300, base_speed_entry: 320, base_speed_exit: 240, drag_factor: 1.0, overtake_difficulty: 0.5, name_key: 'turn_7' },
+      { id: 10, type: 'turn', length: 180, base_speed_entry: 240, base_speed_exit: 80, drag_factor: 1.2, overtake_difficulty: 0.9, name_key: 'chicane' },
+      { id: 11, type: 'straight', length: 400, base_speed_entry: 80, base_speed_exit: 260, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'main_straight' }
+    ],
+    'interlagos': [
+      { id: 0, type: 'straight', length: 650, base_speed_entry: 210, base_speed_exit: 290, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'start_finish' },
+      { id: 1, type: 'turn', length: 250, base_speed_entry: 290, base_speed_exit: 120, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'turn_1' },
+      { id: 2, type: 'turn', length: 300, base_speed_entry: 120, base_speed_exit: 200, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_2' },
+      { id: 3, type: 'turn', length: 250, base_speed_entry: 200, base_speed_exit: 180, drag_factor: 1.0, overtake_difficulty: 0.5, name_key: 'turn_3' },
+      { id: 4, type: 'straight', length: 900, base_speed_entry: 180, base_speed_exit: 310, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'long_straight' },
+      { id: 5, type: 'turn', length: 300, base_speed_entry: 310, base_speed_exit: 160, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'turn_4' },
+      { id: 6, type: 'turn', length: 250, base_speed_entry: 160, base_speed_exit: 200, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_5' },
+      { id: 7, type: 'straight', length: 1100, base_speed_entry: 200, base_speed_exit: 320, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'back_straight' },
+      { id: 8, type: 'turn', length: 200, base_speed_entry: 320, base_speed_exit: 210, drag_factor: 1.0, overtake_difficulty: 0.5, name_key: 'turn_6' },
+      { id: 9, type: 'straight', length: 400, base_speed_entry: 210, base_speed_exit: 290, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'main_straight' }
+    ],
+    'bahrain': [
+      { id: 0, type: 'straight', length: 500, base_speed_entry: 200, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'start_finish' },
+      { id: 1, type: 'turn', length: 250, base_speed_entry: 280, base_speed_exit: 120, drag_factor: 1.2, overtake_difficulty: 0.9, name_key: 'turn_1' },
+      { id: 2, type: 'straight', length: 1100, base_speed_entry: 120, base_speed_exit: 330, drag_factor: 1.0, overtake_difficulty: 0.1, name_key: 'long_straight' },
+      { id: 3, type: 'turn', length: 300, base_speed_entry: 330, base_speed_exit: 180, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'turn_2' },
+      { id: 4, type: 'turn', length: 250, base_speed_entry: 180, base_speed_exit: 220, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_3' },
+      { id: 5, type: 'straight', length: 900, base_speed_entry: 220, base_speed_exit: 320, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'back_straight' },
+      { id: 6, type: 'turn', length: 300, base_speed_entry: 320, base_speed_exit: 140, drag_factor: 1.2, overtake_difficulty: 0.8, name_key: 'turn_4' },
+      { id: 7, type: 'turn', length: 300, base_speed_entry: 140, base_speed_exit: 200, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'turn_5' },
+      { id: 8, type: 'straight', length: 800, base_speed_entry: 200, base_speed_exit: 300, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'long_straight' },
+      { id: 9, type: 'turn', length: 250, base_speed_entry: 300, base_speed_exit: 180, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_6' },
+      { id: 10, type: 'straight', length: 400, base_speed_entry: 180, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'main_straight' }
+    ],
+    'jeddah': [
+      { id: 0, type: 'straight', length: 600, base_speed_entry: 220, base_speed_exit: 300, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'start_finish' },
+      { id: 1, type: 'turn', length: 200, base_speed_entry: 300, base_speed_exit: 180, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_1' },
+      { id: 2, type: 'straight', length: 800, base_speed_entry: 180, base_speed_exit: 330, drag_factor: 1.0, overtake_difficulty: 0.1, name_key: 'long_straight' },
+      { id: 3, type: 'turn', length: 250, base_speed_entry: 330, base_speed_exit: 210, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'turn_2' },
+      { id: 4, type: 'turn', length: 300, base_speed_entry: 210, base_speed_exit: 250, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_3' },
+      { id: 5, type: 'straight', length: 1000, base_speed_entry: 250, base_speed_exit: 330, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'long_straight' },
+      { id: 6, type: 'turn', length: 200, base_speed_entry: 330, base_speed_exit: 200, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'turn_4' },
+      { id: 7, type: 'straight', length: 1200, base_speed_entry: 200, base_speed_exit: 330, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'back_straight' },
+      { id: 8, type: 'turn', length: 300, base_speed_entry: 330, base_speed_exit: 240, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_5' },
+      { id: 9, type: 'straight', length: 600, base_speed_entry: 240, base_speed_exit: 300, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'main_straight' }
+    ],
+    'barcelona': [
+      { id: 0, type: 'straight', length: 600, base_speed_entry: 210, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'start_finish' },
+      { id: 1, type: 'turn', length: 250, base_speed_entry: 280, base_speed_exit: 130, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'turn_1' },
+      { id: 2, type: 'turn', length: 300, base_speed_entry: 130, base_speed_exit: 220, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_2' },
+      { id: 3, type: 'straight', length: 900, base_speed_entry: 220, base_speed_exit: 300, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'long_straight' },
+      { id: 4, type: 'turn', length: 250, base_speed_entry: 300, base_speed_exit: 180, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_3' },
+      { id: 5, type: 'turn', length: 300, base_speed_entry: 180, base_speed_exit: 200, drag_factor: 1.0, overtake_difficulty: 0.5, name_key: 'turn_4' },
+      { id: 6, type: 'straight', length: 800, base_speed_entry: 200, base_speed_exit: 300, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'back_straight' },
+      { id: 7, type: 'turn', length: 250, base_speed_entry: 300, base_speed_exit: 160, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'turn_5' },
+      { id: 8, type: 'turn', length: 200, base_speed_entry: 160, base_speed_exit: 100, drag_factor: 1.2, overtake_difficulty: 0.8, name_key: 'chicane' },
+      { id: 9, type: 'straight', length: 600, base_speed_entry: 100, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'main_straight' }
+    ],
+    'australia': [
+      { id: 0, type: 'straight', length: 700, base_speed_entry: 220, base_speed_exit: 300, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'start_finish' },
+      { id: 1, type: 'turn', length: 250, base_speed_entry: 300, base_speed_exit: 140, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'turn_1' },
+      { id: 2, type: 'turn', length: 250, base_speed_entry: 140, base_speed_exit: 180, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_2' },
+      { id: 3, type: 'straight', length: 800, base_speed_entry: 180, base_speed_exit: 300, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'long_straight' },
+      { id: 4, type: 'turn', length: 300, base_speed_entry: 300, base_speed_exit: 160, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'turn_3' },
+      { id: 5, type: 'turn', length: 250, base_speed_entry: 160, base_speed_exit: 200, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_4' },
+      { id: 6, type: 'straight', length: 900, base_speed_entry: 200, base_speed_exit: 310, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'back_straight' },
+      { id: 7, type: 'turn', length: 300, base_speed_entry: 310, base_speed_exit: 180, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'turn_5' },
+      { id: 8, type: 'turn', length: 280, base_speed_entry: 180, base_speed_exit: 120, drag_factor: 1.2, overtake_difficulty: 0.8, name_key: 'turn_6' },
+      { id: 9, type: 'turn', length: 220, base_speed_entry: 120, base_speed_exit: 140, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'turn_7' },
+      { id: 10, type: 'straight', length: 300, base_speed_entry: 140, base_speed_exit: 260, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'long_straight' },
+      { id: 11, type: 'turn', length: 228, base_speed_entry: 260, base_speed_exit: 120, drag_factor: 1.2, overtake_difficulty: 0.8, name_key: 'turn_5' },
+      { id: 12, type: 'straight', length: 500, base_speed_entry: 120, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'main_straight' }
+    ],
+    'singapore': [
+      { id: 0, type: 'straight', length: 600, base_speed_entry: 200, base_speed_exit: 270, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'start_finish' },
+      { id: 1, type: 'turn', length: 200, base_speed_entry: 270, base_speed_exit: 120, drag_factor: 1.2, overtake_difficulty: 0.9, name_key: 'turn_1' },
+      { id: 2, type: 'turn', length: 240, base_speed_entry: 120, base_speed_exit: 150, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'turn_2' },
+      { id: 3, type: 'straight', length: 700, base_speed_entry: 150, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'long_straight' },
+      { id: 4, type: 'turn', length: 220, base_speed_entry: 280, base_speed_exit: 140, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'turn_3' },
+      { id: 5, type: 'turn', length: 250, base_speed_entry: 140, base_speed_exit: 160, drag_factor: 1.0, overtake_difficulty: 0.7, name_key: 'turn_4' },
+      { id: 6, type: 'straight', length: 900, base_speed_entry: 160, base_speed_exit: 300, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'back_straight' },
+      { id: 7, type: 'turn', length: 220, base_speed_entry: 300, base_speed_exit: 150, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'turn_5' },
+      { id: 8, type: 'turn', length: 240, base_speed_entry: 150, base_speed_exit: 130, drag_factor: 1.2, overtake_difficulty: 0.9, name_key: 'turn_6' },
+      { id: 9, type: 'turn', length: 220, base_speed_entry: 130, base_speed_exit: 110, drag_factor: 1.3, overtake_difficulty: 0.9, name_key: 'turn_7' },
+      { id: 10, type: 'straight', length: 300, base_speed_entry: 110, base_speed_exit: 240, drag_factor: 1.0, overtake_difficulty: 0.4, name_key: 'long_straight' },
+      { id: 11, type: 'turn', length: 338, base_speed_entry: 240, base_speed_exit: 130, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'turn_6' },
+      { id: 12, type: 'straight', length: 500, base_speed_entry: 130, base_speed_exit: 260, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'main_straight' }
+    ],
+    'monaco': [
+      { id: 0, type: 'straight', length: 300, base_speed_entry: 180, base_speed_exit: 220, drag_factor: 1.0, overtake_difficulty: 0.4, name_key: 'start_finish' },
+      { id: 1, type: 'turn', length: 180, base_speed_entry: 220, base_speed_exit: 90, drag_factor: 1.3, overtake_difficulty: 0.9, name_key: 'turn_1' },
+      { id: 2, type: 'straight', length: 400, base_speed_entry: 90, base_speed_exit: 200, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'long_straight' },
+      { id: 3, type: 'turn', length: 220, base_speed_entry: 200, base_speed_exit: 120, drag_factor: 1.2, overtake_difficulty: 0.8, name_key: 'turn_2' },
+      { id: 4, type: 'turn', length: 240, base_speed_entry: 120, base_speed_exit: 140, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'turn_3' },
+      { id: 5, type: 'straight', length: 700, base_speed_entry: 140, base_speed_exit: 260, drag_factor: 1.0, overtake_difficulty: 0.5, name_key: 'back_straight' },
+      { id: 6, type: 'turn', length: 250, base_speed_entry: 260, base_speed_exit: 110, drag_factor: 1.2, overtake_difficulty: 0.9, name_key: 'turn_4' },
+      { id: 7, type: 'turn', length: 220, base_speed_entry: 110, base_speed_exit: 130, drag_factor: 1.2, overtake_difficulty: 0.9, name_key: 'turn_5' },
+      { id: 8, type: 'turn', length: 200, base_speed_entry: 130, base_speed_exit: 100, drag_factor: 1.3, overtake_difficulty: 0.9, name_key: 'turn_6' },
+      { id: 9, type: 'straight', length: 227, base_speed_entry: 100, base_speed_exit: 220, drag_factor: 1.0, overtake_difficulty: 0.5, name_key: 'long_straight' },
+      { id: 10, type: 'straight', length: 400, base_speed_entry: 220, base_speed_exit: 220, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'main_straight' }
+    ],
+    'china': [
+      { id: 0, type: 'straight', length: 200, base_speed_entry: 220, base_speed_exit: 260, drag_factor: 1.0, overtake_difficulty: 0.2, name_key: 'start_finish' },
+      { id: 1, type: 'turn', length: 540, base_speed_entry: 260, base_speed_exit: 140, drag_factor: 1.1, overtake_difficulty: 0.8, name_key: 'turn_1' }, // T1-2 snail
+      { id: 2, type: 'turn', length: 180, base_speed_entry: 140, base_speed_exit: 200, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_2' }, // T3 arc
+      { id: 3, type: 'straight', length: 250, base_speed_entry: 200, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'long_straight' },
+      { id: 4, type: 'turn', length: 240, base_speed_entry: 280, base_speed_exit: 180, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'turn_3' },
+      { id: 5, type: 'straight', length: 150, base_speed_entry: 180, base_speed_exit: 260, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'long_straight' },
+      { id: 6, type: 'turn', length: 800, base_speed_entry: 260, base_speed_exit: 300, drag_factor: 1.0, overtake_difficulty: 0.7, name_key: 'turn_5' }, // T7-8 high-speed left
+      { id: 7, type: 'turn', length: 300, base_speed_entry: 300, base_speed_exit: 240, drag_factor: 1.0, overtake_difficulty: 0.7, name_key: 'turn_6' }, // T9-10 right-hand
+      { id: 8, type: 'straight', length: 270, base_speed_entry: 240, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.4, name_key: 'long_straight' },
+      { id: 9, type: 'turn', length: 300, base_speed_entry: 280, base_speed_exit: 220, drag_factor: 1.1, overtake_difficulty: 0.7, name_key: 'turn_7' }, // T11
+      { id: 10, type: 'turn', length: 450, base_speed_entry: 220, base_speed_exit: 300, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_6' }, // T12-13 arc onto straight
+      { id: 11, type: 'straight', length: 1200, base_speed_entry: 300, base_speed_exit: 330, drag_factor: 1.0, overtake_difficulty: 0.1, name_key: 'back_straight' }, // DRS straight (T13->T14)
+      { id: 12, type: 'turn', length: 230, base_speed_entry: 330, base_speed_exit: 120, drag_factor: 1.2, overtake_difficulty: 0.9, name_key: 'turn_5' }, // T14 hairpin
+      { id: 13, type: 'turn', length: 60, base_speed_entry: 120, base_speed_exit: 180, drag_factor: 1.0, overtake_difficulty: 0.6, name_key: 'turn_6' }, // T15 kink
+      { id: 14, type: 'straight', length: 261, base_speed_entry: 180, base_speed_exit: 280, drag_factor: 1.0, overtake_difficulty: 0.3, name_key: 'main_straight' }
+    ]
 };
 
 export const INITIAL_BATTERY = 4_000_000; // 4MJ (Joules)

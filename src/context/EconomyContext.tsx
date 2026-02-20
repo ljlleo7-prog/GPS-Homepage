@@ -426,7 +426,16 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
           p_deliverable_day: deliverableDay,
           p_deliverable_cost_per_ticket: deliverableCostPerTicket,
           p_deliverable_condition: deliverableCondition,
-          p_refund_price: refundPrice || 0.9
+          p_refund_price: refundPrice || 0.9,
+          // Current dynamic pricing params
+          p_ticket_price: 1,
+          p_ticket_limit: 1000000,
+          p_open_date: new Date().toISOString(),
+          p_official_end_date: null,
+          p_dynamic_noise_pct: 1,
+          p_dynamic_flex_demand_pct: 0,
+          p_dynamic_flex_time_pct: 0,
+          p_demand_saturation_units: 500
         });
         
         if (error) throw error;
@@ -479,7 +488,8 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
         p_open_date: openDate,
         p_side_b_name: sideB,
         p_noise_pct: noisePct ?? 0,
-        p_flex_pct: flexPct ?? 0
+        p_flex_pct: flexPct ?? 0,
+        p_demand_saturation_units: 500
       });
 
       if (error) throw error;

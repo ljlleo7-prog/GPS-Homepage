@@ -155,7 +155,7 @@ BEGIN
   END IF;
 
   UPDATE public.ticket_listings
-  SET status = 'WITHDRAWN'
+  SET status = 'CANCELLED'
   WHERE id = p_listing_id;
 
   INSERT INTO public.user_ticket_balances (user_id, ticket_type_id, balance)

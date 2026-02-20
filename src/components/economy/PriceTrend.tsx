@@ -36,6 +36,10 @@ export default function PriceTrend({
   const [tickNow, setTickNow] = useState<number>(Date.now());
   const [civilSeedA, setCivilSeedA] = useState<number | null>(null);
   const [civilSeedB, setCivilSeedB] = useState<number | null>(null);
+  const [officialSeedA, setOfficialSeedA] = useState<number | null>(null);
+  const [officialSeedB, setOfficialSeedB] = useState<number | null>(null);
+  const [askA, setAskA] = useState<number | null>(null);
+  const [askB, setAskB] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchTrend = async () => {
@@ -49,6 +53,16 @@ export default function PriceTrend({
         if (!error && data) {
           setOfficialA(data.official || []);
           setCivilA(data.civil || []);
+          if (!data.official || data.official.length === 0) {
+            const { data: monthDataOff } = await supabase.rpc('get_ticket_price_trend', {
+              p_ticket_type_id: aId,
+              p_interval: '1m'
+            });
+            const offSeed = monthDataOff && monthDataOff.official && monthDataOff.official.length ? monthDataOff.official[monthDataOff.official.length - 1].price : null;
+            setOfficialSeedA(offSeed ?? null);
+          } else {
+            setOfficialSeedA(null);
+          }
           if (!data.civil || data.civil.length === 0) {
             const { data: monthData } = await supabase.rpc('get_ticket_price_trend', {
               p_ticket_type_id: aId,
@@ -59,14 +73,24 @@ export default function PriceTrend({
           } else {
             setCivilSeedA(null);
           }
+          const { data: listA } = await supabase
+            .from('ticket_listings')
+            .select('price_per_unit')
+            .eq('status', 'ACTIVE')
+            .eq('ticket_type_id', aId)
+            .order('price_per_unit', { ascending: true })
+            .limit(1);
+          setAskA(listA && (listA as any[]).length ? Number((listA as any[])[0].price_per_unit) : null);
         } else {
           setOfficialA([]);
           setCivilA([]);
           setCivilSeedA(null);
+          setAskA(null);
         }
       } else {
         setOfficialA([]);
         setCivilA([]);
+        setAskA(null);
       }
       if (ticketTypeBId) {
         const { data, error } = await supabase.rpc('get_ticket_price_trend', {
@@ -76,6 +100,16 @@ export default function PriceTrend({
         if (!error && data) {
           setOfficialB(data.official || []);
           setCivilB(data.civil || []);
+          if (!data.official || data.official.length === 0) {
+            const { data: monthDataOff } = await supabase.rpc('get_ticket_price_trend', {
+              p_ticket_type_id: ticketTypeBId,
+              p_interval: '1m'
+            });
+            const offSeed = monthDataOff && monthDataOff.official && monthDataOff.official.length ? monthDataOff.official[monthDataOff.official.length - 1].price : null;
+            setOfficialSeedB(offSeed ?? null);
+          } else {
+            setOfficialSeedB(null);
+          }
           if (!data.civil || data.civil.length === 0) {
             const { data: monthData } = await supabase.rpc('get_ticket_price_trend', {
               p_ticket_type_id: ticketTypeBId,
@@ -86,14 +120,24 @@ export default function PriceTrend({
           } else {
             setCivilSeedB(null);
           }
+          const { data: listB } = await supabase
+            .from('ticket_listings')
+            .select('price_per_unit')
+            .eq('status', 'ACTIVE')
+            .eq('ticket_type_id', ticketTypeBId)
+            .order('price_per_unit', { ascending: true })
+            .limit(1);
+          setAskB(listB && (listB as any[]).length ? Number((listB as any[])[0].price_per_unit) : null);
         } else {
           setOfficialB([]);
           setCivilB([]);
           setCivilSeedB(null);
+          setAskB(null);
         }
       } else {
         setOfficialB([]);
         setCivilB([]);
+        setAskB(null);
       }
       setLoading(false);
     };
@@ -246,17 +290,25 @@ export default function PriceTrend({
     return out;
   };
 
-  const seriesAOff = processSeries(officialA, interval);
+  const seriesAOffRaw = processSeries(officialA, interval);
   const seriesACivRaw = processSeries(civilA, interval);
-  const seriesBOff = processSeries(officialB, interval);
+  const seriesBOffRaw = processSeries(officialB, interval);
   const seriesBCivRaw = processSeries(civilB, interval);
   
   const { min: xMin, max: xMax, ticks: rawXTicks } = getXAxisSettings(interval);
-  const seriesACiv = withCarryForward(seriesACivRaw, xMin, xMax, civilSeedA);
-  const seriesBCiv = withCarryForward(seriesBCivRaw, xMin, xMax, civilSeedB);
+  const now = new Date();
+  const xProgress = interval === '1d' ? now.getHours() : (interval === '1w' ? 6 : now.getDate());
+  const xCap = Math.min(xMax, xProgress);
+  const seriesAOff = withCarryForward(seriesAOffRaw, xMin, xCap, null);
+  const seriesACiv = withCarryForward(seriesACivRaw, xMin, xCap, civilSeedA);
+  const seriesBOff = withCarryForward(seriesBOffRaw, xMin, xCap, null);
+  const seriesBCiv = withCarryForward(seriesBCivRaw, xMin, xCap, civilSeedB);
   const allPrices = [...seriesAOff, ...seriesACiv, ...seriesBOff, ...seriesBCiv].map(p => p.price);
-  const maxPrice = allPrices.length ? Math.max(...allPrices) : 1;
-  const minPrice = allPrices.length ? Math.min(...allPrices) : 0;
+  const candidates = [...allPrices];
+  if (askA != null) candidates.push(askA);
+  if (askB != null) candidates.push(askB);
+  const maxPrice = candidates.length ? Math.max(...candidates) : 1;
+  const minPrice = candidates.length ? Math.min(...candidates) : 0;
 
   const yToSvg = (price: number) => {
     const ratio = (price - minPrice) / Math.max(maxPrice - minPrice, 0.0001); // avoid div by 0
@@ -394,6 +446,12 @@ export default function PriceTrend({
           <path d={makePath(seriesACiv)} stroke="#F59E0B" fill="none" strokeWidth={2} />
           <path d={makePath(seriesBOff)} stroke="#60A5FA" fill="none" strokeWidth={2} strokeDasharray="6,4" />
           <path d={makePath(seriesBCiv)} stroke="#F59E0B" fill="none" strokeWidth={2} strokeDasharray="6,4" />
+          {askA != null && (
+            <line x1={leftPad} y1={yToSvg(askA)} x2={width - rightPad} y2={yToSvg(askA)} stroke="#F59E0B" strokeWidth={1} strokeDasharray="3,3" opacity={0.6} />
+          )}
+          {askB != null && (
+            <line x1={leftPad} y1={yToSvg(askB)} x2={width - rightPad} y2={yToSvg(askB)} stroke="#F59E0B" strokeWidth={1} strokeDasharray="3,6" opacity={0.6} />
+          )}
           <text x={leftPad} y={height - 4} fill="#60A5FA" fontSize="10" className="font-mono">Official A</text>
           <text x={leftPad + 80} y={height - 4} fill="#60A5FA" fontSize="10" className="font-mono">Official B</text>
           <text x={leftPad + 180} y={height - 4} fill="#F59E0B" fontSize="10" className="font-mono">Civil A</text>

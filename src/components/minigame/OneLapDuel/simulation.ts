@@ -50,13 +50,11 @@ const ERS_MAX_REGEN = 250000; // 250 kW (ICE Harvesting Limit)
 const BRAKING_MAX_REGEN = 350000; // 350 kW (Kinetic Braking Limit)
 
 // Helper to get available ERS power based on speed and mode
-const getERSLimit = (speedKmh: number, mode: ERSMode, isBehind: boolean, driver?: DriverStats): number => {
-    // 1. Overtake Mode Exception (Must be behind)
-    if (mode === 'overtake' && isBehind) {
-        return ERS_MAX_POWER * (driver ? (0.98 + driver.ers_efficiency_skill / 500) : 1); // Always 350 kW, no tapering
-    }
-
-    // 2. Speed-Dependent Tapering (2026 Regs)
+    const getERSLimit = (speedKmh: number, mode: ERSMode, isBehind: boolean, driver?: DriverStats): number => {
+        if (mode === 'overtake') {
+            return ERS_MAX_POWER * (driver ? (0.98 + driver.ers_efficiency_skill / 500) : 1);
+        }
+        // 2. Speed-Dependent Tapering (2026 Regs)
     // 0–300 km/h: ~350 kW available
     // 300–340 km/h: tapering from 350 kW to 150 kW
     // 340–345 km/h: tapering from 150 kW to 0 kW
@@ -82,7 +80,9 @@ const getERSLimit = (speedKmh: number, mode: ERSMode, isBehind: boolean, driver?
     }
 
     // 3. Mode-Specific Scaling
-    if (mode === 'recharge') return 0; // Recharge mode doesn't deploy
+    if (mode === 'recharge') {
+        return 0;
+    }
     
     // Neutral drops to 0 earlier (e.g., linear drop from 250kph to 320kph?)
     // User: "in neutral it will drop to 0kW earlier"
@@ -332,6 +332,21 @@ export const calculatePhysicsStep = (
   let energyChange = 0; // Joules (Negative = Drain, Positive = Charge)
   let recoveredEnergyDelta = 0;
 
+  if (ers === 'recharge') {
+      const speedKmh = speed * 3.6;
+      if (speedKmh > 300 && battery < MAX_BATTERY_JOULES) {
+          const maxHarvest = ERS_MAX_REGEN * (driver ? (0.98 + driver.ers_efficiency_skill / 500) : 1);
+          const quotaLeft = Math.max(0, MAX_RECOVERY_JOULES - currentState.recovered_energy);
+          const energyToHarvest = Math.min(maxHarvest * dt, quotaLeft);
+          if (energyToHarvest > 0) {
+              const harvestForce = (energyToHarvest / dt) / effectiveSpeed;
+              targetNetForce -= harvestForce;
+              energyChange += energyToHarvest;
+              recoveredEnergyDelta += energyToHarvest;
+          }
+      }
+  }
+
   // ICE Harvesting Logic (Recharge Mode)
   // "if recharge mode is not on, the battery will never harvest energy directly from ICE when accelerating."
   // So if recharge mode IS on, and we are accelerating, we harvest from ICE.
@@ -557,6 +572,9 @@ export const advanceRaceState = (
         movement_mask: newState.p2.movement_mask
     };
 
+    const p1ErsEffective: ERSMode = (newState.starting_grid.p1 === 1 && p1.strategy.current_ers === 'overtake') ? 'hotlap' : p1.strategy.current_ers;
+    const p2ErsEffective: ERSMode = (newState.starting_grid.p2 === 1 && p2.strategy.current_ers === 'overtake') ? 'hotlap' : p2.strategy.current_ers;
+
     for (let i = 0; i < SUB_STEPS; i++) {
         // P1 Step
         const p1NodeCurrent = getNode(p1State.distance);
@@ -571,7 +589,7 @@ export const advanceRaceState = (
             { speed: p2State.speed, battery: p2State.battery, lateral_offset: p2State.lateral_offset, distance: p2State.distance, recovered_energy: p2State.recovered_energy, movement_mask: p2State.movement_mask },
             gapP1toP2,
             p1NodeCurrent, p1NextCurrent, (p1State.distance % trackLength) - p1NodeCurrent.start_dist!, 
-            p1.driver, p1.strategy.current_ers, p1.strategy.current_line,
+            p1.driver, p1ErsEffective, p1.strategy.current_line,
             newState.p1.target_offset ?? 0,
             p1WrapsNext
         );
@@ -595,7 +613,7 @@ export const advanceRaceState = (
             { speed: p1State.speed, battery: p1State.battery, lateral_offset: p1State.lateral_offset, distance: p1State.distance, recovered_energy: p1State.recovered_energy, movement_mask: p1State.movement_mask },
             gapP2toP1,
             p2NodeCurrent, p2NextCurrent, (p2State.distance % trackLength) - p2NodeCurrent.start_dist!, 
-            p2.driver, p2.strategy.current_ers, p2.strategy.current_line,
+            p2.driver, p2ErsEffective, p2.strategy.current_line,
             newState.p2.target_offset ?? 0,
             p2WrapsNext
         );
@@ -633,10 +651,8 @@ export const advanceRaceState = (
     // if (p2State.distance >= trackLength) p2State.distance -= trackLength;
     // if (p2State.distance < 0) p2State.distance += trackLength;
 
-    // Update State
-    // Calculate Power (Watts) = (OldBattery - NewBattery) / dt
-    const p1Power = (newState.p1.battery - p1State.battery) / DT;
-    const p2Power = (newState.p2.battery - p2State.battery) / DT;
+    const p1Power = (p1State.battery - newState.p1.battery) / DT;
+    const p2Power = (p2State.battery - newState.p2.battery) / DT;
 
     newState.p1.speed = p1State.speed * 3.6; // Convert back to km/h
     newState.p1.battery = p1State.battery;
@@ -758,6 +774,9 @@ export const advanceRaceStateDelta = (
         movement_mask: newState.p2.movement_mask
     };
 
+    const p1ErsEffective: ERSMode = (newState.starting_grid.p1 === 1 && p1.strategy.current_ers === 'overtake') ? 'hotlap' : p1.strategy.current_ers;
+    const p2ErsEffective: ERSMode = (newState.starting_grid.p2 === 1 && p2.strategy.current_ers === 'overtake') ? 'hotlap' : p2.strategy.current_ers;
+
     for (let i = 0; i < SUB_STEPS; i++) {
         const p1NodeCurrent = getNode(p1State.distance);
         const p1NextCurrent = getNextNode(p1NodeCurrent);
@@ -769,7 +788,7 @@ export const advanceRaceStateDelta = (
             { speed: p2State.speed, battery: p2State.battery, lateral_offset: p2State.lateral_offset, distance: p2State.distance, recovered_energy: p2State.recovered_energy, movement_mask: p2State.movement_mask },
             gapP1toP2,
             p1NodeCurrent, p1NextCurrent, (p1State.distance % trackLength) - p1NodeCurrent.start_dist!, 
-            p1.driver, p1.strategy.current_ers, p1.strategy.current_line,
+            p1.driver, p1ErsEffective, p1.strategy.current_line,
             newState.p1.target_offset ?? 0,
             p1WrapsNext
         );
@@ -790,7 +809,7 @@ export const advanceRaceStateDelta = (
             { speed: p1State.speed, battery: p1State.battery, lateral_offset: p1State.lateral_offset, distance: p1State.distance, recovered_energy: p1State.recovered_energy, movement_mask: p1State.movement_mask },
             gapP2toP1,
             p2NodeCurrent, p2NextCurrent, (p2State.distance % trackLength) - p2NodeCurrent.start_dist!, 
-            p2.driver, p2.strategy.current_ers, p2.strategy.current_line,
+            p2.driver, p2ErsEffective, p2.strategy.current_line,
             newState.p2.target_offset ?? 0,
             p2WrapsNext
         );
@@ -811,8 +830,8 @@ export const advanceRaceStateDelta = (
         }
     }
 
-    const p1Power = (newState.p1.battery - p1State.battery) / dt;
-    const p2Power = (newState.p2.battery - p2State.battery) / dt;
+    const p1Power = (p1State.battery - newState.p1.battery) / dt;
+    const p2Power = (p2State.battery - newState.p2.battery) / dt;
 
     newState.p1.speed = p1State.speed * 3.6;
     newState.p1.battery = p1State.battery;

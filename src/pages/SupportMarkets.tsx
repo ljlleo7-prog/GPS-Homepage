@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useEconomy } from '../context/EconomyContext';
 import { useAuth } from '../context/AuthContext';
@@ -100,7 +100,9 @@ const SupportMarkets = () => {
   const [holdersList, setHoldersList] = useState<{username: string, balance: number}[]>([]);
   const [driverBetStats, setDriverBetStats] = useState<{[key: string]: {side_a_sold: number, side_b_sold: number}}>({});
   const [officialTicketPrices, setOfficialTicketPrices] = useState<{[key: string]: number}>({});
+  const [dynamicTicketPrices, setDynamicTicketPrices] = useState<{[key: string]: number}>({});
   const [trendInterval, setTrendInterval] = useState<'1d' | '1w' | '1m'>('1w');
+  const hourlyTimer = useRef<number | null>(null);
 
   useEffect(() => {
     fetchInstruments();
@@ -158,15 +160,15 @@ const SupportMarkets = () => {
       const prices: {[key: string]: number} = {};
       for (const ins of data || []) {
         if (ins.ticket_type_id) {
-          const { data: p } = await supabase.rpc('get_official_price_by_ticket_type', { p_ticket_type_id: ins.ticket_type_id });
+          const { data: p } = await supabase.rpc('get_authoritative_official_price', { p_ticket_type_id: ins.ticket_type_id });
           if (p !== null && p !== undefined) prices[ins.ticket_type_id] = p as number;
         }
         if (ins.ticket_type_a_id) {
-          const { data: pa } = await supabase.rpc('get_official_price_by_ticket_type', { p_ticket_type_id: ins.ticket_type_a_id });
+          const { data: pa } = await supabase.rpc('get_authoritative_official_price', { p_ticket_type_id: ins.ticket_type_a_id });
           if (pa !== null && pa !== undefined) prices[ins.ticket_type_a_id] = pa as number;
         }
         if (ins.ticket_type_b_id) {
-          const { data: pb } = await supabase.rpc('get_official_price_by_ticket_type', { p_ticket_type_id: ins.ticket_type_b_id });
+          const { data: pb } = await supabase.rpc('get_authoritative_official_price', { p_ticket_type_id: ins.ticket_type_b_id });
           if (pb !== null && pb !== undefined) prices[ins.ticket_type_b_id] = pb as number;
         }
       }
@@ -174,6 +176,48 @@ const SupportMarkets = () => {
     }
     setLoading(false);
   };
+
+  const fetchDynamicPrices = async () => {
+    const prices: {[key: string]: number} = {};
+    for (const ins of instruments || []) {
+      if (ins.ticket_type_id) {
+        const { data: p } = await supabase.rpc('get_official_price_by_ticket_type', { p_ticket_type_id: ins.ticket_type_id });
+        if (p !== null && p !== undefined) prices[ins.ticket_type_id] = p as number;
+      }
+      if (ins.ticket_type_a_id) {
+        const { data: pa } = await supabase.rpc('get_official_price_by_ticket_type', { p_ticket_type_id: ins.ticket_type_a_id });
+        if (pa !== null && pa !== undefined) prices[ins.ticket_type_a_id] = pa as number;
+      }
+      if (ins.ticket_type_b_id) {
+        const { data: pb } = await supabase.rpc('get_official_price_by_ticket_type', { p_ticket_type_id: ins.ticket_type_b_id });
+        if (pb !== null && pb !== undefined) prices[ins.ticket_type_b_id] = pb as number;
+      }
+    }
+    setDynamicTicketPrices(prices);
+  };
+
+  useEffect(() => {
+    if (!instruments || instruments.length === 0) return;
+    fetchDynamicPrices();
+    const scheduleNextHour = () => {
+      const now = new Date();
+      const next = new Date(now);
+      next.setMinutes(0, 0, 0);
+      if (next.getTime() <= now.getTime()) next.setHours(next.getHours() + 1);
+      const ms = next.getTime() - now.getTime();
+      hourlyTimer.current = window.setTimeout(() => {
+        fetchDynamicPrices();
+        scheduleNextHour();
+      }, ms);
+    };
+    scheduleNextHour();
+    return () => {
+      if (hourlyTimer.current) {
+        clearTimeout(hourlyTimer.current);
+        hourlyTimer.current = null;
+      }
+    };
+  }, [instruments]);
 
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
@@ -348,6 +392,9 @@ const SupportMarkets = () => {
           alert(t('economy.market.alerts.buy_success', { qty, side }));
           setAmount({...amount, [`${instrument.id}_${side}`]: ''});
           fetchPositions();
+          fetchInstruments();
+          fetchDriverBetStats();
+        fetchDynamicPrices();
       } else {
           alert(t('economy.market.alerts.buy_failed', { message: result.message }));
       }
@@ -638,8 +685,29 @@ const SupportMarkets = () => {
                             <div className="bg-white/5 p-2 rounded">
                                 <div className="text-text-secondary">{t('economy.market.labels.price')}</div>
                                 <div className="text-white">
-                                  {formatTkn(officialTicketPrices[instrument.ticket_type_a_id])} {t('economy.wallet.currency.tkn')}
+                                  {t('economy.market.labels.side_a')}: {formatTkn(officialTicketPrices[instrument.ticket_type_a_id])} {t('economy.wallet.currency.tkn')}
                                 </div>
+                                <div className="text-white">
+                                  {t('economy.market.labels.side_b')}: {formatTkn(officialTicketPrices[instrument.ticket_type_b_id])} {t('economy.wallet.currency.tkn')}
+                                </div>
+                                {(() => {
+                                  const stats = driverBetStats[instrument.id] || { side_a_sold: 0, side_b_sold: 0 };
+                                  const a = officialTicketPrices[instrument.ticket_type_a_id];
+                                  const b = officialTicketPrices[instrument.ticket_type_b_id];
+                                  const total = (stats?.side_a_sold ?? 0) + (stats?.side_b_sold ?? 0);
+                                  let dp: number | undefined = undefined;
+                                  if (a !== undefined && b !== undefined) {
+                                    dp = total > 0
+                                      ? (((a as number) * (stats.side_a_sold || 0) + (b as number) * (stats.side_b_sold || 0)) / total)
+                                      : (((a as number) + (b as number)) / 2.0);
+                                  } else if (a !== undefined) dp = a as number;
+                                  else if (b !== undefined) dp = b as number;
+                                  return (
+                                    <div className="text-white/80 text-[11px] mt-1">
+                                      {t('economy.market.labels.deal_price')}: {formatTkn(dp)} {t('economy.wallet.currency.tkn')}
+                                    </div>
+                                  );
+                                })()}
                                 <div className="mt-1 flex gap-2">
                                   <button
                                     onClick={() => { setActiveView('dashboard'); }}
@@ -676,13 +744,15 @@ const SupportMarkets = () => {
                                         placeholder={`${t('economy.market.ticket.qty')} ${instrument.side_a_name?.split('|')[0]}`}
                                         className="w-16 bg-background border border-white/10 rounded px-2 py-1 text-white text-xs"
                                         value={amount[`${instrument.id}_A`] || ''}
-                                        onChange={e => setAmount({...amount, [`${instrument.id}_A`]: e.target.value})}
+                                        onChange={e => {
+                                          setAmount({...amount, [`${instrument.id}_A`]: e.target.value});
+                                        }}
                                     />
                                     <button 
                                         onClick={() => handleBuyDriverBet(instrument, 'A', parseInt(amount[`${instrument.id}_A`]))}
                                         className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30 truncate"
                                     >
-                                        {t('economy.market.labels.buy_action')} ({formatTkn(officialTicketPrices[instrument.ticket_type_a_id])} {t('economy.wallet.currency.tkn')}) <BilingualText text={instrument.side_a_name} className="inline" />
+                        {t('economy.market.labels.buy_action')} ({formatTkn(dynamicTicketPrices[instrument.ticket_type_a_id] ?? officialTicketPrices[instrument.ticket_type_a_id])} {t('economy.wallet.currency.tkn')}) <BilingualText text={instrument.side_a_name} className="inline" />
                                     </button>
                                 </div>
                                 <div className="flex gap-2">
@@ -691,13 +761,15 @@ const SupportMarkets = () => {
                                         placeholder={`${t('economy.market.ticket.qty')} ${instrument.side_b_name?.split('|')[0]}`}
                                         className="w-16 bg-background border border-white/10 rounded px-2 py-1 text-white text-xs"
                                         value={amount[`${instrument.id}_B`] || ''}
-                                        onChange={e => setAmount({...amount, [`${instrument.id}_B`]: e.target.value})}
+                                        onChange={e => {
+                                          setAmount({...amount, [`${instrument.id}_B`]: e.target.value});
+                                        }}
                                     />
                                     <button 
                                         onClick={() => handleBuyDriverBet(instrument, 'B', parseInt(amount[`${instrument.id}_B`]))}
                                         className="flex-1 bg-primary/20 text-primary border border-primary/50 text-xs py-1 rounded hover:bg-primary/30 truncate"
                                     >
-                                        {t('economy.market.labels.buy_action')} ({formatTkn(officialTicketPrices[instrument.ticket_type_b_id])} {t('economy.wallet.currency.tkn')}) <BilingualText text={instrument.side_b_name} className="inline" />
+                        {t('economy.market.labels.buy_action')} ({formatTkn(dynamicTicketPrices[instrument.ticket_type_b_id] ?? officialTicketPrices[instrument.ticket_type_b_id])} {t('economy.wallet.currency.tkn')}) <BilingualText text={instrument.side_b_name} className="inline" />
                                     </button>
                                 </div>
                             </div>
@@ -761,7 +833,7 @@ const SupportMarkets = () => {
                           <div className="bg-background/50 p-2 rounded">
                             <div className="text-text-secondary text-xs">{t('economy.market.labels.price')}</div>
                             <div className="text-white font-mono text-xs">
-                              {formatTkn(officialTicketPrices[instrument.ticket_type_id])} {t('economy.wallet.currency.tkn')}
+                              {formatTkn(dynamicTicketPrices[instrument.ticket_type_id] ?? officialTicketPrices[instrument.ticket_type_id])} {t('economy.wallet.currency.tkn')}
                             </div>
                           </div>
                           <div className="col-span-2 bg-background/50 p-2 rounded">
@@ -785,7 +857,7 @@ const SupportMarkets = () => {
                         onClick={() => handleSupport(instrument)}
                         className="bg-primary text-background font-bold px-4 py-2 rounded hover:bg-primary/90 transition-colors text-sm font-mono whitespace-nowrap"
                     >
-                        {t('economy.market.labels.buy_action')} ({formatTkn(officialTicketPrices[instrument.ticket_type_id])} {t('economy.wallet.currency.tkn')})
+                    {t('economy.market.labels.buy_action')} ({formatTkn(dynamicTicketPrices[instrument.ticket_type_id] ?? officialTicketPrices[instrument.ticket_type_id])} {t('economy.wallet.currency.tkn')})
                     </button>
                     <button
                         onClick={() => handleSellBackToOfficial(instrument, parseInt(amount[instrument.id]))}

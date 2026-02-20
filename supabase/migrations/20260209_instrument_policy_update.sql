@@ -112,10 +112,20 @@ CREATE OR REPLACE FUNCTION public.create_user_campaign(
   p_deliverable_cost_per_ticket NUMERIC DEFAULT 0,
   p_deliverable_condition TEXT DEFAULT NULL,
 
+  -- Current Dynamic Pricing Params (Normal instruments)
+  p_ticket_price NUMERIC DEFAULT 1,
+  p_ticket_limit INTEGER DEFAULT 1000000,
+  p_open_date TIMESTAMPTZ DEFAULT NOW(),
+  p_official_end_date TIMESTAMPTZ DEFAULT NULL,
+  p_dynamic_noise_pct NUMERIC DEFAULT 1,
+  p_dynamic_flex_demand_pct NUMERIC DEFAULT 0,
+  p_dynamic_flex_time_pct NUMERIC DEFAULT 0,
+  p_demand_saturation_units INTEGER DEFAULT 500,
+
   -- Driver Bet Params
   p_side_a_name TEXT DEFAULT NULL,
   p_side_b_name TEXT DEFAULT NULL,
-  p_official_end_date TIMESTAMPTZ DEFAULT NULL,
+  p_driver_bet_official_end_date TIMESTAMPTZ DEFAULT NULL,
   
   -- Legacy/Other
   p_refund_schedule JSONB DEFAULT '[]'::JSONB
@@ -127,6 +137,10 @@ DECLARE
   v_new_id UUID;
   v_ticket_type_a_id UUID;
   v_ticket_type_b_id UUID;
+  v_ticket_type_id UUID;
+  v_noise NUMERIC := COALESCE(p_dynamic_noise_pct, 1);
+  v_flex_d NUMERIC := COALESCE(p_dynamic_flex_demand_pct, 0);
+  v_flex_t NUMERIC := COALESCE(p_dynamic_flex_time_pct, 0);
 BEGIN
   -- Get User Rep
   SELECT reputation_balance INTO v_rep FROM public.wallets WHERE user_id = v_user_id;
@@ -170,7 +184,7 @@ BEGIN
           p_title, p_description, 'MILESTONE', 'HIGH', -- Driver bets are high risk
           'OPEN', v_user_id,
           true, p_side_a_name, p_side_b_name,
-          v_ticket_type_a_id, v_ticket_type_b_id, p_official_end_date
+          v_ticket_type_a_id, v_ticket_type_b_id, p_driver_bet_official_end_date
       ) RETURNING id INTO v_new_id;
 
       -- Link Back
@@ -188,23 +202,43 @@ BEGIN
          RAISE EXCEPTION 'All deliverable fields (Risk, Frequency, Day, Amount, Condition) are required.';
       END IF;
 
+      IF UPPER(p_risk_level) = 'LOW' THEN
+        v_noise := LEAST(v_noise, 0.5);
+        v_flex_d := LEAST(v_flex_d, 0.005);
+        v_flex_t := LEAST(v_flex_t, 0.005);
+      ELSIF UPPER(p_risk_level) = 'MID' THEN
+        v_noise := LEAST(v_noise, 1.0);
+        v_flex_d := LEAST(v_flex_d, 0.01);
+        v_flex_t := LEAST(v_flex_t, 0.01);
+      ELSE
+        v_noise := LEAST(v_noise, 50.0);
+        v_flex_d := LEAST(v_flex_d, 0.5);
+        v_flex_t := LEAST(v_flex_t, 0.5);
+      END IF;
+
       INSERT INTO public.support_instruments (
           title, description, type, risk_level, 
           yield_rate, lockup_period_days, status, creator_id,
           deliverable_frequency, deliverable_day, 
           deliverable_cost_per_ticket, deliverable_condition,
-          refund_schedule
+          refund_schedule,
+          ticket_price, ticket_limit, open_date, official_end_date,
+          dynamic_noise_pct, dynamic_flex_demand_pct, dynamic_flex_time_pct, demand_saturation_units
       ) VALUES (
           p_title, p_description, 'MILESTONE', p_risk_level,
           p_yield_rate, p_lockup_days, 'PENDING', v_user_id,
           p_deliverable_frequency, p_deliverable_day,
           p_deliverable_cost_per_ticket, p_deliverable_condition,
-          p_refund_schedule
+          p_refund_schedule,
+          COALESCE(p_ticket_price, 1), COALESCE(p_ticket_limit, 1000000), COALESCE(p_open_date, NOW()), p_official_end_date,
+          v_noise, v_flex_d, v_flex_t, COALESCE(p_demand_saturation_units, 500)
       ) RETURNING id INTO v_new_id;
 
       -- Create Ticket Type for this instrument
       INSERT INTO public.ticket_types (title, description, total_supply, creator_id, instrument_id)
-      VALUES (p_title, 'Ticket for ' || p_title, 1000000, v_user_id, v_new_id);
+      VALUES (p_title, 'Ticket for ' || p_title, COALESCE(p_ticket_limit, 1000000), v_user_id, v_new_id)
+      RETURNING id INTO v_ticket_type_id;
+      UPDATE public.support_instruments SET ticket_type_id = v_ticket_type_id WHERE id = v_new_id;
 
       RETURN jsonb_build_object('success', true, 'id', v_new_id, 'type', 'MARKET');
 

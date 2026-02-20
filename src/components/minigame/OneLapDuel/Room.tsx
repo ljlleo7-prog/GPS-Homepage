@@ -417,10 +417,32 @@ export default function Room({ roomId, driver, onLeave }: Props) {
               raceEngineRafRef.current = requestAnimationFrame(engine);
               return;
           }
+          // AI Disabled per user request
+          /*
+          const p1Inactive = p1.last_active_at ? (Date.now() - new Date(p1.last_active_at).getTime() > 20000) : false;
+          const p2Inactive = p2.last_active_at ? (Date.now() - new Date(p2.last_active_at).getTime() > 20000) : false;
+          const p1IsBehind = currentState.p1.distance < currentState.p2.distance;
+          const p2IsBehind = currentState.p2.distance < currentState.p1.distance;
+          const p1BattLow = currentState.p1.battery < (MAX_BATTERY_JOULES * 0.1);
+          const p2BattLow = currentState.p2.battery < (MAX_BATTERY_JOULES * 0.1);
+          const p1StrategyUsed = p1Inactive ? {
+              ...p1.strategy,
+              current_ers: p1BattLow ? 'recharge' : 'hotlap',
+              current_line: p1IsBehind ? 'opportunity' : 'defense'
+          } : p1.strategy;
+          const p2StrategyUsed = p2Inactive ? {
+              ...p2.strategy,
+              current_ers: p2BattLow ? 'recharge' : 'hotlap',
+              current_line: p2IsBehind ? 'opportunity' : 'defense'
+          } : p2.strategy;
+          */
+          const p1StrategyUsed = p1.strategy;
+          const p2StrategyUsed = p2.strategy;
+
           currentState = advanceRaceStateDelta(
               currentState,
-              { id: p1.user_id, driver: p1.one_lap_drivers, strategy: p1.strategy },
-              { id: p2.user_id, driver: p2.one_lap_drivers, strategy: p2.strategy },
+              { id: p1.user_id, driver: p1.one_lap_drivers, strategy: p1StrategyUsed },
+              { id: p2.user_id, driver: p2.one_lap_drivers, strategy: p2StrategyUsed },
               currentTrack,
               dt
           );
@@ -444,7 +466,8 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                   simulation_log: sanitized
               }]);
               await supabase.from('one_lap_rooms').update({ status: 'finished' }).eq('id', roomId);
-              // Stats & leaderboard updates
+              // Leaderboard & Points are handled by DB Trigger process_one_lap_race_finish
+              // We only show Toast here
               if (currentState.winner_id) {
                   const p1Local = playersRef.current[0];
                   const p2Local = playersRef.current[1];
@@ -470,37 +493,16 @@ export default function Room({ roomId, driver, onLeave }: Props) {
                           if (currentState.starting_grid.p2 === 2) multiplier = 2;
                       }
                       const totalPoints = points * multiplier;
-                      const loserId = isP1Winner ? p2Local.user_id : p1Local.user_id;
+                      // const loserId = isP1Winner ? p2Local.user_id : p1Local.user_id;
+                      
+                      // Removed Client-Side DB Updates to avoid conflicts with Trigger
+                      /*
                       const { data: wData } = await supabase.from('one_lap_drivers').select('wins, points, best_gap_sec').eq('user_id', currentState.winner_id).single();
                       if (wData) {
                           const currentGap = -timeGap;
-                          const oldBest = wData.best_gap_sec !== undefined && wData.best_gap_sec !== null ? wData.best_gap_sec : 999;
-                          const newBest = Number.isFinite(currentGap) ? Math.min(currentGap, oldBest) : oldBest;
-                          await supabase.from('one_lap_drivers').update({ 
-                              wins: (wData.wins || 0) + 1, 
-                              points: (wData.points || 0) + totalPoints,
-                              best_gap_sec: newBest
-                          }).eq('user_id', currentState.winner_id);
-                          const { error: rpcError } = await supabase.rpc('update_leaderboard_from_driver', { p_user_id: currentState.winner_id });
-                          if (rpcError) {
-                              const { data: existingLB } = await supabase.from('one_lap_leaderboard').select('races_played').eq('user_id', currentState.winner_id).single();
-                              await supabase.from('one_lap_leaderboard').upsert({
-                                  user_id: currentState.winner_id,
-                                  wins: (wData.wins || 0) + 1,
-                                  total_points: (wData.points || 0) + totalPoints,
-                                  races_played: (existingLB?.races_played || 0) + 1,
-                                  best_gap_sec: newBest,
-                                  updated_at: new Date().toISOString()
-                              });
-                          }
+                          // ...
                       }
-                      const { data: lData } = await supabase.from('one_lap_drivers').select('losses').eq('user_id', loserId).single();
-                      if (lData) {
-                          await supabase.from('one_lap_drivers').update({ 
-                              losses: (lData.losses || 0) + 1 
-                          }).eq('user_id', loserId);
-                          await supabase.rpc('update_leaderboard_from_driver', { p_user_id: loserId });
-                      }
+                      */
                   }
               }
               return;
@@ -524,6 +526,14 @@ export default function Room({ roomId, driver, onLeave }: Props) {
       if (!raceState || players.length < 2) return;
       const myPlayerState = players[0].user_id === user?.id ? raceState.p1 : raceState.p2;
       const currentNodeId = myPlayerState.last_node_id;
+
+      if (type === 'ers' && value === 'overtake' && raceState) {
+        const myGrid = players[0].user_id === user?.id ? raceState.starting_grid.p1 : raceState.starting_grid.p2;
+        if (myGrid === 1) {
+            showToast('Overtake is only available for the car that started behind.', 'error');
+            return;
+        }
+      }
 
       if (type === 'line') {
         // Single-line strategy limit removed per user request
