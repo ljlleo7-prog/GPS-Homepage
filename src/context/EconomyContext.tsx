@@ -82,6 +82,7 @@ interface EconomyContextType {
   acknowledgeTestPlayerDecline: (requestId: string) => Promise<{ success: boolean; message?: string }>;
   playReactionGame: (scoreMs: number) => Promise<{ success: boolean; reward?: number; message?: string }>;
   playPitStopGame: (scoreMs: number) => Promise<{ success: boolean; reward?: number; message?: string }>;
+  playGTPitStopGame: (scoreMs: number) => Promise<{ success: boolean; reward?: number; message?: string }>;
   getMonthlyLeaderboard: (gameType?: string) => Promise<{ success: boolean; data?: any[] }>;
   getMonthlyPool: (gameType?: string) => Promise<{ success: boolean; data?: any }>;
 }
@@ -115,6 +116,7 @@ const EconomyContext = createContext<EconomyContextType>({
   acknowledgeTestPlayerDecline: async () => ({ success: false }),
   playReactionGame: async () => ({ success: false }),
   playPitStopGame: async () => ({ success: false }),
+  playGTPitStopGame: async () => ({ success: false }),
   getMonthlyLeaderboard: async () => ({ success: false }),
   getMonthlyPool: async () => ({ success: false }),
 });
@@ -683,6 +685,22 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     }
   };
 
+  const playGTPitStopGame = async (scoreMs: number) => {
+    if (!user) return { success: false, message: 'Not authenticated' };
+    try {
+      const { data, error } = await supabase.rpc('play_gt_pit_stop_game', {
+        p_score_ms: scoreMs
+      });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      await refreshEconomy();
+      return { success: true, reward: data.reward, message: data.message };
+    } catch (error: any) {
+      console.error('Error playing GT pit stop game:', error);
+      return { success: false, message: error.message || 'Failed to submit score' };
+    }
+  };
+
   const getMonthlyLeaderboard = async (gameType: string = 'REACTION') => {
     try {
         const { data, error } = await supabase.rpc('get_monthly_leaderboard', {
@@ -739,6 +757,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       acknowledgeTestPlayerDecline,
       playReactionGame,
       playPitStopGame,
+      playGTPitStopGame,
       getMonthlyLeaderboard,
       getMonthlyPool
     }}>

@@ -5,10 +5,11 @@ import { Zap, Flag, Wrench } from 'lucide-react';
 import ReactionGame from '../components/minigame/ReactionGame';
 import OneLapDuel from '../components/minigame/OneLapDuel';
 import PitStopGame from '../components/minigame/PitStopGame';
+import GTPitStopGame from '../components/minigame/GTPitStopGame';
 
 export default function Minigame() {
   const { t } = useTranslation();
-  const [selectedGame, setSelectedGame] = useState<'REACTION' | 'DUEL' | 'PIT_STOP' | null>(null);
+  const [selectedGame, setSelectedGame] = useState<'REACTION' | 'DUEL' | 'PIT_STOP' | 'PIT_STOP_GT' | null>(null);
 
   if (!selectedGame) {
     return (
@@ -82,6 +83,27 @@ export default function Minigame() {
                 </div>
               </div>
             </motion.button>
+
+            {/* GT/Rally Pit Stop Challenge Card */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setSelectedGame('PIT_STOP_GT')}
+              className="group relative h-[400px] bg-neutral-800 rounded-2xl overflow-hidden border border-white/5 hover:border-emerald-500/50 transition-colors text-left"
+            >
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent z-10" />
+              <div className="absolute inset-0 bg-[url('https://ts3.tc.mm.bing.net/th/id/OIP-C.nBV4WydHK6q_gdOQ-2Q8dgHaEo?rs=1&pid=ImgDetMain')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity" />
+              
+              <div className="relative z-20 p-8 h-full flex flex-col justify-end">
+                <Wrench className="w-12 h-12 text-emerald-500 mb-4" />
+                <h2 className="text-3xl font-bold mb-2">{t('minigame.gt_pit_stop.title')}</h2>
+                <p className="text-gray-300 mb-4">{t('minigame.gt_pit_stop.desc')}</p>
+                <div className="flex items-center gap-2 text-sm font-mono text-emerald-500">
+                  <span>{t('minigame.gt_pit_stop.tag_pool')}</span>
+                  <span className="bg-emerald-600 text-white px-2 py-0.5 rounded">{t('minigame.gt_pit_stop.tag_new')}</span>
+                </div>
+              </div>
+            </motion.button>
           </div>
         </div>
       </div>
@@ -102,6 +124,7 @@ export default function Minigame() {
         {selectedGame === 'REACTION' && <ReactionGame />}
         {selectedGame === 'DUEL' && <OneLapDuel />}
         {selectedGame === 'PIT_STOP' && <PitStopGame />}
+        {selectedGame === 'PIT_STOP_GT' && <GTPitStopGame />}
       </div>
     </div>
   );

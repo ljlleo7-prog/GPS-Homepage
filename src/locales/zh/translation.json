@@ -573,6 +573,21 @@
       "step3_title": "3. 拧紧",
       "step3_desc": "再次按住螺母以固定车轮。"
     },
+    "gt_pit_stop": {
+      "title": "GT/拉力进站挑战",
+      "desc": "开门拉出车手，抬起千斤顶，四轮换胎（多螺栓），收纳并手动启动。",
+      "instructions": "拖动车门、车手与后备箱；拖出千斤顶并切换至绿色；按住以拧松/拧紧螺栓；从后备箱拖出新胎并安装；降回红色，归还器材与旧胎；回到座舱，关门并点火。",
+      "tag_pool": "月度奖金池",
+      "tag_new": "新发布",
+      "ready_title": "准备好 GT 进站了吗？",
+      "objective": "完成完整 GT/拉力进站流程并更换四个轮胎。",
+      "step1_title": "进入与举升",
+      "step1_desc": "打开车门、拉出车手、打开后备箱、取出千斤顶并升至绿色。",
+      "step2_title": "轮胎与螺栓",
+      "step2_desc": "拧松螺栓、移出旧胎、从后备箱拖出新胎并安装、拧紧螺栓。",
+      "step3_title": "收纳与启动",
+      "step3_desc": "降回红色，归还千斤顶与轮胎，回座舱、关门并手动点火。"
+    },
     "duel": {
       "title": "单圈对决 (2026)",
       "desc": "策略性 1v1 竞速。管理 ERS，选择赛车线，培养你的车手。",
@@ -594,6 +609,18 @@
     "play_again": "再玩一次 (1 代币)",
     "play_game": "玩游戏",
     "monthly_leaderboard": "月度排行榜",
+    "pool": {
+      "total": "奖池",
+      "players": "参与人数",
+      "ends_in": "剩余天数"
+    },
+    "leaderboard": {
+      "rank": "排名",
+      "player": "玩家",
+      "score": "成绩",
+      "attempts": "尝试次数",
+      "no_records": "暂无记录"
+    },
     "monthly_championship": "月度锦标赛",
     "championship_description": "展示您的反应速度。每次尝试消耗 1 代币。部分代币将流入月度奖池。",
     "total_plays": "总尝试",
