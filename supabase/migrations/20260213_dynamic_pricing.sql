@@ -17,7 +17,7 @@ BEGIN
     SELECT 1 FROM pg_policies 
     WHERE schemaname = 'public' 
       AND tablename = 'official_price_history' 
-      AND polname = 'Official price history is viewable by everyone'
+      AND policyname = 'Official price history is viewable by everyone'
   ) THEN
     EXECUTE 'CREATE POLICY "Official price history is viewable by everyone" ON public.official_price_history FOR SELECT USING (true)';
   END IF;
@@ -153,35 +153,22 @@ BEGIN
       ORDER BY 1
     ) c;
   ELSIF p_interval = '1w' THEN
-    v_start := NOW() - INTERVAL '7 days';
-    -- Hourly official
     SELECT COALESCE(
-      jsonb_agg(jsonb_build_object('t', t, 'price', avg_price) ORDER BY t),
+      jsonb_agg(jsonb_build_object('t', day, 'price', avg_price) ORDER BY day),
       '[]'::jsonb
     ) INTO v_official
-    FROM (
-      SELECT date_trunc('hour', created_at) AS t, AVG(price) AS avg_price
-      FROM public.official_price_history
-      WHERE ticket_type_id = p_ticket_type_id
-        AND created_at >= v_start
-        AND created_at < date_trunc('hour', NOW())
-      GROUP BY 1
-      ORDER BY 1
-    ) s;
-    -- Hourly civil (P2P only)
+    FROM public.official_price_daily_history
+    WHERE ticket_type_id = p_ticket_type_id
+      AND day >= (CURRENT_DATE - INTERVAL '6 days')
+      AND day < CURRENT_DATE;
     SELECT COALESCE(
-      jsonb_agg(jsonb_build_object('t', c.t, 'price', c.avg_price) ORDER BY c.t),
+      jsonb_agg(jsonb_build_object('t', day, 'price', avg_price) ORDER BY day),
       '[]'::jsonb
     ) INTO v_civil
-    FROM (
-      SELECT date_trunc('hour', created_at) AS t, AVG(price_per_unit) AS avg_price
-      FROM public.ticket_transactions
-      WHERE ticket_type_id = p_ticket_type_id
-        AND listing_id IS NOT NULL
-        AND created_at >= v_start
-      GROUP BY 1
-      ORDER BY 1
-    ) c;
+    FROM public.civil_price_daily_history
+    WHERE ticket_type_id = p_ticket_type_id
+      AND day >= (CURRENT_DATE - INTERVAL '6 days')
+      AND day < CURRENT_DATE;
   ELSE
     v_start := NOW() - INTERVAL '30 days';
     -- Daily official
@@ -204,7 +191,7 @@ BEGIN
   END IF;
 
   -- Always append current period price as the last point (use hour for 1d/1w, day for 1m)
-  IF p_interval IN ('1d', '1w') THEN
+  IF p_interval = '1d' THEN
     v_now := date_trunc('hour', NOW());
     v_price := public.get_official_price_by_ticket_type_at(p_ticket_type_id, v_now);
     v_official := v_official || jsonb_build_array(jsonb_build_object('t', v_now, 'price', v_price));
@@ -397,7 +384,7 @@ BEGIN
     SELECT 1 FROM pg_policies 
     WHERE schemaname = 'public' 
       AND tablename = 'official_price_daily_history' 
-      AND polname = 'Official daily price history is viewable by everyone'
+      AND policyname = 'Official daily price history is viewable by everyone'
   ) THEN
     EXECUTE 'CREATE POLICY "Official daily price history is viewable by everyone" ON public.official_price_daily_history FOR SELECT USING (true)';
   END IF;
@@ -417,7 +404,7 @@ BEGIN
     SELECT 1 FROM pg_policies 
     WHERE schemaname = 'public' 
       AND tablename = 'civil_price_daily_history' 
-      AND polname = 'Civil daily price history is viewable by everyone'
+      AND policyname = 'Civil daily price history is viewable by everyone'
   ) THEN
     EXECUTE 'CREATE POLICY "Civil daily price history is viewable by everyone" ON public.civil_price_daily_history FOR SELECT USING (true)';
   END IF;

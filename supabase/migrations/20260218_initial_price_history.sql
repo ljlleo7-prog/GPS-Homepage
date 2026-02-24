@@ -13,6 +13,9 @@ BEGIN
   SELECT COALESCE(is_driver_bet, false) INTO v_is_driver
   FROM public.support_instruments
   WHERE id = v_instr_id;
+  IF v_instr_id IS NULL THEN
+    RETURN NEW;
+  END IF;
   IF v_is_driver THEN
     RETURN NEW;
   END IF;

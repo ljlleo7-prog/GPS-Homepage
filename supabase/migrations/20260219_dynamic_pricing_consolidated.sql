@@ -141,12 +141,12 @@ EXECUTE FUNCTION public.ensure_initial_official_price();
 DO $$
 BEGIN
   INSERT INTO public.official_price_history (instrument_id, ticket_type_id, price, created_at)
-  SELECT t.instrument_id, t.id, 1, date_trunc('hour', NOW())
-  FROM public.ticket_types t
-  JOIN public.support_instruments i ON i.id = t.instrument_id
-  LEFT JOIN public.official_price_history h ON h.ticket_type_id = t.id
-  WHERE COALESCE(i.is_driver_bet, false) = false
-    AND h.ticket_type_id IS NULL;
+          SELECT i.id, t.id, 1, date_trunc('hour', NOW())
+          FROM public.ticket_types t
+          JOIN public.support_instruments i ON i.ticket_type_id = t.id
+          LEFT JOIN public.official_price_history h ON h.ticket_type_id = t.id
+          WHERE COALESCE(i.is_driver_bet, false) = false
+            AND h.ticket_type_id IS NULL;
 END;
 $$ LANGUAGE plpgsql;
 

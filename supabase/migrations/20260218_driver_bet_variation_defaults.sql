@@ -22,7 +22,8 @@ CREATE OR REPLACE FUNCTION public.create_driver_bet(
   p_open_date TIMESTAMPTZ,
   p_side_b_name TEXT DEFAULT NULL,
   p_noise_pct NUMERIC DEFAULT 1,
-  p_flex_pct NUMERIC DEFAULT 0.15,
+  p_flex_demand_pct NUMERIC DEFAULT 0.15,
+  p_flex_time_pct NUMERIC DEFAULT 0,
   p_demand_saturation_units INTEGER DEFAULT 500
 )
 RETURNS JSONB
@@ -37,8 +38,8 @@ DECLARE
   v_side_a_full TEXT;
   v_side_b_full TEXT;
   v_noise NUMERIC := COALESCE(p_noise_pct, 1);
-  v_flex_d NUMERIC := COALESCE(p_flex_pct, 0.15);
-  v_flex_t NUMERIC := 0;
+  v_flex_d NUMERIC := COALESCE(p_flex_demand_pct, 0.15);
+  v_flex_t NUMERIC := COALESCE(p_flex_time_pct, 0);
 BEGIN
   IF (SELECT reputation_balance FROM public.wallets WHERE user_id = v_user_id) <= 50 THEN
     RETURN jsonb_build_object('success', false, 'message', 'Reputation too low (< 50)');
@@ -69,11 +70,11 @@ BEGIN
     'OPEN', v_noise, v_flex_d,
     COALESCE(p_demand_saturation_units, 500), v_flex_t
   ) RETURNING id INTO v_instrument_id;
-  INSERT INTO public.ticket_types (creator_id, title, description, total_supply)
-  VALUES (v_user_id, p_title || ' (' || v_side_a_full || ')', 'Bet: ' || v_side_a_full, p_ticket_limit)
+  INSERT INTO public.ticket_types (creator_id, title, description, total_supply, instrument_id)
+  VALUES (v_user_id, p_title || ' (' || v_side_a_full || ')', 'Bet: ' || v_side_a_full, p_ticket_limit, v_instrument_id)
   RETURNING id INTO v_ticket_a_id;
-  INSERT INTO public.ticket_types (creator_id, title, description, total_supply)
-  VALUES (v_user_id, p_title || ' (' || v_side_b_full || ')', 'Bet: ' || v_side_b_full, p_ticket_limit)
+  INSERT INTO public.ticket_types (creator_id, title, description, total_supply, instrument_id)
+  VALUES (v_user_id, p_title || ' (' || v_side_b_full || ')', 'Bet: ' || v_side_b_full, p_ticket_limit, v_instrument_id)
   RETURNING id INTO v_ticket_b_id;
   UPDATE public.support_instruments
   SET ticket_type_a_id = v_ticket_a_id, ticket_type_b_id = v_ticket_b_id

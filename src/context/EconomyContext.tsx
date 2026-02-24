@@ -50,7 +50,10 @@ interface EconomyContextType {
     deliverableDay?: string,
     deliverableCostPerTicket?: number,
     deliverableCondition?: string,
-    refundPrice?: number
+    refundPrice?: number,
+    dynamicNoisePct?: number,
+    dynamicFlexDemandPct?: number,
+    dynamicFlexTimePct?: number
   ) => Promise<{ success: boolean; message?: string; data?: any }>;
   createDriverBet: (
     title: string,
@@ -62,7 +65,8 @@ interface EconomyContextType {
     openDate: string,
     sideB?: string,
     noisePct?: number,
-    flexPct?: number
+    flexDemandPct?: number,
+    flexTimePct?: number
   ) => Promise<{ success: boolean; message?: string; data?: any }>;
   buyDriverBetTicket: (
     instrumentId: string,
@@ -410,7 +414,10 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     deliverableDay?: string,
     deliverableCostPerTicket?: number,
     deliverableCondition?: string,
-    refundPrice?: number
+    refundPrice?: number,
+    dynamicNoisePct?: number,
+    dynamicFlexDemandPct?: number,
+    dynamicFlexTimePct?: number
   ) => {
     if (!user) return { success: false, message: 'Not authenticated' };
     try {
@@ -434,9 +441,9 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
           p_ticket_limit: 1000000,
           p_open_date: new Date().toISOString(),
           p_official_end_date: null,
-          p_dynamic_noise_pct: 1,
-          p_dynamic_flex_demand_pct: 0,
-          p_dynamic_flex_time_pct: 0,
+          p_dynamic_noise_pct: dynamicNoisePct ?? 1,
+          p_dynamic_flex_demand_pct: dynamicFlexDemandPct ?? 0,
+          p_dynamic_flex_time_pct: dynamicFlexTimePct ?? 0,
           p_demand_saturation_units: 500
         });
         
@@ -476,7 +483,8 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
     openDate: string,
     sideB?: string,
     noisePct?: number,
-    flexPct?: number
+    flexDemandPct?: number,
+    flexTimePct?: number
   ) => {
     if (!user) return { success: false, message: 'Not authenticated' };
     try {
@@ -490,7 +498,8 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
         p_open_date: openDate,
         p_side_b_name: sideB,
         p_noise_pct: noisePct ?? 0,
-        p_flex_pct: flexPct ?? 0,
+        p_flex_demand_pct: flexDemandPct ?? 0,
+        p_flex_time_pct: flexTimePct ?? 0,
         p_demand_saturation_units: 500
       });
 

@@ -49,6 +49,12 @@ interface Instrument {
 
 type UserTicketPosition = { ticket_type_id: string; balance: number };
 
+const calculateCappedPrice = (base: number, current: number) => {
+  if (base <= 0) return current;
+  const diff = current - base;
+  return base + base * Math.tanh(diff / base);
+};
+
 const SupportMarkets = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -84,6 +90,9 @@ const SupportMarkets = () => {
   const [deliverableCost, setDeliverableCost] = useState('');
   const [deliverableCondition, setDeliverableCondition] = useState('');
   const [refundPrice, setRefundPrice] = useState('0.9');
+  const [marketNoisePct, setMarketNoisePct] = useState('1');
+  const [marketDemandFlexPct, setMarketDemandFlexPct] = useState('0');
+  const [marketTimeFlexPct, setMarketTimeFlexPct] = useState('0');
 
   // Driver Bet State
   const [sideA, setSideA] = useState('');
@@ -93,13 +102,15 @@ const SupportMarkets = () => {
   const [endDate, setEndDate] = useState('');
   const [openDate, setOpenDate] = useState('');
   const [noisePct, setNoisePct] = useState('0');
-  const [flexPct, setFlexPct] = useState('0');
+  const [flexDemandPct, setFlexDemandPct] = useState('0');
+  const [flexTimePct, setFlexTimePct] = useState('0');
 
   const [creating, setCreating] = useState(false);
   const [viewingHolders, setViewingHolders] = useState<{id: string, side: 'A' | 'B' | 'General'} | null>(null);
   const [holdersList, setHoldersList] = useState<{username: string, balance: number}[]>([]);
   const [driverBetStats, setDriverBetStats] = useState<{[key: string]: {side_a_sold: number, side_b_sold: number}}>({});
   const [officialTicketPrices, setOfficialTicketPrices] = useState<{[key: string]: number}>({});
+  const [yesterdayPrices, setYesterdayPrices] = useState<{[key: string]: number}>({});
   const [dynamicTicketPrices, setDynamicTicketPrices] = useState<{[key: string]: number}>({});
   const [trendInterval, setTrendInterval] = useState<'1d' | '1w' | '1m'>('1w');
   const hourlyTimer = useRef<number | null>(null);
@@ -158,21 +169,29 @@ const SupportMarkets = () => {
     else {
       setInstruments(data || []);
       const prices: {[key: string]: number} = {};
+      const yPrices: {[key: string]: number} = {};
       for (const ins of data || []) {
         if (ins.ticket_type_id) {
           const { data: p } = await supabase.rpc('get_authoritative_official_price', { p_ticket_type_id: ins.ticket_type_id });
           if (p !== null && p !== undefined) prices[ins.ticket_type_id] = p as number;
+          const { data: yp } = await supabase.rpc('get_yesterday_avg_price', { p_ticket_type_id: ins.ticket_type_id });
+          if (yp !== null && yp !== undefined) yPrices[ins.ticket_type_id] = yp as number;
         }
         if (ins.ticket_type_a_id) {
           const { data: pa } = await supabase.rpc('get_authoritative_official_price', { p_ticket_type_id: ins.ticket_type_a_id });
           if (pa !== null && pa !== undefined) prices[ins.ticket_type_a_id] = pa as number;
+          const { data: ypa } = await supabase.rpc('get_yesterday_avg_price', { p_ticket_type_id: ins.ticket_type_a_id });
+          if (ypa !== null && ypa !== undefined) yPrices[ins.ticket_type_a_id] = ypa as number;
         }
         if (ins.ticket_type_b_id) {
           const { data: pb } = await supabase.rpc('get_authoritative_official_price', { p_ticket_type_id: ins.ticket_type_b_id });
           if (pb !== null && pb !== undefined) prices[ins.ticket_type_b_id] = pb as number;
+          const { data: ypb } = await supabase.rpc('get_yesterday_avg_price', { p_ticket_type_id: ins.ticket_type_b_id });
+          if (ypb !== null && ypb !== undefined) yPrices[ins.ticket_type_b_id] = ypb as number;
         }
       }
       setOfficialTicketPrices(prices);
+      setYesterdayPrices(yPrices);
     }
     setLoading(false);
   };
@@ -299,14 +318,15 @@ const SupportMarkets = () => {
             new Date(openDate).toISOString(),
             sideB,
             parseFloat(noisePct),
-            parseFloat(flexPct)
+            parseFloat(flexDemandPct),
+            parseFloat(flexTimePct)
         );
 
         if (result.success) {
             alert(t('economy.market.alerts.driver_bet_created'));
             setShowCreateModal(false);
             setNewTitle(''); setNewDesc(''); setIsDriverBet(false);
-            setSideA(''); setSideB(''); setTicketPrice(''); setTicketLimit(''); setEndDate(''); setOpenDate(''); setNoisePct('0'); setFlexPct('0');
+            setSideA(''); setSideB(''); setTicketPrice(''); setTicketLimit(''); setEndDate(''); setOpenDate(''); setNoisePct('0'); setFlexDemandPct('0'); setFlexTimePct('0');
             fetchInstruments();
         } else {
             alert(result.message);
@@ -333,7 +353,10 @@ const SupportMarkets = () => {
           deliverableDay,
           parseFloat(deliverableCost),
           deliverableCondition,
-          parseFloat(refundPrice)
+          parseFloat(refundPrice),
+          parseFloat(marketNoisePct),
+          parseFloat(marketDemandFlexPct),
+          parseFloat(marketTimeFlexPct)
         );
 
         if (result.success) {
@@ -349,6 +372,9 @@ const SupportMarkets = () => {
           setDeliverableCost('');
           setDeliverableCondition('');
           setRefundPrice('0.9');
+          setMarketNoisePct('1');
+          setMarketDemandFlexPct('0');
+          setMarketTimeFlexPct('0');
           fetchInstruments();
         } else {
           alert(result.message);
@@ -685,10 +711,32 @@ const SupportMarkets = () => {
                             <div className="bg-white/5 p-2 rounded">
                                 <div className="text-text-secondary">{t('economy.market.labels.price')}</div>
                                 <div className="text-white">
-                                  {t('economy.market.labels.side_a')}: {formatTkn(officialTicketPrices[instrument.ticket_type_a_id])} {t('economy.wallet.currency.tkn')}
+                                  <div className="flex items-center gap-1">
+                                    <span>{t('economy.market.labels.side_a')}: {formatTkn(dynamicTicketPrices[instrument.ticket_type_a_id] ?? officialTicketPrices[instrument.ticket_type_a_id])} {t('economy.wallet.currency.tkn')}</span>
+                                    {yesterdayPrices[instrument.ticket_type_a_id] && (
+                                        <span className={`text-[10px] ${(dynamicTicketPrices[instrument.ticket_type_a_id] ?? officialTicketPrices[instrument.ticket_type_a_id]) >= yesterdayPrices[instrument.ticket_type_a_id] ? 'text-green-400' : 'text-red-400'}`}>
+                                            {((dynamicTicketPrices[instrument.ticket_type_a_id] ?? officialTicketPrices[instrument.ticket_type_a_id]) - yesterdayPrices[instrument.ticket_type_a_id]) >= 0 ? '▲' : '▼'}
+                                            {Math.abs(((dynamicTicketPrices[instrument.ticket_type_a_id] ?? officialTicketPrices[instrument.ticket_type_a_id]) - yesterdayPrices[instrument.ticket_type_a_id]) / yesterdayPrices[instrument.ticket_type_a_id] * 100).toFixed(1)}%
+                                        </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-white/50" title="Capped Resolution Price">
+                                      Est. Payout: {formatTkn(calculateCappedPrice(instrument.ticket_price || 0, dynamicTicketPrices[instrument.ticket_type_a_id] ?? officialTicketPrices[instrument.ticket_type_a_id]))}
+                                  </div>
                                 </div>
-                                <div className="text-white">
-                                  {t('economy.market.labels.side_b')}: {formatTkn(officialTicketPrices[instrument.ticket_type_b_id])} {t('economy.wallet.currency.tkn')}
+                                <div className="text-white mt-1">
+                                  <div className="flex items-center gap-1">
+                                    <span>{t('economy.market.labels.side_b')}: {formatTkn(dynamicTicketPrices[instrument.ticket_type_b_id] ?? officialTicketPrices[instrument.ticket_type_b_id])} {t('economy.wallet.currency.tkn')}</span>
+                                    {yesterdayPrices[instrument.ticket_type_b_id] && (
+                                        <span className={`text-[10px] ${(dynamicTicketPrices[instrument.ticket_type_b_id] ?? officialTicketPrices[instrument.ticket_type_b_id]) >= yesterdayPrices[instrument.ticket_type_b_id] ? 'text-green-400' : 'text-red-400'}`}>
+                                            {((dynamicTicketPrices[instrument.ticket_type_b_id] ?? officialTicketPrices[instrument.ticket_type_b_id]) - yesterdayPrices[instrument.ticket_type_b_id]) >= 0 ? '▲' : '▼'}
+                                            {Math.abs(((dynamicTicketPrices[instrument.ticket_type_b_id] ?? officialTicketPrices[instrument.ticket_type_b_id]) - yesterdayPrices[instrument.ticket_type_b_id]) / yesterdayPrices[instrument.ticket_type_b_id] * 100).toFixed(1)}%
+                                        </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] text-white/50" title="Capped Resolution Price">
+                                      Est. Payout: {formatTkn(calculateCappedPrice(instrument.ticket_price || 0, dynamicTicketPrices[instrument.ticket_type_b_id] ?? officialTicketPrices[instrument.ticket_type_b_id]))}
+                                  </div>
                                 </div>
                                 {(() => {
                                   const stats = driverBetStats[instrument.id] || { side_a_sold: 0, side_b_sold: 0 };
@@ -731,7 +779,7 @@ const SupportMarkets = () => {
                                 <div className="text-text-secondary">{t('economy.market.labels.result') || 'Result Release'}</div>
                                 <div className="text-white font-bold text-yellow-500">{instrument.open_date ? new Date(instrument.open_date).toLocaleString() : '-'}</div>
                                 <div className="text-[11px] text-white/60 mt-1">
-                                  {t('economy.market.labels.resolution_policy') || 'Resolution Policy'}: {t('economy.market.labels.resolution_policy_current_end') || 'Current price at ending date'}
+                                  {t('economy.market.labels.resolution_policy') || 'Resolution Policy'}: {t('economy.market.labels.resolution_policy_capped') || 'Market Price (Capped at ~200%)'}
                                 </div>
                             </div>
                         </div>
@@ -832,8 +880,14 @@ const SupportMarkets = () => {
                           </div>
                           <div className="bg-background/50 p-2 rounded">
                             <div className="text-text-secondary text-xs">{t('economy.market.labels.price')}</div>
-                            <div className="text-white font-mono text-xs">
-                              {formatTkn(dynamicTicketPrices[instrument.ticket_type_id] ?? officialTicketPrices[instrument.ticket_type_id])} {t('economy.wallet.currency.tkn')}
+                            <div className="text-white font-mono text-xs flex items-center gap-1">
+                              <span>{formatTkn(dynamicTicketPrices[instrument.ticket_type_id] ?? officialTicketPrices[instrument.ticket_type_id])} {t('economy.wallet.currency.tkn')}</span>
+                              {yesterdayPrices[instrument.ticket_type_id] && (
+                                <span className={`text-[10px] ${(dynamicTicketPrices[instrument.ticket_type_id] ?? officialTicketPrices[instrument.ticket_type_id]) >= yesterdayPrices[instrument.ticket_type_id] ? 'text-green-400' : 'text-red-400'}`}>
+                                    {((dynamicTicketPrices[instrument.ticket_type_id] ?? officialTicketPrices[instrument.ticket_type_id]) - yesterdayPrices[instrument.ticket_type_id]) >= 0 ? '▲' : '▼'}
+                                    {Math.abs(((dynamicTicketPrices[instrument.ticket_type_id] ?? officialTicketPrices[instrument.ticket_type_id]) - yesterdayPrices[instrument.ticket_type_id]) / yesterdayPrices[instrument.ticket_type_id] * 100).toFixed(1)}%
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="col-span-2 bg-background/50 p-2 rounded">
@@ -921,7 +975,63 @@ const SupportMarkets = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {instruments.map((instrument) => (
-                <div key={instrument.id} className="space-y-4">
+                <div key={instrument.id} className="space-y-4 bg-surface border border-white/10 rounded p-4">
+                  <div className="flex justify-between items-start">
+                      <h3 className="font-bold text-white font-mono">{instrument.title}</h3>
+                      {instrument.is_driver_bet && <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">Driver Bet</span>}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                     {instrument.is_driver_bet ? (
+                       <>
+                         <div className="bg-white/5 p-2 rounded">
+                           <div className="text-text-secondary text-xs mb-1">{t('economy.market.labels.side_a')}</div>
+                           <div className="flex items-baseline gap-2">
+                              <span className="text-white font-mono text-sm">{formatTkn(dynamicTicketPrices[instrument.ticket_type_a_id!] ?? officialTicketPrices[instrument.ticket_type_a_id!])}</span>
+                              {yesterdayPrices[instrument.ticket_type_a_id!] && (
+                                  <span className={`text-xs ${(dynamicTicketPrices[instrument.ticket_type_a_id!] ?? officialTicketPrices[instrument.ticket_type_a_id!]) >= yesterdayPrices[instrument.ticket_type_a_id!] ? 'text-green-400' : 'text-red-400'}`}>
+                                      {((dynamicTicketPrices[instrument.ticket_type_a_id!] ?? officialTicketPrices[instrument.ticket_type_a_id!]) - yesterdayPrices[instrument.ticket_type_a_id!]) >= 0 ? '▲' : '▼'}
+                                      {Math.abs(((dynamicTicketPrices[instrument.ticket_type_a_id!] ?? officialTicketPrices[instrument.ticket_type_a_id!]) - yesterdayPrices[instrument.ticket_type_a_id!]) / yesterdayPrices[instrument.ticket_type_a_id!] * 100).toFixed(1)}%
+                                  </span>
+                              )}
+                           </div>
+                           <div className="text-[10px] text-white/50 mt-1">
+                             Payout: {formatTkn(calculateCappedPrice(instrument.ticket_price || 0, dynamicTicketPrices[instrument.ticket_type_a_id!] ?? officialTicketPrices[instrument.ticket_type_a_id!]))}
+                           </div>
+                         </div>
+                         
+                         <div className="bg-white/5 p-2 rounded">
+                           <div className="text-text-secondary text-xs mb-1">{t('economy.market.labels.side_b')}</div>
+                           <div className="flex items-baseline gap-2">
+                              <span className="text-white font-mono text-sm">{formatTkn(dynamicTicketPrices[instrument.ticket_type_b_id!] ?? officialTicketPrices[instrument.ticket_type_b_id!])}</span>
+                              {yesterdayPrices[instrument.ticket_type_b_id!] && (
+                                  <span className={`text-xs ${(dynamicTicketPrices[instrument.ticket_type_b_id!] ?? officialTicketPrices[instrument.ticket_type_b_id!]) >= yesterdayPrices[instrument.ticket_type_b_id!] ? 'text-green-400' : 'text-red-400'}`}>
+                                      {((dynamicTicketPrices[instrument.ticket_type_b_id!] ?? officialTicketPrices[instrument.ticket_type_b_id!]) - yesterdayPrices[instrument.ticket_type_b_id!]) >= 0 ? '▲' : '▼'}
+                                      {Math.abs(((dynamicTicketPrices[instrument.ticket_type_b_id!] ?? officialTicketPrices[instrument.ticket_type_b_id!]) - yesterdayPrices[instrument.ticket_type_b_id!]) / yesterdayPrices[instrument.ticket_type_b_id!] * 100).toFixed(1)}%
+                                  </span>
+                              )}
+                           </div>
+                           <div className="text-[10px] text-white/50 mt-1">
+                             Payout: {formatTkn(calculateCappedPrice(instrument.ticket_price || 0, dynamicTicketPrices[instrument.ticket_type_b_id!] ?? officialTicketPrices[instrument.ticket_type_b_id!]))}
+                           </div>
+                         </div>
+                       </>
+                     ) : (
+                       <div className="bg-white/5 p-2 rounded col-span-2">
+                           <div className="text-text-secondary text-xs mb-1">{t('economy.market.labels.price')}</div>
+                           <div className="flex items-baseline gap-2">
+                              <span className="text-white font-mono text-sm">{formatTkn(dynamicTicketPrices[instrument.ticket_type_id!] ?? officialTicketPrices[instrument.ticket_type_id!])}</span>
+                              {yesterdayPrices[instrument.ticket_type_id!] && (
+                                  <span className={`text-xs ${(dynamicTicketPrices[instrument.ticket_type_id!] ?? officialTicketPrices[instrument.ticket_type_id!]) >= yesterdayPrices[instrument.ticket_type_id!] ? 'text-green-400' : 'text-red-400'}`}>
+                                      {((dynamicTicketPrices[instrument.ticket_type_id!] ?? officialTicketPrices[instrument.ticket_type_id!]) - yesterdayPrices[instrument.ticket_type_id!]) >= 0 ? '▲' : '▼'}
+                                      {Math.abs(((dynamicTicketPrices[instrument.ticket_type_id!] ?? officialTicketPrices[instrument.ticket_type_id!]) - yesterdayPrices[instrument.ticket_type_id!]) / yesterdayPrices[instrument.ticket_type_id!] * 100).toFixed(1)}%
+                                  </span>
+                              )}
+                           </div>
+                       </div>
+                     )}
+                  </div>
+
                   {instrument.is_driver_bet ? (
                     (instrument.ticket_type_a_id || instrument.ticket_type_b_id) ? (
                       <PriceTrend
@@ -1082,7 +1192,7 @@ const SupportMarkets = () => {
                                 />
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-sm text-text-secondary mb-1">Noise Range (%)</label>
                                 <input
@@ -1094,13 +1204,23 @@ const SupportMarkets = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm text-text-secondary mb-1">Price Flexibility (factor)</label>
+                                <label className="block text-sm text-text-secondary mb-1">Demand Flex (fraction)</label>
                                 <input
                                     type="number"
                                     step="0.01"
                                     className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
-                                    value={flexPct}
-                                    onChange={(e) => setFlexPct(e.target.value)}
+                                    value={flexDemandPct}
+                                    onChange={(e) => setFlexDemandPct(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm text-text-secondary mb-1">Time Flex (fraction)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                    value={flexTimePct}
+                                    onChange={(e) => setFlexTimePct(e.target.value)}
                                 />
                             </div>
                         </div>
@@ -1207,6 +1327,46 @@ const SupportMarkets = () => {
                                 onChange={e => setRefundPrice(e.target.value)}
                                 placeholder="0.9"
                             />
+                        </div>
+
+                        {/* Dynamic Pricing (optional) */}
+                        <div className="border border-white/10 rounded p-3 space-y-3">
+                            <div className="text-xs text-text-secondary">Dynamic Pricing</div>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label className="block text-xs text-text-secondary mb-1">Noise Range (%)</label>
+                                    <input
+                                        type="number"
+                                        step="0.1"
+                                        className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                        value={marketNoisePct}
+                                        onChange={e => setMarketNoisePct(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-text-secondary mb-1">Demand Flex (fraction)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                        value={marketDemandFlexPct}
+                                        onChange={e => setMarketDemandFlexPct(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-text-secondary mb-1">Time Flex (fraction)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        className="w-full bg-background border border-white/10 rounded px-3 py-2 text-white"
+                                        value={marketTimeFlexPct}
+                                        onChange={e => setMarketTimeFlexPct(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="text-[10px] text-white/40">
+                                Demand and Time flex set the target direction; noise controls hourly movement.
+                            </div>
                         </div>
 
                         {/* Bond Info */}
