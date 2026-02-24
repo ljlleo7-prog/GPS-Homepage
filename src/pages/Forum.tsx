@@ -3,8 +3,17 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useEconomy } from '../context/EconomyContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Plus, Award, X, Star, User, Heart, MessageCircle } from 'lucide-react';
+import { MessageSquare, Plus, Award, X, Star, User, Heart, MessageCircle, Hash, LayoutGrid } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
+interface ForumRoom {
+  id: string;
+  name: string;
+  description: string;
+  is_public: boolean;
+  is_official: boolean;
+  created_by: string;
+}
 
 interface ForumPost {
   id: string;
@@ -14,6 +23,7 @@ interface ForumPost {
   is_featured: boolean;
   reward_amount: number;
   created_at: string;
+  room_id: string;
   profiles: {
     username: string;
     avatar_url: string | null;
@@ -55,6 +65,14 @@ const Forum = () => {
   const [rewardAmount, setRewardAmount] = useState('10');
   const [rewarding, setRewarding] = useState(false);
 
+  // Room State
+  const [rooms, setRooms] = useState<ForumRoom[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState<ForumRoom | null>(null);
+  const [showCreateRoom, setShowCreateRoom] = useState(false);
+  const [newRoomName, setNewRoomName] = useState('');
+  const [newRoomDesc, setNewRoomDesc] = useState('');
+  const [creatingRoom, setCreatingRoom] = useState(false);
+
   // Comments State
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -63,10 +81,42 @@ const Forum = () => {
   const [submittingComment, setSubmittingComment] = useState(false);
 
   useEffect(() => {
-    fetchPosts();
-  }, [user]);
+    fetchRooms();
+  }, []);
+
+  useEffect(() => {
+    if (selectedRoom) {
+      fetchPosts();
+    }
+  }, [user, selectedRoom]);
+
+  const fetchRooms = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('forum_rooms')
+        .select('*')
+        .order('is_public', { ascending: false }) // Public first
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      
+      const roomsData = data || [];
+      setRooms(roomsData);
+      
+      // Select public room by default if no room selected
+      if (!selectedRoom && roomsData.length > 0) {
+        // Find public room or default to first one
+        const publicRoom = roomsData.find((r: ForumRoom) => r.is_public) || roomsData[0];
+        setSelectedRoom(publicRoom);
+      }
+    } catch (error) {
+      console.error('Error fetching rooms:', error);
+    }
+  };
 
   const fetchPosts = async () => {
+    if (!selectedRoom) return;
+    
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -77,6 +127,7 @@ const Forum = () => {
           forum_likes (user_id),
           forum_comments (id)
         `)
+        .eq('room_id', selectedRoom.id)
         .order('is_featured', { ascending: false })
         .order('created_at', { ascending: false });
 
@@ -177,6 +228,7 @@ const Forum = () => {
       return;
     }
     if (!newTitle.trim() || !newContent.trim()) return;
+    if (!selectedRoom) return;
 
     setCreating(true);
     try {
@@ -185,7 +237,8 @@ const Forum = () => {
         .insert({
           title: newTitle,
           content: newContent,
-          author_id: user?.id
+          author_id: user?.id,
+          room_id: selectedRoom.id
         });
 
       if (error) throw error;
@@ -199,6 +252,32 @@ const Forum = () => {
       alert(t('forum.alerts.create_failed'));
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleCreateRoom = async () => {
+    if (!developerStatus || developerStatus !== 'APPROVED') return;
+    if (!newRoomName.trim()) return;
+
+    setCreatingRoom(true);
+    try {
+      const { error } = await supabase.rpc('create_forum_room', {
+        p_name: newRoomName,
+        p_description: newRoomDesc
+      });
+
+      if (error) throw error;
+
+      await fetchRooms();
+      setShowCreateRoom(false);
+      setNewRoomName('');
+      setNewRoomDesc('');
+      alert('Room created successfully!');
+    } catch (error) {
+      console.error('Error creating room:', error);
+      alert('Failed to create room.');
+    } finally {
+      setCreatingRoom(false);
     }
   };
 
@@ -250,6 +329,56 @@ const Forum = () => {
             <Plus className="w-4 h-4 mr-2" />
             {t('forum.create_post')}
           </button>
+        </div>
+
+        {/* Room Navigation */}
+        <div className="mb-8">
+          <div className="flex flex-wrap gap-2 mb-4">
+            {rooms.map((room) => (
+              <button
+                key={room.id}
+                onClick={() => setSelectedRoom(room)}
+                className={`px-4 py-2 rounded-full font-mono text-sm whitespace-nowrap transition-all ${
+                  selectedRoom?.id === room.id
+                    ? 'bg-primary text-background font-bold'
+                    : 'bg-surface border border-white/10 text-text-secondary hover:border-primary/50 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center">
+                  {room.is_official ? (
+                    <Hash className="w-3 h-3 mr-2" />
+                  ) : (
+                    <LayoutGrid className="w-3 h-3 mr-2" />
+                  )}
+                  {room.name}
+                </div>
+              </button>
+            ))}
+            
+            {developerStatus === 'APPROVED' && (
+              <button
+                onClick={() => setShowCreateRoom(true)}
+                className="px-4 py-2 rounded-full font-mono text-sm whitespace-nowrap bg-surface border border-dashed border-white/20 text-text-secondary hover:border-primary/50 hover:text-primary transition-all flex items-center"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                New Room
+              </button>
+            )}
+          </div>
+          
+          <AnimatePresence mode="wait">
+            {selectedRoom?.description && (
+              <motion.div
+                key={selectedRoom.id}
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className="text-sm text-text-secondary font-mono border-l-2 border-primary/30 pl-3 italic max-w-3xl"
+              >
+                {selectedRoom.description}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Post List */}
@@ -528,6 +657,65 @@ const Forum = () => {
                     className="px-6 py-2 bg-secondary text-background font-mono font-bold rounded hover:bg-secondary-dark transition-colors disabled:opacity-50"
                   >
                     {rewarding ? t('forum.reward_modal.processing') : t('forum.confirm_reward')}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Create Room Modal */}
+        <AnimatePresence>
+          {showCreateRoom && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-surface border border-white/10 rounded-lg max-w-md w-full p-6 shadow-2xl"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-mono font-bold text-white">Create Breakout Room</h2>
+                  <button onClick={() => setShowCreateRoom(false)} className="text-text-secondary hover:text-white">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-mono text-text-secondary mb-2">Room Name</label>
+                    <input
+                      type="text"
+                      value={newRoomName}
+                      onChange={(e) => setNewRoomName(e.target.value)}
+                      className="w-full bg-background border border-white/10 rounded px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
+                      placeholder="e.g. Flight Sim Dev"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-mono text-text-secondary mb-2">Description</label>
+                    <textarea
+                      value={newRoomDesc}
+                      onChange={(e) => setNewRoomDesc(e.target.value)}
+                      className="w-full bg-background border border-white/10 rounded px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors h-24 resize-none"
+                      placeholder="What is this room for?"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-4 mt-6">
+                  <button
+                    onClick={() => setShowCreateRoom(false)}
+                    className="px-4 py-2 text-text-secondary hover:text-white font-mono transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateRoom}
+                    disabled={creatingRoom || !newRoomName.trim()}
+                    className="px-6 py-2 bg-primary text-background font-mono font-bold rounded hover:bg-primary-dark transition-colors disabled:opacity-50"
+                  >
+                    {creatingRoom ? 'Creating...' : 'Create Room'}
                   </button>
                 </div>
               </motion.div>
