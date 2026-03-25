@@ -1,10 +1,8 @@
 {
   "common": {
-    "skip_for_now": "Skip for now",
-    "approve": "Approve",
-    "reject": "Reject",
-    "decline": "Decline",
-    "by": "by"
+    "empty": "Empty",
+    "logo_alt": "GPS Logo",
+    "cancel": "Cancel"
   },
   "navbar": {
     "home": "Home",
@@ -76,6 +74,18 @@
       "acknowledge_success": "Post acknowledged successfully!",
       "acknowledge_failed": "Failed to reward post: ",
       "unknown_error": "Unknown error"
+    },
+    "rooms": {
+      "create": "Create Breakout Room",
+      "name_label": "Room Name",
+      "name_placeholder": "e.g. Flight Sim Dev",
+      "desc_label": "Description",
+      "desc_placeholder": "What is this room for?",
+      "create_btn": "Create Room",
+      "creating": "Creating...",
+      "new_room_btn": "New Room",
+      "success": "Room created successfully!",
+      "failed": "Failed to create room."
     }
   },
   "home": {
@@ -199,11 +209,143 @@
   },
   "developer": {
     "inbox": {
+      "title": "Developer Inbox",
+      "refresh": "Refresh",
+      "access_denied": "Access Denied",
+      "access_denied_desc": "You must be an approved developer to view this page.",
+      "loading": "Loading inbox data...",
+      "full_name": "Full Name",
+      "requested": "Requested",
+      "end_date": "End Date",
+      "declare_winner": "Declare Winner",
+      "mission_control": {
+        "title": "Mission Control",
+        "create_btn": "Create New Mission",
+        "no_active": "No active missions.",
+        "tokens": "Tokens",
+        "rep": "Rep",
+        "due": "Due",
+        "pending_submissions": "{{count}} pending submissions (Cannot Edit)",
+        "edit": "Edit",
+        "delete": "Delete",
+        "cancel": "Cancel",
+        "save_mission": "Save Mission",
+        "award_submission_title": "Award Submission",
+        "award_tokens": "Award Tokens",
+        "award_rep": "Award Reputation",
+        "approve_award": "Approve & Award",
+        "confirm_delete": "Are you sure you want to delete this mission?",
+        "error_save": "Error saving mission: {{error}}",
+        "error_delete": "Error deleting mission: {{error}}",
+        "error_edit_pending": "Cannot edit mission with pending submissions.",
+        "error_prepare_award": "Error preparing award: {{error}}",
+        "error_tokens_range": "Tokens must be between {{min}} and {{max}}",
+        "error_rep_range": "Reputation must be between {{min}} and {{max}}",
+        "error_award": "Error awarding submission: {{error}}",
+        "edit_mission": "Edit Mission",
+        "create_mission": "Create New Mission",
+        "form": {
+          "title": "Title",
+          "description": "Description",
+          "min_tokens": "Min Tokens",
+          "max_tokens": "Max Tokens",
+          "min_rep": "Min Rep",
+          "max_rep": "Max Rep",
+          "deadline": "Deadline (Optional)"
+        }
+      },
+      "sections": {
+        "dev_requests": "Pending Developer Requests",
+        "mission_submissions": "Pending Mission Submissions",
+        "active_bets": "Active Driver Bets (Needs Resolution)",
+        "calendar": "Workload Calendar",
+        "pending_deliverables": "Pending Deliverables",
+        "forum_acks": "Forum Acknowledgements",
+        "test_requests": "Test Player Requests"
+      },
+      "empty": {
+        "dev_requests": "No pending developer requests",
+        "mission_submissions": "No pending mission submissions",
+        "active_bets": "No active bets needing resolution",
+        "pending_deliverables": "No pending deliverables.",
+        "forum_acks": "No pending acknowledgements",
+        "test_requests": "No pending test player requests"
+      },
+      "actions": {
+        "approve": "Approve",
+        "decline": "Decline",
+        "reject": "Reject",
+        "acknowledge": "Acknowledge",
+        "view_post": "View Post",
+        "declare_winner": "Declare Winner:",
+        "deliverable_tag": "DELIVERABLE",
+        "issue": "Issue",
+        "mission_tag": "MISSION",
+        "driver_bet_tag": "DRIVER BET",
+        "side_a": "Side A",
+        "side_b": "Side B",
+        "by": "by",
+        "unknown": "Unknown",
+        "tester_tag": "TESTER",
+        "disable_variable_price": "Disable Variable Price",
+        "pre_issue": "Pre-Issue"
+      },
+      "labels": {
+        "user": "User",
+        "email": "Email",
+        "due_date": "Due Date",
+        "cost": "Cost",
+        "condition": "Condition",
+        "release_date": "Release Date"
+      },
+      "status": {
+        "issued": "Issued",
+        "rejected": "Rejected",
+        "pre_issued": "Pre-Issued"
+      },
+      "confirms": {
+        "approve_dev": "Approve this user as developer?",
+        "decline_dev": "Decline this developer request?",
+        "approve_mission": "Approve this mission submission?",
+        "reject_mission": "Reject this mission submission?",
+        "process_deliverable": "Are you sure you want to {{action}} this deliverable?",
+        "acknowledge_post": "Mark this post as acknowledged?",
+        "approve_test": "Approve this test player? They will receive +20 Rep.",
+        "decline_test": "Decline this request?"
+      },
       "prompts": {
-        "password_confirm": "Enter your password to confirm this action"
+        "password_confirm": "Enter your password to confirm this action",
+        "proof_url": "Enter proof URL (optional):",
+        "decline_reason": "Enter decline reason (will be shown to the user):"
       },
       "alerts": {
-        "password_incorrect": "Incorrect password"
+        "approve_failed": "Failed to approve",
+        "decline_failed": "Failed to decline",
+        "approve_mission_failed": "Failed to approve mission",
+        "reject_mission_failed": "Failed to reject mission",
+        "process_deliverable_failed": "Failed to process deliverable",
+        "acknowledge_failed": "Failed to acknowledge",
+        "disable_variable_price_success": "Variable price disabled",
+        "disable_variable_price_failed": "Failed to disable variable price"
+      }
+    },
+    "test_request": {
+      "title": "Request Test Player Access",
+      "info": "Approved testers receive +20 Reputation and free access to the selected program.",
+      "labels": {
+        "identifiable_name": "Identifiable Name",
+        "program": "Test Program",
+        "progress": "Current Progress"
+      },
+      "placeholders": {
+        "identifiable_name": "e.g. WeChat Nickname",
+        "progress": "Briefly describe your current progress or why you want to test..."
+      },
+      "submit": "Submit Request",
+      "alerts": {
+        "success": "Request submitted successfully!",
+        "failed": "Failed to submit request",
+        "error": "An unexpected error occurred"
       }
     }
   },
@@ -351,12 +493,12 @@
         "type_normal": "Normal Instrument",
         "type_driver_bet": "Driver Bet",
         "bond_info": "Creation Bond: 100 Tokens. This bond is non-refundable and will be distributed to developers as a system fee.",
-          "risk_level": "Risk Level",
-          "frequency": "Interest Frequency",
-          "day": "Interest Day",
-          "cost": "Interest Amount (TKN)",
-          "condition": "Interest Condition",
-          "fill_deliverables": "Please fill in all interest fields.",
+        "risk_level": "Risk Level",
+        "frequency": "Interest Frequency",
+        "day": "Interest Day",
+        "cost": "Interest Amount (TKN)",
+        "condition": "Interest Condition",
+        "fill_deliverables": "Please fill in all interest fields.",
         "modal_title": "Create Market Campaign",
         "title_label": "Campaign Title",
         "desc_label": "Description",
@@ -463,9 +605,9 @@
         "processing": "Processing...",
         "low_rep": "Reputation too low. You need > 50 Rep to trade.",
         "alerts": {
-            "purchase_success": "Purchase successful!",
-            "listing_success": "Listing created!",
-            "error_prefix": "Error: "
+          "purchase_success": "Purchase successful!",
+          "listing_success": "Listing created!",
+          "error_prefix": "Error: "
         },
         "unit": "unit",
         "units": "units",
@@ -687,392 +829,13 @@
     "reaction_time": "Reaction Time",
     "est_prize": "Est. Prize",
     "no_times_recorded": "No times recorded yet this month. Be the first!",
+    "payout_pending": "Payout pending for {{month}}/{{year}}. Leaderboard is kept until prizes distribute.",
+    "payout_failed": "Payout failed for {{month}}/{{year}}. Leaderboard is kept until prizes distribute.",
+    "payout_unprocessed": "Payout not processed for {{month}}/{{year}}. Leaderboard is kept until prizes distribute.",
     "you": "YOU"
   },
   "minigame_onelapduel": {
     "room": {
-      "track_monza": "Monza",
-      "lap": "Lap",
-      "room_id": "Room ID:",
-      "exit": "Exit",
-      "race_starting": "Race Starting...",
-      "strategy_limit": "Strategy Locked!",
-      "victory_reward": "Victory! +5 Tokens & +25 Points",
-      "defeat_reward": "Defeat. 0 Points this time.",
-      "ready_button": "Ready",
-      "cancel_ready": "Cancel Ready",
-      "ready_status": "READY",
-      "preparing_status": "PREPARING",
-      "waiting_opponent": "Waiting for opponent..."
-    },
-    "nav": {
-      "driver_hq": "Driver HQ",
-      "race_lobby": "Race Lobby",
-      "standings": "Standings",
-      "current_race": "Current Race",
-      "online": "Online"
-    },
-    "common": {
-      "unknown": "Unknown",
-      "login_required": "Please login to start the game."
-    },
-    "dashboard": {
-      "prize_pool": "Prize Pool",
-      "prize_pool_gain": "+2 TKN per race",
-      "focus": "Focus",
-      "stats_title": "Driver Stats",
-      "training_schedule": "Training Schedule",
-      "training_modes": {
-        "rest": {
-          "label": "Rest Day",
-          "desc": "Recover morale significantly. No skill gain.",
-          "impact": "Morale ++ / Dev 0"
-        },
-        "light": {
-          "label": "Light Training",
-          "desc": "Minor skill gain, maintain morale.",
-          "impact": "Morale + / Dev +"
-        },
-        "intense": {
-          "label": "Intense Training",
-          "desc": "Max skill gain, drains morale.",
-          "impact": "Morale -- / Dev +++"
-        }
-      },
-      "skills": {
-        "acceleration": "Acceleration",
-        "braking": "Braking",
-        "cornering": "Cornering",
-        "ers_efficiency": "ERS Efficiency",
-        "decision_making": "Decision Making",
-        "morale": "Morale"
-      },
-      "morale_high_desc": "High morale improves ERS efficiency and consistency.",
-      "morale_low_desc": "Low morale leads to mistakes.",
-      "next_update": "Next Update"
-    },
-    "lobby": {
-      "title": "Race Lobby",
-      "no_races": "No public races. Create one!",
-      "create_room": "Create Room",
-      "creating": "Creating...",
-      "join": "Join",
-      "spectate": "Spectate",
-      "laps": "Laps",
-      "host": "Host",
-      "rejoin": "Rejoin",
-      "join_race": "Join Race",
-      "pilots_online": "{{count}} pilots online",
-      "status": {
-        "WAITING": "Waiting",
-        "RACING": "Racing",
-        "FINISHED": "Finished"
-      }
-    },
-    "leaderboard": {
-      "title": "Championship Standings",
-      "no_records": "No records yet. Be the first!",
-      "rank": "Rank",
-      "driver": "Driver",
-      "best_gap": "Best Gap (s)",
-      "wins": "Wins",
-      "podiums": "Podiums",
-      "points": "Points",
-      "est_prize": "Est. Prize",
-      "current_pool": "Current Pool",
-      "you": "You"
-    },
-    "room": {
-      "track_monza": "Monza GP",
-      "track_spa": "Spa-Francorchamps",
-      "track_silverstone": "Silverstone",
-      "track_suzuka": "Suzuka",
-      "track_interlagos": "Interlagos",
-      "track_bahrain": "Bahrain",
-      "track_jeddah": "Jeddah",
-      "track_barcelona": "Barcelona",
-      "track_australia": "Australia (Albert Park)",
-      "track_singapore": "Singapore (Marina Bay)",
-      "track_monaco": "Monaco",
-      "track_china": "China (Shanghai)",
-      "host_controls": "Host Controls",
-      "delete_room": "Delete Room",
-      "kick_opponent": "Kick Opponent",
-      "confirm_delete": "Are you sure you want to delete this room? This cannot be undone.",
-      "confirm_kick": "Kick this player?",
-      "exit": "Exit Room",
-      "room_id": "Room:",
-      "force_start": "Force Start",
-      "waiting_for_players": "Waiting for players...",
-      "waiting_opponent": "Waiting for opponent...",
-      "reload": "Reload",
-      "waiting_all_ready": "Waiting for all players to be ready...",
-      "ready": "Ready",
-      "cancel_ready": "Cancel Ready",
-      "strategy_phase": "Strategy Phase",
-      "race_phase": "Race Phase",
-      "replay": "Replay",
-      "start_race": "Start Race",
-      "starting": "Starting...",
-      "race_in_progress": "Race in progress...",
-      "winner": "Winner",
-      "race_results": "Race Results",
-      "back_to_lobby": "Back to Lobby",
-      "lap": "Lap",
-      "ready_status": "READY",
-      "preparing_status": "PREPARING",
-      "race_starting": "Race Starting...",
-      "strategy_limit": "Strategy Locked for this Sector!",
-      "victory_reward": "Victory! +5 Tokens & +25 Points",
-      "defeat_reward": "Defeat. 0 Points this time.",
-      "gap": "Gap:",
-      "player_1": "Player 1",
-      "player_2": "Player 2",
-      "speed": "Speed:",
-      "batt": "Batt:",
-      "time": "Time:",
-      "victory": "VICTORY!",
-      "defeat": "DEFEAT",
-      "victory_reward": "Victory! +5 Tokens & +25 Points",
-      "defeat_reward": "Defeat. 0 Points this time.",
-      "return_lobby": "Return to Lobby",
-      "race_strategy": "Race Strategy",
-      "confirm_strategy": "Confirm Strategy",
-      "ready_button": "READY",
-      "ers_mode": "ERS Mode",
-      "racing_line": "Racing Line",
-      "track_type": {
-        "straight": "Straight",
-        "turn": "Turn",
-        "chicane": "Chicane"
-      },
-      "track": {
-        "start_finish": "Start/Finish Straight",
-        "main_straight": "Main Straight",
-        "long_straight": "Long Straight",
-        "turn_1": "Turn 1",
-        "turn_2": "Turn 2",
-        "turn_3": "Turn 3",
-        "turn_4": "Turn 4",
-        "turn_5": "Turn 5",
-        "turn_6": "Turn 6",
-        "turn_7": "Turn 7",
-        "variante_del_rettifilo": "Variante del Rettifilo",
-        "curva_grande": "Curva Grande",
-        "variante_della_roggia": "Variante della Roggia",
-        "lesmo_1": "Lesmo 1",
-        "lesmo_2": "Lesmo 2",
-        "serraglio_straight": "Serraglio Straight",
-        "variante_ascari": "Variante Ascari",
-        "back_straight": "Back Straight",
-        "parabolica": "Parabolica",
-        "la_source": "La Source",
-        "eau_rouge": "Eau Rouge",
-        "raidillon": "Raidillon",
-        "kemmel_straight": "Kemmel Straight",
-        "les_combes": "Les Combes",
-        "bruxelles": "Bruxelles",
-        "pouhon": "Pouhon",
-        "blanchimont": "Blanchimont",
-        "bus_stop": "Bus Stop Chicane",
-        "copse": "Copse",
-        "maggots": "Maggots",
-        "becketts": "Becketts",
-        "chapel": "Chapel",
-        "hangar_straight": "Hangar Straight",
-        "stowe": "Stowe",
-        "vale": "Vale",
-        "club": "Club"
-      },
-      "events": {
-        "defense_success": "{{leader}} successfully defended against {{chaser}}!",
-        "overtake_chance": "{{chaser}} found an opening on {{leader}}!"
-      },
-      "strategy": {
-        "neutral": "Neutral (Balanced)",
-        "hotlap": "Hotlap (Speed++)",
-        "overtake": "Overtake (Pass++)",
-        "recharge": "Recharge (Slow)",
-        "clean": "Standard Line",
-        "defense": "Defense (Block)",
-        "opportunity": "Aggressive (Risk)"
-      }
-    }
-  },
-  "developer": {
-    "inbox": {
-      "title": "Developer Inbox",
-      "refresh": "Refresh",
-      "access_denied": "Access Denied",
-      "access_denied_desc": "You must be an approved developer to view this page.",
-      "loading": "Loading inbox data...",
-      "full_name": "Full Name",
-      "requested": "Requested",
-      "end_date": "End Date",
-      "declare_winner": "Declare Winner",
-      "mission_control": {
-        "title": "Mission Control",
-        "create_btn": "Create New Mission",
-        "no_active": "No active missions.",
-        "tokens": "Tokens",
-        "rep": "Rep",
-        "due": "Due",
-        "pending_submissions": "{{count}} pending submissions (Cannot Edit)",
-        "edit": "Edit",
-        "delete": "Delete",
-        "cancel": "Cancel",
-        "save_mission": "Save Mission",
-        "award_submission_title": "Award Submission",
-        "award_tokens": "Award Tokens",
-        "award_rep": "Award Reputation",
-        "approve_award": "Approve & Award",
-        "confirm_delete": "Are you sure you want to delete this mission?",
-        "error_save": "Error saving mission: {{error}}",
-        "error_delete": "Error deleting mission: {{error}}",
-        "error_edit_pending": "Cannot edit mission with pending submissions.",
-        "error_prepare_award": "Error preparing award: {{error}}",
-        "error_tokens_range": "Tokens must be between {{min}} and {{max}}",
-        "error_rep_range": "Reputation must be between {{min}} and {{max}}",
-        "error_award": "Error awarding submission: {{error}}",
-        "edit_mission": "Edit Mission",
-        "create_mission": "Create New Mission",
-        "form": {
-          "title": "Title",
-          "description": "Description",
-          "min_tokens": "Min Tokens",
-          "max_tokens": "Max Tokens",
-          "min_rep": "Min Rep",
-          "max_rep": "Max Rep",
-          "deadline": "Deadline (Optional)"
-        }
-      },
-      "access_denied": "Access Denied",
-      "access_denied_desc": "You must be an approved developer to view this page.",
-      "loading": "Loading inbox data...",
-      "sections": {
-        "dev_requests": "Pending Developer Requests",
-        "mission_submissions": "Pending Mission Submissions",
-        "active_bets": "Active Driver Bets (Needs Resolution)",
-        "calendar": "Workload Calendar",
-        "pending_deliverables": "Pending Deliverables",
-        "forum_acks": "Forum Acknowledgements",
-        "test_requests": "Test Player Requests"
-      },
-      "empty": {
-        "dev_requests": "No pending developer requests",
-        "mission_submissions": "No pending mission submissions",
-        "active_bets": "No active bets needing resolution",
-        "pending_deliverables": "No pending deliverables.",
-        "forum_acks": "No pending acknowledgements",
-        "test_requests": "No pending test player requests"
-      },
-      "actions": {
-        "approve": "Approve",
-        "decline": "Decline",
-        "reject": "Reject",
-        "acknowledge": "Acknowledge",
-        "view_post": "View Post",
-        "declare_winner": "Declare Winner:",
-        "deliverable_tag": "DELIVERABLE",
-        "issue": "Issue",
-        "reject": "Reject",
-        "mission_tag": "MISSION",
-        "driver_bet_tag": "DRIVER BET",
-        "side_a": "Side A",
-        "side_b": "Side B",
-        "by": "by",
-        "unknown": "Unknown",
-        "tester_tag": "TESTER",
-        "disable_variable_price": "Disable Variable Price",
-        "pre_issue": "Pre-Issue"
-      },
-      "labels": {
-        "user": "User",
-        "email": "Email",
-        "due_date": "Due Date",
-        "cost": "Cost",
-        "condition": "Condition",
-        "release_date": "Release Date"
-      },
-      "status": {
-        "issued": "Issued",
-        "rejected": "Rejected",
-        "pre_issued": "Pre-Issued"
-      },
-      "confirms": {
-        "approve_dev": "Approve this user as developer?",
-        "decline_dev": "Decline this developer request?",
-        "approve_mission": "Approve this mission submission?",
-        "reject_mission": "Reject this mission submission?",
-        "process_deliverable": "Are you sure you want to {{action}} this deliverable?",
-        "acknowledge_post": "Mark this post as acknowledged?",
-        "approve_test": "Approve this test player? They will receive +20 Rep.",
-        "decline_test": "Decline this request?"
-      },
-      "prompts": {
-        "password_confirm": "Enter your password to confirm this action",
-        "proof_url": "Enter proof URL (optional):",
-        "decline_reason": "Enter decline reason (will be shown to the user):"
-      },
-      "alerts": {
-        "approve_failed": "Failed to approve",
-        "decline_failed": "Failed to decline",
-        "approve_mission_failed": "Failed to approve mission",
-        "reject_mission_failed": "Failed to reject mission",
-        "process_deliverable_failed": "Failed to process deliverable",
-        "acknowledge_failed": "Failed to acknowledge",
-        "disable_variable_price_success": "Variable price disabled",
-        "disable_variable_price_failed": "Failed to disable variable price"
-      }
-    },
-    "test_request": {
-      "title": "Request Test Player Access",
-      "info": "Approved testers receive +20 Reputation and free access to the selected program.",
-      "labels": {
-        "identifiable_name": "Identifiable Name",
-        "program": "Test Program",
-        "progress": "Current Progress"
-      },
-      "placeholders": {
-        "identifiable_name": "e.g. WeChat Nickname",
-        "progress": "Briefly describe your current progress or why you want to test..."
-      },
-      "submit": "Submit Request",
-      "alerts": {
-        "success": "Request submitted successfully!",
-        "failed": "Failed to submit request",
-        "error": "An unexpected error occurred"
-      }
-    }
-  },
-  "notifications": {
-    "developer_declined": "Your developer request was declined",
-    "acknowledge": "I acknowledge",
-    "reason": "Reason"
-  },
-  "common": {
-    "empty": "Empty",
-    "logo_alt": "GPS Logo",
-    "cancel": "Cancel"
-  },
-  "policies": {
-    "click_for_info": "Click for info",
-    "market_title": "Market Policy",
-    "market_content": "Our market allows you to trade tickets and support projects.\n\nPrices fluctuate based on demand. High risk items like Driver Bets can result in total loss.\n\nAlways do your own research before investing.",
-    "token_rep_title": "Token & Reputation Policy",
-    "token_rep_content": "Tokens are our internal currency for trading and rewards.\n\nReputation reflects your contribution and trustworthiness. High reputation unlocks advanced features like creating campaigns.",
-    "mission_title": "Mission Policy",
-    "mission_content": "Complete missions to earn Tokens and Reputation.\n\nSubmissions are reviewed by admins. Quality work is rewarded; spam or low-effort submissions will be rejected.",
-    "betting_title": "Betting Policy",
-    "betting_content": "Betting involves risk. Driver Bets are binary outcomes (Win/Lose).",
-    "fees_title": "Fees Policy",
-    "fees_content": "A 2% fee applies to all market transactions to support the platform.",
-    "minigame_title": "Minigame Policy",
-    "minigame_content": "Minigames are for entertainment. Spamming or using bots to farm rewards is prohibited and will result in a ban."
-  },
-
-  "minigame_onelapduel": {
-    "room": {
       "track_monza": "Monza GP",
       "track_spa": "Spa-Francorchamps",
       "track_silverstone": "Silverstone",
@@ -1119,9 +882,6 @@
       "confirm_strategy": "Confirm Strategy",
       "ers_mode": "ERS Mode",
       "racing_line": "Racing Line",
-      "victory_reward": "Victory! +5 Tokens & +25 Points",
-      "defeat_reward": "Defeat. 0 Points this time.",
-      "strategy_limit": "Strategy Locked!",
       "track_type": {
         "straight": "Straight",
         "turn": "Turn",
@@ -1211,12 +971,12 @@
         }
       },
       "skills": {
-          "acceleration": "Acceleration",
-          "braking": "Braking",
-          "cornering": "Cornering",
-          "ers_efficiency": "ERS Efficiency",
-          "decision_making": "Decision Making",
-          "morale": "Morale"
+        "acceleration": "Acceleration",
+        "braking": "Braking",
+        "cornering": "Cornering",
+        "ers_efficiency": "ERS Efficiency",
+        "decision_making": "Decision Making",
+        "morale": "Morale"
       },
       "morale_high_desc": "High morale improves ERS & Consistency.",
       "morale_low_desc": "Low morale causes mistakes.",
@@ -1250,110 +1010,75 @@
       "podiums": "Podiums",
       "points": "Points",
       "you": "YOU"
+    }
+  },
+  "notifications": {
+    "developer_declined": "Your developer request was declined",
+    "acknowledge": "I acknowledge",
+    "reason": "Reason"
+  },
+  "policies": {
+    "click_for_info": "Click for info",
+    "market_title": "Market Policy",
+    "market_content": "Our market allows you to trade tickets and support projects.\n\nPrices fluctuate based on demand. High risk items like Driver Bets can result in total loss.\n\nAlways do your own research before investing.",
+    "token_rep_title": "Token & Reputation Policy",
+    "token_rep_content": "Tokens are our internal currency for trading and rewards.\n\nReputation reflects your contribution and trustworthiness. High reputation unlocks advanced features like creating campaigns.",
+    "mission_title": "Mission Policy",
+    "mission_content": "Complete missions to earn Tokens and Reputation.\n\nSubmissions are reviewed by admins. Quality work is rewarded; spam or low-effort submissions will be rejected.",
+    "betting_title": "Betting Policy",
+    "betting_content": "Betting involves risk. Driver Bets are binary outcomes (Win/Lose).",
+    "fees_title": "Fees Policy",
+    "fees_content": "A 2% fee applies to all market transactions to support the platform.",
+    "minigame_title": "Minigame Policy",
+    "minigame_content": "Minigames are for entertainment. Spamming or using bots to farm rewards is prohibited and will result in a ban."
+  },
+  "telemetry": {
+    "title": "Live Telemetry Analysis",
+    "subtitle": "Powered by OpenF1 API. In-memory cache enabled.",
+    "select_session": "Select Session",
+    "live_on": "LIVE ON",
+    "live_off": "LIVE OFF",
+    "driver_list": "Drivers (Max 3)",
+    "drivers": {
+      "title": "Current Telemetry Snapshot"
     },
-    "room": {
-      "track_monza": "Monza GP",
-      "track_spa": "Spa-Francorchamps",
-      "track_silverstone": "Silverstone",
-      "track_suzuka": "Suzuka",
-      "track_interlagos": "Interlagos",
-      "track_bahrain": "Bahrain",
-      "track_jeddah": "Jeddah",
-      "track_barcelona": "Barcelona",
-      "track_australia": "Australia (Albert Park)",
-      "track_singapore": "Singapore (Marina Bay)",
-      "track_monaco": "Monaco",
-      "track_china": "China (Shanghai)",
-      "exit": "Exit Room",
-      "room_id": "Room:",
-      "force_start": "Force Start",
-      "waiting_for_players": "Waiting for players...",
-      "waiting_opponent": "Waiting for opponent...",
-      "waiting_all_ready": "Waiting for all players to be ready...",
-      "ready": "Ready",
-      "cancel_ready": "Cancel Ready",
-      "strategy_phase": "Strategy Phase",
-      "race_phase": "Race Phase",
-      "replay": "Replay",
-      "start_race": "Start Race",
-      "starting": "Starting...",
-      "race_in_progress": "Race in progress...",
-      "winner": "Winner",
-      "race_results": "Race Results",
-      "back_to_lobby": "Back to Lobby",
-      "lap": "Lap",
-      "ready_status": "READY",
-      "preparing_status": "PREPARING",
-      "race_starting": "Race Starting...",
-      "gap": "Gap:",
-      "player_1": "Player 1",
-      "player_2": "Player 2",
-      "speed": "Speed:",
-      "batt": "Batt:",
-      "time": "Time:",
-      "victory": "VICTORY!",
-      "defeat": "DEFEAT",
-      "return_lobby": "Return to Lobby",
-      "race_strategy": "Race Strategy",
-      "confirm_strategy": "Confirm Strategy",
-      "ers_mode": "ERS Mode",
-      "racing_line": "Racing Line",
-      "track_type": {
-        "straight": "Straight",
-        "turn": "Turn",
-        "chicane": "Chicane"
-      },
-      "track": {
-        "main_straight": "Main Straight",
-        "start_finish": "Start/Finish Straight",
-        "long_straight": "Long Straight",
-        "turn_1": "Turn 1",
-        "turn_2": "Turn 2",
-        "turn_3": "Turn 3",
-        "turn_4": "Turn 4",
-        "turn_5": "Turn 5",
-        "turn_6": "Turn 6",
-        "turn_7": "Turn 7",
-        "variante_del_rettifilo": "Variante del Rettifilo",
-        "curva_grande": "Curva Grande",
-        "variante_della_roggia": "Variante della Roggia",
-        "lesmo_1": "Lesmo 1",
-        "lesmo_2": "Lesmo 2",
-        "serraglio_straight": "Serraglio Straight",
-        "variante_ascari": "Variante Ascari",
-        "back_straight": "Back Straight",
-        "parabolica": "Parabolica",
-        "la_source": "La Source",
-        "eau_rouge": "Eau Rouge",
-        "raidillon": "Raidillon",
-        "kemmel_straight": "Kemmel Straight",
-        "les_combes": "Les Combes",
-        "bruxelles": "Bruxelles",
-        "pouhon": "Pouhon",
-        "blanchimont": "Blanchimont",
-        "bus_stop": "Bus Stop Chicane",
-        "copse": "Copse",
-        "maggots": "Maggots",
-        "becketts": "Becketts",
-        "chapel": "Chapel",
-        "hangar_straight": "Hangar Straight",
-        "stowe": "Stowe",
-        "vale": "Vale",
-        "club": "Club"
-      },
-      "events": {
-        "defense_success": "{{leader}} defends successfully against {{chaser}}!",
-        "overtake_chance": "{{chaser}} sees an opening on {{leader}}!"
-      },
-      "strategy": {
-        "neutral": "Neutral (Bal)",
-        "hotlap": "Hotlap (Speed++)",
-        "overtake": "Overtake (Pass++)",
-        "recharge": "Recharge (Slow)",
-        "clean": "Clean Line",
-        "defense": "Defensive (Block)",
-        "opportunity": "Opportunity (Risk)"
-      }
+    "tabs": {
+      "chart": "Telemetry Chart",
+      "laps": "Lap Analysis",
+      "drivers": "Driver Stats",
+      "hud": "Real-time HUD"
+    },
+    "select_driver_prompt": "Please select at least one driver from the sidebar.",
+    "loading_sessions": "Loading sessions...",
+    "chart": {
+      "title": "Live Telemetry Trace",
+      "no_data": "Waiting for telemetry data...",
+      "loading": "Fetching telemetry...",
+      "loading_points": "Loaded points"
+    },
+    "metrics": {
+      "speed": "Speed (km/h)",
+      "rpm": "RPM",
+      "throttle": "Throttle (%)",
+      "brake": "Brake (%)",
+      "gear": "Gear"
+    },
+    "laps": {
+      "title": "Lap Time Analysis"
+    },
+    "hud": {
+      "play": "Play",
+      "pause": "Pause",
+      "reset": "Reset",
+      "sound_on": "Sound ON",
+      "sound_off": "Sound OFF",
+      "progress": "Progress",
+      "gear": "GEAR",
+      "throttle": "THROTTLE",
+      "brake": "BRAKE",
+      "driver": "Driver",
+      "team": "Team",
+      "no_data": "No telemetry stream is available for this driver in the selected session."
     }
   }
 }

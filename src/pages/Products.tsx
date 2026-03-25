@@ -55,7 +55,8 @@ const Products = () => {
       description: t('products.items.telemetry.description'),
       mechanism: t('products.items.telemetry.mechanism'),
       action: t('products.items.telemetry.action'),
-      icon: <Car className="w-8 h-8" />
+      icon: <Car className="w-8 h-8" />,
+      url: '/telemetry'
     },
     {
       id: 'sim-aviation-002',

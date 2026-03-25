@@ -291,6 +291,16 @@ export default function ReactionGame() {
                     </div>
                 </div>
 
+                {poolData?.payout_status && poolData.payout_status !== 'PAID' && (
+                    <div className="mb-6 rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
+                        {poolData.payout_status === 'FAILED'
+                            ? t('minigame.payout_failed', { month: poolData.payout_month, year: poolData.payout_year })
+                            : poolData.payout_status === 'UNPROCESSED'
+                            ? t('minigame.payout_unprocessed', { month: poolData.payout_month, year: poolData.payout_year })
+                            : t('minigame.payout_pending', { month: poolData.payout_month, year: poolData.payout_year })}
+                    </div>
+                )}
+
                 {/* Table */}
                 <div className="bg-surface rounded-lg overflow-hidden border border-white/10">
                     <table className="w-full text-left">

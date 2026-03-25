@@ -76,7 +76,7 @@ export default function Lobby({ onJoin, onlineCount }: Props) {
     // 2. Add self as player
     const { error: joinError } = await supabase
       .from('one_lap_room_players')
-      .insert([{ room_id: room.id, user_id: user.id, is_ready: false }]);
+      .upsert([{ room_id: room.id, user_id: user.id, is_ready: false }], { onConflict: 'room_id,user_id', ignoreDuplicates: true });
 
     if (joinError) {
         console.error(joinError);
@@ -104,7 +104,7 @@ export default function Lobby({ onJoin, onlineCount }: Props) {
     // Join
     const { error } = await supabase
         .from('one_lap_room_players')
-        .insert([{ room_id: roomId, user_id: user.id, is_ready: false }]);
+        .upsert([{ room_id: roomId, user_id: user.id, is_ready: false }], { onConflict: 'room_id,user_id', ignoreDuplicates: true });
     
     if (!error) {
         onJoin(roomId);

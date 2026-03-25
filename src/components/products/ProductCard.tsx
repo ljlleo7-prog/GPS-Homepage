@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Lock, CheckCircle, ExternalLink } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 export interface Product {
@@ -23,6 +23,7 @@ interface ProductCardProps {
 
 const ProductCard = ({ product, user }: ProductCardProps) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const isAuthorized = user && product.access === 'authorized';
 
   return (
@@ -68,7 +69,11 @@ const ProductCard = ({ product, user }: ProductCardProps) => {
       <button
         onClick={() => {
           if (product.url && (product.access === 'open' || isAuthorized)) {
-            window.open(product.url, '_blank');
+            if (product.url.startsWith('/')) {
+              navigate(product.url);
+            } else {
+              window.open(product.url, '_blank');
+            }
           }
         }}
         className={`w-full py-2 rounded-md font-mono text-sm flex items-center justify-center transition-all ${

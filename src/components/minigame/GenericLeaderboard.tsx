@@ -69,6 +69,16 @@ export default function GenericLeaderboard({ gameType, formatScore }: GenericLea
                 </div>
             </div>
 
+            {poolData?.payout_status && poolData.payout_status !== 'PAID' && (
+                <div className="mb-4 rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
+                    {poolData.payout_status === 'FAILED'
+                        ? t('minigame.payout_failed', { month: poolData.payout_month, year: poolData.payout_year })
+                        : poolData.payout_status === 'UNPROCESSED'
+                        ? t('minigame.payout_unprocessed', { month: poolData.payout_month, year: poolData.payout_year })
+                        : t('minigame.payout_pending', { month: poolData.payout_month, year: poolData.payout_year })}
+                </div>
+            )}
+
             {/* Table */}
             <div className="bg-neutral-800 rounded-xl overflow-hidden border border-white/5">
                 <table className="w-full text-left">
@@ -130,7 +140,7 @@ export default function GenericLeaderboard({ gameType, formatScore }: GenericLea
                                         {(formatScore || defaultFormatScore)(entry.best_score)}
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono text-gray-500">
-                                        {entry.play_count}
+                                        {entry.total_plays}
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono text-yellow-400 font-bold">
                                         {prize > 0 ? prize : '-'}

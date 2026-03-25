@@ -76,6 +76,18 @@
       "acknowledge_success": "帖子确认成功！",
       "acknowledge_failed": "奖励帖子失败：",
       "unknown_error": "未知错误"
+    },
+    "rooms": {
+      "create": "创建分组讨论室",
+      "name_label": "房间名称",
+      "name_placeholder": "例如：飞行模拟开发",
+      "desc_label": "描述",
+      "desc_placeholder": "这个房间是做什么的？",
+      "create_btn": "创建房间",
+      "creating": "创建中...",
+      "new_room_btn": "新房间",
+      "success": "房间创建成功！",
+      "failed": "创建房间失败。"
     }
   },
   "home": {
@@ -199,11 +211,144 @@
   },
   "developer": {
     "inbox": {
+      "title": "开发者收件箱",
+      "refresh": "刷新",
+      "access_denied": "访问被拒绝",
+      "access_denied_desc": "您必须是经过批准的开发者才能查看此页面。",
+      "must_be_developer": "您必须是经过批准的开发者才能查看此页面。",
+      "loading": "正在加载收件箱数据...",
+      "full_name": "全名",
+      "requested": "申请时间",
+      "end_date": "结束日期",
+      "declare_winner": "宣布获胜者",
+      "mission_control": {
+        "title": "任务控制中心",
+        "create_btn": "创建新任务",
+        "no_active": "暂无活跃任务。",
+        "tokens": "代币",
+        "rep": "声望",
+        "due": "截止",
+        "pending_submissions": "{{count}} 个待处理提交（不可编辑）",
+        "edit": "编辑",
+        "delete": "删除",
+        "confirm_delete": "您确定要删除此任务吗？",
+        "error_save": "保存任务出错：{{error}}",
+        "error_delete": "删除任务出错：{{error}}",
+        "error_edit_pending": "无法编辑有待处理提交的任务。",
+        "error_prepare_award": "准备奖励出错：{{error}}",
+        "error_tokens_range": "代币必须在 {{min}} 和 {{max}} 之间",
+        "error_rep_range": "声望必须在 {{min}} 和 {{max}} 之间",
+        "error_award": "奖励提交时出错：{{error}}",
+        "edit_mission": "编辑任务",
+        "create_mission": "创建新任务",
+        "form": {
+          "title": "标题",
+          "description": "描述",
+          "min_tokens": "最小代币",
+          "max_tokens": "最大代币",
+          "min_rep": "最小声望",
+          "max_rep": "最大声望",
+          "deadline": "截止日期 (可选)"
+        },
+        "cancel": "取消",
+        "save_mission": "保存任务",
+        "award_submission_title": "奖励提交",
+        "award_tokens": "奖励代币",
+        "award_rep": "奖励声望",
+        "approve_award": "批准并奖励"
+      },
+      "sections": {
+        "dev_requests": "待处理开发者申请",
+        "mission_submissions": "待处理任务提交",
+        "active_bets": "活跃车手博弈（需结算）",
+        "calendar": "工作负载日历",
+        "pending_deliverables": "待处理交付物",
+        "forum_acks": "论坛确认",
+        "test_requests": "测试玩家申请"
+      },
+      "empty": {
+        "dev_requests": "无待处理开发者申请",
+        "mission_submissions": "无待处理任务提交",
+        "active_bets": "无需要结算的活跃博弈",
+        "pending_deliverables": "无待处理交付物",
+        "forum_acks": "无待处理确认",
+        "test_requests": "无待处理测试玩家申请"
+      },
+      "actions": {
+        "approve": "批准",
+        "decline": "拒绝",
+        "reject": "拒绝",
+        "acknowledge": "确认",
+        "view_post": "查看帖子",
+        "declare_winner": "宣布获胜者：",
+        "deliverable_tag": "交付物",
+        "issue": "发布",
+        "mission_tag": "任务",
+        "driver_bet_tag": "车手博弈",
+        "side_a": "A方",
+        "side_b": "B方",
+        "by": "提交者",
+        "unknown": "未知",
+        "tester_tag": "测试员",
+        "disable_variable_price": "禁用浮动价格",
+        "pre_issue": "预发布"
+      },
+      "labels": {
+        "user": "用户",
+        "email": "邮箱",
+        "due_date": "截止日期",
+        "cost": "成本",
+        "condition": "条件",
+        "release_date": "发布日期"
+      },
+      "status": {
+        "issued": "已发布",
+        "rejected": "已拒绝",
+        "pre_issued": "已预发布"
+      },
+      "confirms": {
+        "approve_dev": "批准此用户为开发者？",
+        "decline_dev": "拒绝此开发者申请？",
+        "approve_mission": "批准此任务提交？",
+        "reject_mission": "驳回此任务提交？",
+        "process_deliverable": "您确定要{{action}}此交付物吗？",
+        "acknowledge_post": "标记此帖子为已确认？",
+        "approve_test": "批准此测试玩家？他们将获得 +20 声望。",
+        "decline_test": "拒绝此请求？"
+      },
       "prompts": {
-        "password_confirm": "请输入密码以确认此操作"
+        "password_confirm": "请输入密码以确认此操作",
+        "proof_url": "输入证明 URL（可选）：",
+        "decline_reason": "请输入拒绝原因（将通知用户）："
       },
       "alerts": {
-        "password_incorrect": "密码错误"
+        "approve_failed": "批准失败",
+        "decline_failed": "拒绝失败",
+        "approve_mission_failed": "批准任务失败",
+        "reject_mission_failed": "拒绝任务失败",
+        "process_deliverable_failed": "处理交付物失败",
+        "acknowledge_failed": "确认失败",
+        "disable_variable_price_success": "已禁用浮动价格",
+        "disable_variable_price_failed": "禁用浮动价格失败"
+      }
+    },
+    "test_request": {
+      "title": "申请测试玩家权限",
+      "info": "获得批准的测试人员将获得 +20 声望并免费访问所选程序。",
+      "labels": {
+        "identifiable_name": "可识别名称",
+        "program": "测试程序",
+        "progress": "当前进度"
+      },
+      "placeholders": {
+        "identifiable_name": "例如：微信昵称",
+        "progress": "简要描述您的当前进度或想要测试的原因..."
+      },
+      "submit": "提交申请",
+      "alerts": {
+        "success": "申请提交成功！",
+        "failed": "提交申请失败",
+        "error": "发生意外错误"
       }
     }
   },
@@ -355,12 +500,12 @@
         "type_normal": "普通活动",
         "type_driver_bet": "车手博弈",
         "bond_info": "创建保证金：100 代币。此保证金不可退还，将作为系统费用分发给开发者。",
-          "risk_level": "风险等级",
-          "frequency": "利息频率",
-          "day": "利息发放日",
-          "cost": "每票利息金额 (代币)",
-          "condition": "利息条件",
-          "fill_deliverables": "请填写所有利息相关字段。",
+        "risk_level": "风险等级",
+        "frequency": "利息频率",
+        "day": "利息发放日",
+        "cost": "每票利息金额 (代币)",
+        "condition": "利息条件",
+        "fill_deliverables": "请填写所有利息相关字段。",
         "modal_title": "创建市场活动",
         "title_label": "活动标题",
         "desc_label": "描述",
@@ -631,75 +776,12 @@
     "reaction_time": "反应时间",
     "est_prize": "预计奖金",
     "no_times_recorded": "本月暂无记录",
+    "payout_pending": "{{year}}年{{month}}月奖金发放中，排行榜将保留至发放完成。",
+    "payout_failed": "{{year}}年{{month}}月奖金发放失败，排行榜将保留至发放完成。",
+    "payout_unprocessed": "{{year}}年{{month}}月奖金未处理，排行榜将保留至发放完成。",
     "you": "您",
     "login_warning": "请先登录！",
     "cost_warning": "代币不足（需要 1 个）"
-  },
-  "minigame_onelapduel": {
-    "room": {
-      "track_monza": "蒙扎",
-      "lap": "圈",
-      "room_id": "房间号：",
-      "exit": "退出",
-      "race_starting": "比赛即将开始...",
-      "strategy_limit": "该赛段策略已锁定！",
-      "victory_reward": "胜利！+5 代币 & +25 积分",
-      "defeat_reward": "失败。本场获得 0 积分。",
-      "ready_button": "准备",
-      "cancel_ready": "取消准备",
-      "ready_status": "已准备",
-      "preparing_status": "准备中...",
-      "waiting_opponent": "等待对手加入..."
-    },
-    "dashboard": {
-      "prize_pool": "奖金池",
-      "prize_pool_gain": "每场比赛 +2 TKN",
-      "focus": "专注",
-      "stats_title": "车手数据",
-      "skills": {
-        "acceleration": "加速能力",
-        "braking": "刹车能力",
-        "cornering": "过弯能力",
-        "ers_efficiency": "ERS 效率",
-        "decision_making": "决策能力",
-        "morale": "士气"
-      },
-      "morale_high_desc": "高士气提升表现！",
-      "morale_low_desc": "低士气影响反应。",
-      "training_schedule": "训练计划",
-      "training_modes": {
-        "rest": {
-          "label": "休息日",
-          "desc": "恢复士气，降低疲劳。",
-          "impact": "+10 士气, -5 疲劳"
-        },
-        "light": {
-          "label": "轻度训练",
-          "desc": "保持技能，疲劳度低。",
-          "impact": "+0.1 技能, +2 疲劳"
-        },
-        "intense": {
-          "label": "高强度训练",
-          "desc": "快速提升技能，但疲劳度高。",
-          "impact": "+0.3 技能, +10 疲劳"
-        }
-      }
-    }
-  },
-  "policies": {
-    "click_for_info": "点击查看政策信息",
-    "market_title": "市场政策",
-    "market_content": "我们的市场允许您交易票据并支持项目。\n\n价格根据需求波动。车手投注等高风险项目可能会导致全额损失。\n\n投资前请务必做好研究。",
-    "token_rep_title": "代币与声望政策",
-    "token_rep_content": "代币是我们用于交易和奖励的内部货币。\n\n声望反映了您的贡献和信任度。高声望可解锁创建活动等高级功能。",
-    "mission_title": "任务政策",
-    "mission_content": "完成任务可赚取代币和声望。\n\n提交的内容由管理员审核。高质量的工作将获得奖励；垃圾或低质量的提交将被拒绝。",
-    "betting_title": "博彩政策",
-    "betting_content": "车手博弈属于高风险二元期权。您对特定结果（如“Piastri获胜”）进行投注。\n\n如果事件发生，“是”票据将按比例瓜分奖池，“否”票据将归零，反之亦然。\n\n没有保本承诺。结果由创建者/管理员人工核实。",
-    "minigame_title": "小游戏政策",
-    "minigame_content": "参与成本：每局 1 代币。\n\n奖励机制：\n1. 即时奖励：有效成绩获 5 代币（60分钟冷却）。\n2. 月度锦标赛：前10名瓜分奖池（基础 500 + 每局增加 2 代币）。\n\n反作弊：低于 110ms 的反应将被视为无效。",
-    "fees_title": "费率与计算",
-    "fees_content": "市场费率：每笔 P2P 票据交易收取 2% 手续费。\n\n小游戏费用：1 代币入场费部分注入月度奖池。\n\n代币供应：通过任务（浮动）和每日登录获取。通过费用和惩罚销毁。"
   },
   "minigame_onelapduel": {
     "nav": {
@@ -734,12 +816,12 @@
         }
       },
       "skills": {
-          "acceleration": "加速",
-          "braking": "刹车",
-          "cornering": "过弯",
-          "ers_efficiency": "ERS 效率",
-          "decision_making": "决策",
-          "morale": "士气"
+        "acceleration": "加速",
+        "braking": "刹车",
+        "cornering": "过弯",
+        "ers_efficiency": "ERS 效率",
+        "decision_making": "决策",
+        "morale": "士气"
       },
       "morale_high_desc": "高士气提升 ERS 效率和稳定性。",
       "morale_low_desc": "低士气会导致失误。",
@@ -891,153 +973,73 @@
       }
     }
   },
-  "developer": {
-    "inbox": {
-      "title": "开发者收件箱",
-      "refresh": "刷新",
-      "access_denied": "访问被拒绝",
-      "access_denied_desc": "您必须是经过批准的开发者才能查看此页面。",
-      "must_be_developer": "您必须是经过批准的开发者才能查看此页面。",
-      "loading": "正在加载收件箱数据...",
-      "full_name": "全名",
-      "requested": "申请时间",
-      "end_date": "结束日期",
-      "declare_winner": "宣布获胜者",
-      "mission_control": {
-        "title": "任务控制中心",
-        "create_btn": "创建新任务",
-        "no_active": "暂无活跃任务。",
-        "tokens": "代币",
-        "rep": "声望",
-        "due": "截止",
-        "pending_submissions": "{{count}} 个待处理提交（不可编辑）",
-        "edit": "编辑",
-        "delete": "删除",
-        "confirm_delete": "您确定要删除此任务吗？",
-        "error_save": "保存任务出错：{{error}}",
-        "error_delete": "删除任务出错：{{error}}",
-        "error_edit_pending": "无法编辑有待处理提交的任务。",
-        "error_prepare_award": "准备奖励出错：{{error}}",
-        "error_tokens_range": "代币必须在 {{min}} 和 {{max}} 之间",
-        "error_rep_range": "声望必须在 {{min}} 和 {{max}} 之间",
-        "error_award": "奖励提交时出错：{{error}}",
-        "edit_mission": "编辑任务",
-        "create_mission": "创建新任务",
-        "form": {
-          "title": "标题",
-          "description": "描述",
-          "min_tokens": "最小代币",
-          "max_tokens": "最大代币",
-          "min_rep": "最小声望",
-          "max_rep": "最大声望",
-          "deadline": "截止日期 (可选)"
-        },
-        "cancel": "取消",
-        "save_mission": "保存任务",
-        "award_submission_title": "奖励提交",
-        "award_tokens": "奖励代币",
-        "award_rep": "奖励声望",
-        "approve_award": "批准并奖励"
-      },
-      "sections": {
-        "dev_requests": "待处理开发者申请",
-        "mission_submissions": "待处理任务提交",
-        "active_bets": "活跃车手博弈（需结算）",
-        "calendar": "工作负载日历",
-        "pending_deliverables": "待处理交付物",
-        "forum_acks": "论坛确认",
-        "test_requests": "测试玩家申请"
-      },
-      "empty": {
-        "dev_requests": "无待处理开发者申请",
-        "mission_submissions": "无待处理任务提交",
-        "active_bets": "无需要结算的活跃博弈",
-        "pending_deliverables": "无待处理交付物",
-        "forum_acks": "无待处理确认",
-        "test_requests": "无待处理测试玩家申请"
-      },
-      "actions": {
-        "approve": "批准",
-        "decline": "拒绝",
-        "reject": "驳回",
-        "acknowledge": "确认",
-        "view_post": "查看帖子",
-        "declare_winner": "宣布获胜者：",
-        "deliverable_tag": "交付物",
-        "issue": "发布",
-        "reject": "拒绝",
-        "mission_tag": "任务",
-        "driver_bet_tag": "车手博弈",
-        "side_a": "A方",
-        "side_b": "B方",
-        "by": "提交者",
-        "unknown": "未知",
-        "tester_tag": "测试员",
-        "disable_variable_price": "禁用浮动价格",
-        "pre_issue": "预发布"
-      },
-      "labels": {
-        "user": "用户",
-        "email": "邮箱",
-        "due_date": "截止日期",
-        "cost": "成本",
-        "condition": "条件",
-        "release_date": "发布日期"
-      },
-      "status": {
-        "issued": "已发布",
-        "rejected": "已拒绝",
-        "pre_issued": "已预发布"
-      },
-      "confirms": {
-        "approve_dev": "批准此用户为开发者？",
-        "decline_dev": "拒绝此开发者申请？",
-        "approve_mission": "批准此任务提交？",
-        "reject_mission": "驳回此任务提交？",
-        "process_deliverable": "您确定要{{action}}此交付物吗？",
-        "acknowledge_post": "标记此帖子为已确认？",
-        "approve_test": "批准此测试玩家？他们将获得 +20 声望。",
-        "decline_test": "拒绝此请求？"
-      },
-      "prompts": {
-        "password_confirm": "请输入密码以确认此操作",
-        "proof_url": "输入证明 URL（可选）：",
-        "decline_reason": "请输入拒绝原因（将通知用户）："
-      },
-      "alerts": {
-        "approve_failed": "批准失败",
-        "decline_failed": "拒绝失败",
-        "approve_mission_failed": "批准任务失败",
-        "reject_mission_failed": "拒绝任务失败",
-        "process_deliverable_failed": "处理交付物失败",
-        "acknowledge_failed": "确认失败",
-        "disable_variable_price_success": "已禁用浮动价格",
-        "disable_variable_price_failed": "禁用浮动价格失败"
-      }
-    },
-    "test_request": {
-      "title": "申请测试玩家权限",
-      "info": "获得批准的测试人员将获得 +20 声望并免费访问所选程序。",
-      "labels": {
-        "identifiable_name": "可识别名称",
-        "program": "测试程序",
-        "progress": "当前进度"
-      },
-      "placeholders": {
-        "identifiable_name": "例如：微信昵称",
-        "progress": "简要描述您的当前进度或想要测试的原因..."
-      },
-      "submit": "提交申请",
-      "alerts": {
-        "success": "申请提交成功！",
-        "failed": "提交申请失败",
-        "error": "发生意外错误"
-      }
-    }
+  "policies": {
+    "click_for_info": "点击查看政策信息",
+    "market_title": "市场政策",
+    "market_content": "我们的市场允许您交易票据并支持项目。\n\n价格根据需求波动。车手投注等高风险项目可能会导致全额损失。\n\n投资前请务必做好研究。",
+    "token_rep_title": "代币与声望政策",
+    "token_rep_content": "代币是我们用于交易和奖励的内部货币。\n\n声望反映了您的贡献和信任度。高声望可解锁创建活动等高级功能。",
+    "mission_title": "任务政策",
+    "mission_content": "完成任务可赚取代币和声望。\n\n提交的内容由管理员审核。高质量的工作将获得奖励；垃圾或低质量的提交将被拒绝。",
+    "betting_title": "博彩政策",
+    "betting_content": "车手博弈属于高风险二元期权。您对特定结果（如“Piastri获胜”）进行投注。\n\n如果事件发生，“是”票据将按比例瓜分奖池，“否”票据将归零，反之亦然。\n\n没有保本承诺。结果由创建者/管理员人工核实。",
+    "minigame_title": "小游戏政策",
+    "minigame_content": "参与成本：每局 1 代币。\n\n奖励机制：\n1. 即时奖励：有效成绩获 5 代币（60分钟冷却）。\n2. 月度锦标赛：前10名瓜分奖池（基础 500 + 每局增加 2 代币）。\n\n反作弊：低于 110ms 的反应将被视为无效。",
+    "fees_title": "费率与计算",
+    "fees_content": "市场费率：每笔 P2P 票据交易收取 2% 手续费。\n\n小游戏费用：1 代币入场费部分注入月度奖池。\n\n代币供应：通过任务（浮动）和每日登录获取。通过费用和惩罚销毁。"
   },
   "notifications": {
     "developer_declined": "您的开发者申请已被拒绝",
     "acknowledge": "我已知晓",
     "reason": "原因"
+  },
+  "telemetry": {
+    "title": "实时遥测分析",
+    "subtitle": "由 OpenF1 API 提供支持。已启用内存缓存。",
+    "select_session": "选择赛事",
+    "live_on": "实时开启",
+    "live_off": "实时关闭",
+    "driver_list": "车手 (最多3人)",
+    "drivers": {
+      "title": "当前遥测快照"
+    },
+    "tabs": {
+      "chart": "遥测图表",
+      "laps": "圈速分析",
+      "drivers": "车手数据",
+      "hud": "实时 HUD"
+    },
+    "select_driver_prompt": "请从侧边栏至少选择一名车手。",
+    "loading_sessions": "加载赛事中...",
+    "chart": {
+      "title": "实时遥测轨迹",
+      "no_data": "等待遥测数据...",
+      "loading": "正在获取遥测数据...",
+      "loading_points": "已加载数据点"
+    },
+    "metrics": {
+      "speed": "速度 (km/h)",
+      "rpm": "转速 (RPM)",
+      "throttle": "油门 (%)",
+      "brake": "刹车 (%)",
+      "gear": "档位"
+    },
+    "laps": {
+      "title": "圈速分析"
+    },
+    "hud": {
+      "play": "播放",
+      "pause": "暂停",
+      "reset": "重置",
+      "sound_on": "声音开启",
+      "sound_off": "声音关闭",
+      "progress": "进度",
+      "gear": "档位",
+      "throttle": "油门",
+      "brake": "刹车",
+      "driver": "车手",
+      "team": "车队",
+      "no_data": "该车手在当前赛事没有可用的遥测流。"
+    }
   }
 }

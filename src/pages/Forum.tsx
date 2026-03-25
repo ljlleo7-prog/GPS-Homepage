@@ -272,10 +272,10 @@ const Forum = () => {
       setShowCreateRoom(false);
       setNewRoomName('');
       setNewRoomDesc('');
-      alert('Room created successfully!');
+      alert(t('forum.rooms.success'));
     } catch (error) {
       console.error('Error creating room:', error);
-      alert('Failed to create room.');
+      alert(t('forum.rooms.failed'));
     } finally {
       setCreatingRoom(false);
     }
@@ -361,7 +361,7 @@ const Forum = () => {
                 className="px-4 py-2 rounded-full font-mono text-sm whitespace-nowrap bg-surface border border-dashed border-white/20 text-text-secondary hover:border-primary/50 hover:text-primary transition-all flex items-center"
               >
                 <Plus className="w-3 h-3 mr-1" />
-                New Room
+                {t('forum.rooms.new_room_btn')}
               </button>
             )}
           </div>
@@ -675,7 +675,7 @@ const Forum = () => {
                 className="bg-surface border border-white/10 rounded-lg max-w-md w-full p-6 shadow-2xl"
               >
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-mono font-bold text-white">Create Breakout Room</h2>
+                  <h2 className="text-xl font-mono font-bold text-white">{t('forum.rooms.create')}</h2>
                   <button onClick={() => setShowCreateRoom(false)} className="text-text-secondary hover:text-white">
                     <X className="w-5 h-5" />
                   </button>
@@ -683,22 +683,22 @@ const Forum = () => {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-mono text-text-secondary mb-2">Room Name</label>
+                    <label className="block text-sm font-mono text-text-secondary mb-2">{t('forum.rooms.name_label')}</label>
                     <input
                       type="text"
                       value={newRoomName}
                       onChange={(e) => setNewRoomName(e.target.value)}
                       className="w-full bg-background border border-white/10 rounded px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
-                      placeholder="e.g. Flight Sim Dev"
+                      placeholder={t('forum.rooms.name_placeholder')}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-mono text-text-secondary mb-2">Description</label>
+                    <label className="block text-sm font-mono text-text-secondary mb-2">{t('forum.rooms.desc_label')}</label>
                     <textarea
                       value={newRoomDesc}
                       onChange={(e) => setNewRoomDesc(e.target.value)}
                       className="w-full bg-background border border-white/10 rounded px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors h-24 resize-none"
-                      placeholder="What is this room for?"
+                      placeholder={t('forum.rooms.desc_placeholder')}
                     />
                   </div>
                 </div>
@@ -708,14 +708,14 @@ const Forum = () => {
                     onClick={() => setShowCreateRoom(false)}
                     className="px-4 py-2 text-text-secondary hover:text-white font-mono transition-colors"
                   >
-                    Cancel
+                    {t('forum.cancel')}
                   </button>
                   <button
                     onClick={handleCreateRoom}
                     disabled={creatingRoom || !newRoomName.trim()}
                     className="px-6 py-2 bg-primary text-background font-mono font-bold rounded hover:bg-primary-dark transition-colors disabled:opacity-50"
                   >
-                    {creatingRoom ? 'Creating...' : 'Create Room'}
+                    {creatingRoom ? t('forum.rooms.creating') : t('forum.rooms.create_btn')}
                   </button>
                 </div>
               </motion.div>

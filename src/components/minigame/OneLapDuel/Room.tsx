@@ -665,7 +665,7 @@ export default function Room({ roomId, driver, onLeave }: Props) {
     if (!user) return;
     const { error } = await supabase
       .from('one_lap_room_players')
-      .insert([{ room_id: roomId, user_id: user.id, is_ready: false }]);
+      .upsert([{ room_id: roomId, user_id: user.id, is_ready: false }], { onConflict: 'room_id,user_id', ignoreDuplicates: true });
     
     if (error) {
         console.error('Join error:', error);

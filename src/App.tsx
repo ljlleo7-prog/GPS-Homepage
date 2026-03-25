@@ -16,6 +16,7 @@ import SupportMarkets from './pages/SupportMarkets';
 import Forum from './pages/Forum';
 import DeveloperInbox from './pages/DeveloperInbox';
 import Minigame from './pages/Minigame';
+import Telemetry from './pages/Telemetry';
 import { AuthProvider } from './context/AuthContext';
 import { EconomyProvider } from './context/EconomyContext';
 
@@ -36,6 +37,7 @@ function App() {
                 <Route path="missions" element={<Missions />} />
                 <Route path="markets" element={<SupportMarkets />} />
                 <Route path="minigame" element={<Minigame />} />
+                <Route path="telemetry" element={<Telemetry />} />
                 <Route path="community" element={<Forum />} />
                 <Route path="developer-inbox" element={<DeveloperInbox />} />
                 <Route path="contact" element={<Contact />} />
