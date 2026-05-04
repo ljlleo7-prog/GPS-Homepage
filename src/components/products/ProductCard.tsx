@@ -12,13 +12,14 @@ export interface Product {
   description: string;
   mechanism: string;
   action: string;
+  badge?: string;
   url?: string;
   icon: React.ReactNode;
 }
 
 interface ProductCardProps {
   product: Product;
-  user: any;
+  user: unknown;
 }
 
 const ProductCard = ({ product, user }: ProductCardProps) => {
@@ -52,7 +53,12 @@ const ProductCard = ({ product, user }: ProductCardProps) => {
         </div>
       </div>
       
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap gap-2">
+        {product.badge && (
+          <span className="text-xs font-mono text-background bg-secondary px-2 py-1 rounded border border-secondary shadow-[0_0_12px_rgba(57,255,20,0.35)]">
+            {product.badge}
+          </span>
+        )}
         <span className="text-xs font-mono text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20">
           {product.type === 'computerized-simulation' ? t('products.type.simulation') : t('products.type.boardgame')}
         </span>

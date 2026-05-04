@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plane, Car, Filter } from 'lucide-react';
+import { Plane, Car } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ProductCard, { Product } from '../components/products/ProductCard';
 import { useTranslation } from 'react-i18next';
@@ -12,15 +12,29 @@ const Products = () => {
 
   const products: Product[] = [
     {
-      id: 'sim-aviation-001',
+      id: 'boardgame-motorsports-001',
+      name: t('products.items.race_strategy.name'),
+      category: 'motorsports',
+      type: 'boardgame',
+      access: 'open',
+      description: t('products.items.race_strategy.description'),
+      mechanism: t('products.items.race_strategy.mechanism'),
+      action: t('products.items.race_strategy.action'),
+      badge: t('products.badges.released'),
+      icon: <Car className="w-8 h-8" />,
+      url: 'https://deltadash.geeksproductionstudio.com/'
+    },
+    {
+      id: 'sim-motorsports-003',
       name: t('products.items.flight_sim.name'),
-      category: 'aviation',
+      category: 'motorsports',
       type: 'computerized-simulation',
-      access: 'authorized',
+      access: 'open',
       description: t('products.items.flight_sim.description'),
       mechanism: t('products.items.flight_sim.mechanism'),
       action: t('products.items.flight_sim.action'),
-      icon: <Plane className="w-8 h-8" />
+      icon: <Car className="w-8 h-8" />,
+      url: 'https://championship.geeksproductionstudio.com'
     },
     {
       id: 'sim-aviation-003',
@@ -33,18 +47,6 @@ const Products = () => {
       action: t('products.items.skyline_tragedy.action'),
       icon: <Plane className="w-8 h-8" />,
       url: 'https://skylinetragedy.geeksproductionstudio.com/'
-    },
-    {
-      id: 'boardgame-motorsports-001',
-      name: t('products.items.race_strategy.name'),
-      category: 'motorsports',
-      type: 'boardgame',
-      access: 'open',
-      description: t('products.items.race_strategy.description'),
-      mechanism: t('products.items.race_strategy.mechanism'),
-      action: t('products.items.race_strategy.action'),
-      icon: <Car className="w-8 h-8" />,
-      url: 'http://deltadash.geeksproductionstudio.com/'
     },
     {
       id: 'sim-motorsports-002',

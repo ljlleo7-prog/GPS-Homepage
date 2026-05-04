@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { logCommunityEngagement } from '../lib/community';
 import { useAuth } from '../context/AuthContext';
 import { useEconomy } from '../context/EconomyContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Plus, Award, X, Star, User, Heart, MessageCircle, Hash, LayoutGrid } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import QuickPollCard from '../components/home/QuickPollCard';
 
 interface ForumRoom {
   id: string;
@@ -23,6 +25,7 @@ interface ForumPost {
   is_featured: boolean;
   reward_amount: number;
   created_at: string;
+  edited_at: string | null;
   room_id: string;
   profiles: {
     username: string;
@@ -60,6 +63,12 @@ const Forum = () => {
   const [newContent, setNewContent] = useState('');
   const [creating, setCreating] = useState(false);
 
+  // Edit Post State
+  const [editingPost, setEditingPost] = useState<ForumPost | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editing, setEditing] = useState(false);
+
   // Reward State
   const [selectedPost, setSelectedPost] = useState<ForumPost | null>(null);
   const [rewardAmount, setRewardAmount] = useState('10');
@@ -71,7 +80,16 @@ const Forum = () => {
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const [newRoomDesc, setNewRoomDesc] = useState('');
+  const [isPrivateRoom, setIsPrivateRoom] = useState(false);
   const [creatingRoom, setCreatingRoom] = useState(false);
+  const [showJoinRoom, setShowJoinRoom] = useState(false);
+  const [joinPasscode, setJoinPasscode] = useState('');
+  const [joiningRoom, setJoiningRoom] = useState(false);
+  const [showRequestAccess, setShowRequestAccess] = useState(false);
+  const [requestName, setRequestName] = useState('');
+  const [requestOrg, setRequestOrg] = useState('');
+  const [requestingAccess, setRequestingAccess] = useState(false);
+  const [canCreatePrivateRooms, setCanCreatePrivateRooms] = useState(false);
 
   // Comments State
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
@@ -89,6 +107,19 @@ const Forum = () => {
       fetchPosts();
     }
   }, [user, selectedRoom]);
+
+  useEffect(() => {
+    const fetchPrivateRoomPrivilege = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('can_create_private_rooms')
+        .eq('id', user.id)
+        .single();
+      setCanCreatePrivateRooms(data?.can_create_private_rooms || false);
+    };
+    fetchPrivateRoomPrivilege();
+  }, [user]);
 
   const fetchRooms = async () => {
     try {
@@ -182,9 +213,13 @@ const Forum = () => {
 
     try {
       if (isLiked) {
-        await supabase.from('forum_likes').delete().eq('post_id', post.id).eq('user_id', user.id);
+        const { error } = await supabase.from('forum_likes').delete().eq('post_id', post.id).eq('user_id', user.id);
+        if (error) throw error;
+        await logCommunityEngagement('forum_like_removed', 'forum_post', post.id);
       } else {
-        await supabase.from('forum_likes').insert({ post_id: post.id, user_id: user.id });
+        const { error } = await supabase.from('forum_likes').insert({ post_id: post.id, user_id: user.id });
+        if (error) throw error;
+        await logCommunityEngagement('forum_like_added', 'forum_post', post.id);
       }
     } catch (error) {
       console.error('Error toggling like:', error);
@@ -205,12 +240,13 @@ const Forum = () => {
     if (!user || !newComment.trim()) return;
     setSubmittingComment(true);
     try {
-      const { error } = await supabase.from('forum_comments').insert({
+      const { data, error } = await supabase.from('forum_comments').insert({
         post_id: postId,
         user_id: user.id,
         content: newComment
-      });
+      }).select('id').single();
       if (error) throw error;
+      await logCommunityEngagement('forum_comment_created', 'forum_comment', data?.id, { post_id: postId, length: newComment.trim().length });
       setNewComment('');
       fetchComments(postId);
       // Update comment count locally
@@ -232,16 +268,19 @@ const Forum = () => {
 
     setCreating(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('forum_posts')
         .insert({
           title: newTitle,
           content: newContent,
           author_id: user?.id,
           room_id: selectedRoom.id
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
+      await logCommunityEngagement('forum_post_created', 'forum_post', data?.id, { room_id: selectedRoom.id, length: newContent.trim().length });
 
       setShowCreate(false);
       setNewTitle('');
@@ -255,29 +294,124 @@ const Forum = () => {
     }
   };
 
+  const handleEditPost = async () => {
+    if (!editingPost || !editTitle.trim() || !editContent.trim()) return;
+    setEditing(true);
+    try {
+      const { data, error } = await supabase.rpc('edit_forum_post', {
+        p_post_id: editingPost.id,
+        p_title: editTitle,
+        p_content: editContent
+      });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      setEditingPost(null);
+      setEditTitle('');
+      setEditContent('');
+      fetchPosts();
+    } catch (error) {
+      console.error('Error editing post:', error);
+      alert(t('forum.alerts.edit_failed'));
+    } finally {
+      setEditing(false);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm(t('forum.alerts.delete_confirm'))) return;
+    try {
+      const { data, error } = await supabase.rpc('delete_forum_post', { p_post_id: postId });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      fetchPosts();
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      alert(t('forum.alerts.delete_failed'));
+    }
+  };
+
   const handleCreateRoom = async () => {
     if (!developerStatus || developerStatus !== 'APPROVED') return;
     if (!newRoomName.trim()) return;
 
     setCreatingRoom(true);
     try {
-      const { error } = await supabase.rpc('create_forum_room', {
-        p_name: newRoomName,
-        p_description: newRoomDesc
-      });
+      const passcode = isPrivateRoom ? Math.random().toString(36).substring(2, 10).toUpperCase() : null;
+
+      const { data, error } = await supabase
+        .from('forum_rooms')
+        .insert({
+          name: newRoomName,
+          description: newRoomDesc,
+          passcode: passcode,
+          created_by: user?.id
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
+      await logCommunityEngagement('forum_room_created', 'forum_room', data?.id, { name: newRoomName, is_private: isPrivateRoom });
       await fetchRooms();
       setShowCreateRoom(false);
       setNewRoomName('');
       setNewRoomDesc('');
-      alert(t('forum.rooms.success'));
+      setIsPrivateRoom(false);
+
+      if (passcode) {
+        alert(t('forum.rooms.private_created', { passcode }));
+      } else {
+        alert(t('forum.rooms.success'));
+      }
     } catch (error) {
       console.error('Error creating room:', error);
       alert(t('forum.rooms.failed'));
     } finally {
       setCreatingRoom(false);
+    }
+  };
+
+  const handleJoinRoom = async () => {
+    if (!joinPasscode.trim()) return;
+    setJoiningRoom(true);
+    try {
+      const { data, error } = await supabase.rpc('join_private_room', { p_passcode: joinPasscode });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+
+      await fetchRooms();
+      setSelectedRoom(data.room);
+      setShowJoinRoom(false);
+      setJoinPasscode('');
+      alert(t('forum.rooms.join_success'));
+    } catch (error) {
+      console.error('Error joining room:', error);
+      alert(t('forum.rooms.join_failed'));
+    } finally {
+      setJoiningRoom(false);
+    }
+  };
+
+  const handleRequestPrivateRoomAccess = async () => {
+    if (!requestName.trim()) return;
+    setRequestingAccess(true);
+    try {
+      const { data, error } = await supabase.rpc('request_private_room_access', {
+        p_identifiable_name: requestName,
+        p_organization: requestOrg || null
+      });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+
+      setShowRequestAccess(false);
+      setRequestName('');
+      setRequestOrg('');
+      alert(t('forum.rooms.request_success'));
+    } catch (error) {
+      console.error('Error requesting access:', error);
+      alert(t('forum.rooms.request_failed'));
+    } finally {
+      setRequestingAccess(false);
     }
   };
 
@@ -364,6 +498,22 @@ const Forum = () => {
                 {t('forum.rooms.new_room_btn')}
               </button>
             )}
+
+            {user && developerStatus !== 'APPROVED' && !canCreatePrivateRooms && (
+              <button
+                onClick={() => setShowRequestAccess(true)}
+                className="px-4 py-2 rounded-full font-mono text-sm whitespace-nowrap bg-surface border border-white/20 text-text-secondary hover:border-primary/50 hover:text-white transition-all"
+              >
+                {t('forum.rooms.request_access_btn')}
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowJoinRoom(true)}
+              className="px-4 py-2 rounded-full font-mono text-sm whitespace-nowrap bg-surface border border-white/20 text-text-secondary hover:border-primary/50 hover:text-white transition-all"
+            >
+              {t('forum.rooms.join_room_btn')}
+            </button>
           </div>
           
           <AnimatePresence mode="wait">
@@ -380,6 +530,9 @@ const Forum = () => {
             )}
           </AnimatePresence>
         </div>
+
+        {/* Community Poll */}
+        {selectedRoom && <QuickPollCard roomId={selectedRoom.id} />}
 
         {/* Post List */}
         <div className="grid gap-6">
@@ -418,6 +571,11 @@ const Forum = () => {
                         <span className={post.profiles?.developer_status === 'APPROVED' ? 'text-cyan-400' : ''}>{post.profiles?.username || t('forum.unknown_user')}</span>
                       </div>
                       <span>{new Date(post.created_at).toLocaleDateString(i18n.language)}</span>
+                      {post.edited_at && (
+                        <span className="text-xs italic">
+                          {t('forum.edited')}: {new Date(post.edited_at).toLocaleString(i18n.language)}
+                        </span>
+                      )}
                     </div>
                   </div>
                   
@@ -450,6 +608,28 @@ const Forum = () => {
                     <MessageCircle className="w-5 h-5" />
                     <span className="font-mono text-sm">{post.comments_count} {t('forum.comments_count')}</span>
                   </button>
+
+                  {/* Author Actions */}
+                  {user?.id === post.author_id && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setEditingPost(post);
+                          setEditTitle(post.title);
+                          setEditContent(post.content);
+                        }}
+                        className="text-sm font-mono text-text-secondary hover:text-primary transition-colors"
+                      >
+                        {t('forum.edit')}
+                      </button>
+                      <button
+                        onClick={() => handleDeletePost(post.id)}
+                        className="text-sm font-mono text-text-secondary hover:text-red-400 transition-colors"
+                      >
+                        {t('forum.delete')}
+                      </button>
+                    </>
+                  )}
 
                   {/* Admin Actions */}
                   {developerStatus === 'APPROVED' && (
@@ -701,6 +881,18 @@ const Forum = () => {
                       placeholder={t('forum.rooms.desc_placeholder')}
                     />
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="isPrivateRoom"
+                      checked={isPrivateRoom}
+                      onChange={(e) => setIsPrivateRoom(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <label htmlFor="isPrivateRoom" className="text-sm font-mono text-text-secondary cursor-pointer">
+                      {t('forum.rooms.private_room_label')}
+                    </label>
+                  </div>
                 </div>
 
                 <div className="flex justify-end space-x-4 mt-6">
@@ -716,6 +908,173 @@ const Forum = () => {
                     className="px-6 py-2 bg-primary text-background font-mono font-bold rounded hover:bg-primary-dark transition-colors disabled:opacity-50"
                   >
                     {creatingRoom ? t('forum.rooms.creating') : t('forum.rooms.create_btn')}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Edit Post Modal */}
+        <AnimatePresence>
+          {editingPost && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-surface border border-primary/30 rounded-lg p-6 max-w-2xl w-full"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-white font-mono">{t('forum.edit_post')}</h2>
+                  <button onClick={() => setEditingPost(null)} className="text-text-secondary hover:text-white">
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-mono text-text-secondary mb-2">{t('forum.title_label')}</label>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full bg-background border border-white/10 rounded px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-mono text-text-secondary mb-2">{t('forum.content_label')}</label>
+                    <textarea
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      className="w-full bg-background border border-white/10 rounded px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors h-48 resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-4 mt-6">
+                  <button
+                    onClick={() => setEditingPost(null)}
+                    className="px-4 py-2 text-text-secondary hover:text-white font-mono transition-colors"
+                  >
+                    {t('forum.cancel')}
+                  </button>
+                  <button
+                    onClick={handleEditPost}
+                    disabled={editing || !editTitle.trim() || !editContent.trim()}
+                    className="px-6 py-2 bg-primary text-background font-mono font-bold rounded hover:bg-primary-dark transition-colors disabled:opacity-50"
+                  >
+                    {editing ? t('forum.saving') : t('forum.save')}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Join Room Modal */}
+        <AnimatePresence>
+          {showJoinRoom && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-surface border border-primary/30 rounded-lg p-6 max-w-md w-full"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-white font-mono">{t('forum.rooms.join_room')}</h2>
+                  <button onClick={() => setShowJoinRoom(false)} className="text-text-secondary hover:text-white">
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-mono text-text-secondary mb-2">{t('forum.rooms.passcode_label')}</label>
+                    <input
+                      type="text"
+                      value={joinPasscode}
+                      onChange={(e) => setJoinPasscode(e.target.value.toUpperCase())}
+                      className="w-full bg-background border border-white/10 rounded px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors font-mono"
+                      placeholder={t('forum.rooms.passcode_placeholder')}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-4 mt-6">
+                  <button
+                    onClick={() => setShowJoinRoom(false)}
+                    className="px-4 py-2 text-text-secondary hover:text-white font-mono transition-colors"
+                  >
+                    {t('forum.cancel')}
+                  </button>
+                  <button
+                    onClick={handleJoinRoom}
+                    disabled={joiningRoom || !joinPasscode.trim()}
+                    className="px-6 py-2 bg-primary text-background font-mono font-bold rounded hover:bg-primary-dark transition-colors disabled:opacity-50"
+                  >
+                    {joiningRoom ? t('forum.rooms.joining') : t('forum.rooms.join_btn')}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Request Private Room Access Modal */}
+        <AnimatePresence>
+          {showRequestAccess && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-surface border border-primary/30 rounded-lg p-6 max-w-md w-full"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-white font-mono">{t('forum.rooms.request_access')}</h2>
+                  <button onClick={() => setShowRequestAccess(false)} className="text-text-secondary hover:text-white">
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-mono text-text-secondary mb-2">{t('forum.rooms.name_label_request')}</label>
+                    <input
+                      type="text"
+                      value={requestName}
+                      onChange={(e) => setRequestName(e.target.value)}
+                      className="w-full bg-background border border-white/10 rounded px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
+                      placeholder={t('forum.rooms.name_placeholder_request')}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-mono text-text-secondary mb-2">{t('forum.rooms.org_label')}</label>
+                    <input
+                      type="text"
+                      value={requestOrg}
+                      onChange={(e) => setRequestOrg(e.target.value)}
+                      className="w-full bg-background border border-white/10 rounded px-4 py-2 text-white focus:outline-none focus:border-primary transition-colors"
+                      placeholder={t('forum.rooms.org_placeholder')}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-4 mt-6">
+                  <button
+                    onClick={() => setShowRequestAccess(false)}
+                    className="px-4 py-2 text-text-secondary hover:text-white font-mono transition-colors"
+                  >
+                    {t('forum.cancel')}
+                  </button>
+                  <button
+                    onClick={handleRequestPrivateRoomAccess}
+                    disabled={requestingAccess || !requestName.trim()}
+                    className="px-6 py-2 bg-primary text-background font-mono font-bold rounded hover:bg-primary-dark transition-colors disabled:opacity-50"
+                  >
+                    {requestingAccess ? t('forum.rooms.requesting') : t('forum.rooms.request_btn')}
                   </button>
                 </div>
               </motion.div>

@@ -4,7 +4,14 @@
     "approve": "批准",
     "reject": "拒绝",
     "decline": "拒绝",
-    "by": "提交者"
+    "by": "提交者",
+    "empty": "空",
+    "logo_alt": "GPS 标志",
+    "cancel": "取消",
+    "dismiss": "关闭",
+    "edit": "编辑",
+    "delete": "删除",
+    "save": "保存"
   },
   "navbar": {
     "home": "首页",
@@ -52,6 +59,12 @@
     "tokens": "代币",
     "comments_count": "评论",
     "acknowledge": "确认",
+    "edit": "编辑",
+    "delete": "删除",
+    "edited": "已编辑",
+    "edit_post": "编辑帖子",
+    "save": "保存",
+    "saving": "保存中...",
     "comments_section": {
       "title": "评论",
       "empty": "暂无评论。",
@@ -75,7 +88,10 @@
       "create_failed": "创建帖子失败",
       "acknowledge_success": "帖子确认成功！",
       "acknowledge_failed": "奖励帖子失败：",
-      "unknown_error": "未知错误"
+      "unknown_error": "未知错误",
+      "edit_failed": "编辑帖子失败",
+      "delete_failed": "删除帖子失败",
+      "delete_confirm": "确定要删除此帖子吗？此操作无法撤销。"
     },
     "rooms": {
       "create": "创建分组讨论室",
@@ -87,12 +103,36 @@
       "creating": "创建中...",
       "new_room_btn": "新房间",
       "success": "房间创建成功！",
-      "failed": "创建房间失败。"
+      "failed": "创建房间失败。",
+      "join_room_btn": "加入房间",
+      "join_room": "加入私密房间",
+      "passcode_label": "密码",
+      "passcode_placeholder": "输入密码",
+      "joining": "加入中...",
+      "join_btn": "加入",
+      "join_success": "成功加入房间！",
+      "join_failed": "密码无效或房间不存在。",
+      "private_room_label": "私密房间（密码保护）",
+      "private_created": "私密房间已创建！密码：{{passcode}}",
+      "request_access_btn": "请求私密房间权限",
+      "request_access": "请求创建私密房间权限",
+      "name_label_request": "您的姓名",
+      "name_placeholder_request": "全名或用户名",
+      "org_label": "组织（可选）",
+      "org_placeholder": "公司、学校或团队",
+      "requesting": "请求中...",
+      "request_btn": "提交请求",
+      "request_success": "请求已提交！开发者将审核。",
+      "request_failed": "提交请求失败。"
     }
   },
   "home": {
     "hero": {
       "tagline": "由咖啡、代码和好奇心驱动的学生开发者。一次提交，构建未来。",
+      "release_badge": "正式发布",
+      "release_title": "DeltaDash 已正式上线",
+      "release_subtitle": "这款方程式赛车策略桌游已经正式发布。构建你的版本，争夺奖励，立即加入发车格。",
+      "play_deltadash": "游玩 DeltaDash",
       "explore_projects": "查看作品",
       "join_community": "加入社区"
     },
@@ -120,6 +160,64 @@
       "loading": "正在加载项目...",
       "view_all": "查看全部",
       "view_case_study": "查看案例研究"
+    },
+    "community": {
+      "loading": "正在加载社区动态...",
+      "feed": {
+        "title_active": "活跃",
+        "title_pulse": "社区脉搏",
+        "subtitle": "展示平台近期动作，让回归玩家看到经济、投票和论坛正在运转。",
+        "empty": "暂时没有可见动态。成为第一个行动的人吧。",
+        "events": {
+          "default": "参与了社区活动",
+          "forum_post_created": "发起了论坛讨论",
+          "forum_comment_created": "回复了论坛帖子",
+          "forum_like_added": "点赞了论坛帖子",
+          "forum_like_removed": "更新了论坛反应",
+          "forum_room_created": "创建了分组讨论室",
+          "poll_vote_cast": "参与了社区投票",
+          "daily_bonus_claimed": "完成了今日签到",
+          "ticket_listing_created": "挂出了市场票券",
+          "ticket_listing_purchased": "购买了市场票券",
+          "ticket_listing_withdrawn": "撤回了票券挂单",
+          "driver_bet_created": "创建了车手竞猜",
+          "driver_bet_ticket_bought": "参与了车手竞猜",
+          "driver_bet_resolved": "结算了车手竞猜",
+          "minigame_play_completed": "完成了一局小游戏"
+        }
+      },
+      "snapshot": {
+        "title": "GPS 本周动态",
+        "subtitle": "贡献分会先由开发者验证，再进入公开认可。",
+        "stats": {
+          "active_participants": "活跃贡献者",
+          "forum_posts": "论坛动作",
+          "poll_votes": "投票数",
+          "pending_scores": "待验证分数"
+        }
+      },
+      "poll": {
+        "label": "快速投票",
+        "helper": "每人投票一次。投票贡献会单独计算并按周验证。",
+        "login_prompt": "登录后即可投票。",
+        "voting": "投票中...",
+        "vote_count": "{{count}} · {{percentage}}%",
+        "vote_failed": "投票提交失败"
+      },
+      "polls": {
+        "next_modifier": {
+          "question": "下一个精选比赛应该使用哪个修正？",
+          "options": {
+            "weather": "不稳定天气",
+            "tire_wear": "高轮胎磨损",
+            "safety_car": "安全车概率"
+          }
+        }
+      },
+      "notifications": {
+        "welcome_back_title": "欢迎回来",
+        "welcome_back_body": "最近有 {{activeCount}} 位玩家参与。看看动态，加入下一个快速行动吧。"
+      }
     }
   },
   "about": {
@@ -220,6 +318,8 @@
       "full_name": "全名",
       "requested": "申请时间",
       "end_date": "结束日期",
+      "identifiable_name": "可识别名称",
+      "organization": "组织",
       "declare_winner": "宣布获胜者",
       "mission_control": {
         "title": "任务控制中心",
@@ -257,6 +357,52 @@
         "award_rep": "奖励声望",
         "approve_award": "批准并奖励"
       },
+      "contribution_validation": {
+        "title": "贡献验证",
+        "loading": "正在加载贡献分...",
+        "empty": "本周期暂无贡献分。",
+        "no_period": "尚未找到贡献周期。",
+        "refresh_scores": "刷新分数",
+        "refresh_failed": "刷新贡献分失败",
+        "suspend": "暂停",
+        "unsuspend": "恢复",
+        "suspend_failed": "暂停贡献分失败",
+        "unsuspend_failed": "恢复贡献分失败",
+        "suspend_reason_prompt": "为什么需要检查这个每周贡献分？",
+        "auto_resolves": "自动结算 {{date}}",
+        "total_points": "{{count}} 分",
+        "top_events": "最高得分事件",
+        "period_status": {
+          "OPEN": "开放中",
+          "VALIDATION": "验证中",
+          "RESOLVED": "已结算"
+        },
+        "score_status": {
+          "PENDING": "待验证",
+          "SUSPENDED": "已暂停",
+          "RESOLVED": "已结算"
+        },
+        "breakdown": {
+          "base": "基础",
+          "likes": "点赞",
+          "polls": "投票",
+          "market": "市场",
+          "minigames": "小游戏"
+        }
+      },
+      "poll_management": {
+        "title": "投票管理",
+        "empty": "尚未创建投票",
+        "status": "状态",
+        "votes": "投票数",
+        "ends": "结束时间",
+        "finalize": "结束投票",
+        "edit_poll": "编辑投票",
+        "question_key": "问题键",
+        "ends_at": "结束于",
+        "delete_confirm": "确定要删除此投票吗？",
+        "finalize_confirm": "确定要结束此投票吗？"
+      },
       "sections": {
         "dev_requests": "待处理开发者申请",
         "mission_submissions": "待处理任务提交",
@@ -264,7 +410,8 @@
         "calendar": "工作负载日历",
         "pending_deliverables": "待处理交付物",
         "forum_acks": "论坛确认",
-        "test_requests": "测试玩家申请"
+        "test_requests": "测试玩家申请",
+        "private_room_requests": "私密房间访问申请"
       },
       "empty": {
         "dev_requests": "无待处理开发者申请",
@@ -272,7 +419,8 @@
         "active_bets": "无需要结算的活跃博弈",
         "pending_deliverables": "无待处理交付物",
         "forum_acks": "无待处理确认",
-        "test_requests": "无待处理测试玩家申请"
+        "test_requests": "无待处理测试玩家申请",
+        "private_room_requests": "无待处理私密房间访问申请"
       },
       "actions": {
         "approve": "批准",
@@ -386,6 +534,9 @@
       "aviation": "航空",
       "motorsports": "赛车运动"
     },
+    "badges": {
+      "released": "已发布"
+    },
     "access": {
       "open": "公开访问",
       "authorized": "仅限授权"
@@ -404,9 +555,9 @@
         "action": "查看模拟"
       },
       "race_strategy": {
-        "name": "DeltaDash 3.1 BETA",
-        "description": "拥有精细策略管理和梗文化的方程式赛车桌面游戏。",
-        "mechanism": "复杂的策略管理，运气博弈，以及扩展兼容性。",
+        "name": "DeltaDash",
+        "description": "已正式发布的方程式赛车桌面游戏，拥有精细策略管理和梗文化。",
+        "mechanism": "复杂的策略管理，运气博弈，扩展兼容性，以及实时社区奖励竞争。",
         "action": "游玩 DeltaDash"
       },
       "telemetry": {

@@ -3,6 +3,18 @@ import { useTranslation } from 'react-i18next';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useTelemetryStore } from '../../store/telemetryStore';
 
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const darkenHexColor = (hexColor: string, factor: number) => {
+  const normalized = hexColor.startsWith('#') ? hexColor.slice(1) : hexColor;
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return hexColor;
+  const safeFactor = clamp(factor, 0.45, 1);
+  const r = Math.round(parseInt(normalized.slice(0, 2), 16) * safeFactor);
+  const g = Math.round(parseInt(normalized.slice(2, 4), 16) * safeFactor);
+  const b = Math.round(parseInt(normalized.slice(4, 6), 16) * safeFactor);
+  return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+};
+
 const LapAnalysis = () => {
   const { t } = useTranslation();
   const { 
@@ -48,6 +60,33 @@ const LapAnalysis = () => {
   const getDriverColor = (driverNumber: number) => {
     const driver = drivers.find(d => d.driver_number === driverNumber);
     return driver ? `#${driver.team_colour}` : '#ffffff';
+  };
+
+  const comparisonDriverColorMap = useMemo(() => {
+    const teamBuckets = new Map<string, number[]>();
+    comparisonDrivers.forEach((driverNumber) => {
+      const driver = drivers.find((item) => item.driver_number === driverNumber);
+      if (!driver) return;
+      const teamKey = `${driver.team_name}_${driver.team_colour}`;
+      const bucket = teamBuckets.get(teamKey) || [];
+      bucket.push(driverNumber);
+      teamBuckets.set(teamKey, bucket);
+    });
+    const colorMap = new Map<number, string>();
+    teamBuckets.forEach((bucket) => {
+      const sortedBucket = [...bucket].sort((a, b) => a - b);
+      sortedBucket.forEach((driverNumber, index) => {
+        const driver = drivers.find((item) => item.driver_number === driverNumber);
+        const baseColor = driver ? `#${driver.team_colour}` : '#ffffff';
+        const factor = Math.max(1 - index * 0.2, 0.45);
+        colorMap.set(driverNumber, darkenHexColor(baseColor, factor));
+      });
+    });
+    return colorMap;
+  }, [comparisonDrivers, drivers]);
+
+  const getComparisonDriverColor = (driverNumber: number) => {
+    return comparisonDriverColorMap.get(driverNumber) || getDriverColor(driverNumber);
   };
 
   const formatLapSeconds = (value: number | null | undefined) => {
@@ -162,7 +201,7 @@ const LapAnalysis = () => {
                     : 'border-white/10 text-text-secondary hover:border-primary/50 hover:text-white'
                 }`}
               >
-                <span className="inline-block w-2 h-2 rounded-full mr-2 align-middle" style={{ backgroundColor: getDriverColor(driver.driver_number) }} />
+                <span className="inline-block w-2 h-2 rounded-full mr-2 align-middle" style={{ backgroundColor: getComparisonDriverColor(driver.driver_number) }} />
                 {driver.name_acronym} {driver.driver_number}
               </button>
             );
@@ -215,7 +254,7 @@ const LapAnalysis = () => {
                     type="monotone"
                     dataKey={`driver_${driverNumber}`}
                     name={`${getDriverName(driverNumber)} #${driverNumber}`}
-                    stroke={getDriverColor(driverNumber)}
+                    stroke={getComparisonDriverColor(driverNumber)}
                     strokeWidth={2}
                     dot={{ r: 2 }}
                     connectNulls={false}

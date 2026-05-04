@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ChevronRight, Code, Cpu, Globe } from 'lucide-react';
+import { ChevronRight, Code, Cpu, Globe, Rocket } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const Hero = () => {
@@ -36,10 +36,33 @@ const Hero = () => {
             <span className="text-secondary text-shadow-neon-green">Studio</span>
           </h1>
           
-          <p className="text-xl md:text-2xl text-text-secondary mb-10 max-w-2xl mx-auto font-light">
+          <p className="text-xl md:text-2xl text-text-secondary mb-8 max-w-2xl mx-auto font-light">
             {t('home.hero.tagline')}
           </p>
-          
+
+          <div className="mb-10 mx-auto max-w-3xl rounded-xl border border-secondary/40 bg-surface/80 p-5 shadow-[0_0_30px_rgba(57,255,20,0.18)] backdrop-blur">
+            <div className="mb-3 flex items-center justify-center">
+              <span className="inline-flex items-center rounded-full border border-secondary/40 bg-secondary/10 px-3 py-1 text-xs font-mono uppercase tracking-[0.3em] text-secondary">
+                <Rocket className="mr-2 h-4 w-4" />
+                {t('home.hero.release_badge')}
+              </span>
+            </div>
+            <h2 className="mb-2 font-mono text-2xl font-bold text-white md:text-3xl">
+              {t('home.hero.release_title')}
+            </h2>
+            <p className="mx-auto mb-5 max-w-2xl text-sm text-text-secondary md:text-base">
+              {t('home.hero.release_subtitle')}
+            </p>
+            <a
+              href="https://deltadash.geeksproductionstudio.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center rounded-md border border-secondary bg-secondary px-8 py-3 font-mono text-background shadow-[0_0_25px_rgba(57,255,20,0.35)] transition-all duration-300 hover:bg-primary hover:border-primary hover:shadow-[0_0_35px_rgba(0,212,255,0.55)]"
+            >
+              {t('home.hero.play_deltadash')} <ChevronRight className="ml-2 h-4 w-4" />
+            </a>
+          </div>
+
           <div className="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-6">
             <Link
               to="/news"

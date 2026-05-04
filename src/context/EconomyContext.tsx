@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { logCommunityEngagement } from '../lib/community';
 import { useAuth } from './AuthContext';
 
 interface Wallet {
@@ -288,6 +289,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       if (error) throw error;
       if (data && !data.success) throw new Error(data.message);
 
+      await logCommunityEngagement('ticket_listing_created', 'ticket_type', ticketId, { quantity, price });
       await refreshEconomy();
       return { success: true };
     } catch (error: any) {
@@ -319,6 +321,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       if (error) throw error;
       if (data && !data.success) throw new Error(data.message);
 
+      await logCommunityEngagement('ticket_listing_purchased', 'ticket_listing', listingId);
       await refreshEconomy();
       return { success: true };
     } catch (error: any) {
@@ -348,6 +351,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       });
       if (error) throw error;
       if (data && !data.success) throw new Error(data.message);
+      await logCommunityEngagement('ticket_listing_withdrawn', 'ticket_listing', listingId);
       await refreshEconomy();
       return { success: true };
     } catch (error: any) {
@@ -362,7 +366,8 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       const { data, error } = await supabase.rpc('claim_daily_bonus');
 
       if (error) throw error;
-      
+      await logCommunityEngagement('daily_bonus_claimed', 'wallet', wallet?.id ?? undefined, { amount: data });
+
       await refreshEconomy();
       return { success: true, amount: data };
     } catch (error: any) {
@@ -506,6 +511,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       if (error) throw error;
       if (data && !data.success) throw new Error(data.message);
 
+      await logCommunityEngagement('driver_bet_created', 'support_instrument', data?.instrument_id || data?.id, { title });
       await refreshEconomy();
       return { success: true, data };
     } catch (error: any) {
@@ -526,6 +532,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
         if (error) throw error;
         if (data && !data.success) throw new Error(data.message);
 
+        await logCommunityEngagement('driver_bet_ticket_bought', 'support_instrument', instrumentId, { side, quantity });
         await refreshEconomy();
         return { success: true };
     } catch (error: any) {
@@ -546,6 +553,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
         if (error) throw error;
         if (data && !data.success) throw new Error(data.message);
 
+        await logCommunityEngagement('driver_bet_resolved', 'support_instrument', instrumentId, { winningSide });
         await refreshEconomy();
         return { success: true };
     } catch (error: any) {
@@ -668,6 +676,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       if (error) throw error;
       if (data && !data.success) throw new Error(data.message);
 
+      await logCommunityEngagement('minigame_play_completed', 'minigame', undefined, { game_type: 'REACTION', score_ms: scoreMs, reward: data.reward });
       await refreshEconomy();
       return { success: true, reward: data.reward, message: data.message, on_cooldown: data.on_cooldown };
     } catch (error: any) {
@@ -686,6 +695,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       if (error) throw error;
       if (data && !data.success) throw new Error(data.message);
 
+      await logCommunityEngagement('minigame_play_completed', 'minigame', undefined, { game_type: 'PIT_STOP', score_ms: scoreMs, reward: data.reward });
       await refreshEconomy();
       return { success: true, reward: data.reward, message: data.message };
     } catch (error: any) {
@@ -702,6 +712,7 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       });
       if (error) throw error;
       if (data && !data.success) throw new Error(data.message);
+      await logCommunityEngagement('minigame_play_completed', 'minigame', undefined, { game_type: 'GT_PIT_STOP', score_ms: scoreMs, reward: data.reward });
       await refreshEconomy();
       return { success: true, reward: data.reward, message: data.message };
     } catch (error: any) {

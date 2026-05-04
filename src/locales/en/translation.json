@@ -2,7 +2,13 @@
   "common": {
     "empty": "Empty",
     "logo_alt": "GPS Logo",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "dismiss": "Dismiss",
+    "approve": "Approve",
+    "decline": "Decline",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save"
   },
   "navbar": {
     "home": "Home",
@@ -50,6 +56,12 @@
     "tokens": "Tokens",
     "comments_count": "Comments",
     "acknowledge": "Acknowledge",
+    "edit": "Edit",
+    "delete": "Delete",
+    "edited": "edited",
+    "edit_post": "Edit Post",
+    "save": "Save",
+    "saving": "Saving...",
     "comments_section": {
       "title": "Comments",
       "empty": "No comments yet.",
@@ -73,7 +85,10 @@
       "create_failed": "Failed to create post",
       "acknowledge_success": "Post acknowledged successfully!",
       "acknowledge_failed": "Failed to reward post: ",
-      "unknown_error": "Unknown error"
+      "unknown_error": "Unknown error",
+      "edit_failed": "Failed to edit post",
+      "delete_failed": "Failed to delete post",
+      "delete_confirm": "Are you sure you want to delete this post? This action cannot be undone."
     },
     "rooms": {
       "create": "Create Breakout Room",
@@ -85,12 +100,36 @@
       "creating": "Creating...",
       "new_room_btn": "New Room",
       "success": "Room created successfully!",
-      "failed": "Failed to create room."
+      "failed": "Failed to create room.",
+      "join_room_btn": "Join Room",
+      "join_room": "Join Private Room",
+      "passcode_label": "Passcode",
+      "passcode_placeholder": "Enter passcode",
+      "joining": "Joining...",
+      "join_btn": "Join",
+      "join_success": "Joined room successfully!",
+      "join_failed": "Invalid passcode or room not found.",
+      "private_room_label": "Private room (passcode protected)",
+      "private_created": "Private room created! Passcode: {{passcode}}",
+      "request_access_btn": "Request Private Room Access",
+      "request_access": "Request Private Room Creation Access",
+      "name_label_request": "Your Name",
+      "name_placeholder_request": "Full name or username",
+      "org_label": "Organization (optional)",
+      "org_placeholder": "Company, school, or team",
+      "requesting": "Requesting...",
+      "request_btn": "Submit Request",
+      "request_success": "Request submitted! Developers will review it.",
+      "request_failed": "Failed to submit request."
     }
   },
   "home": {
     "hero": {
       "tagline": "Student developers fueled by coffee, code, and curiosity. Building the future, one commit at a time.",
+      "release_badge": "Official Release",
+      "release_title": "DeltaDash is now live",
+      "release_subtitle": "The open-wheel strategy boardgame is officially released. Build your version, chase the payout, and jump into the grid today.",
+      "play_deltadash": "Play DeltaDash",
       "explore_projects": "See Our Work",
       "join_community": "Join Our Community"
     },
@@ -118,6 +157,64 @@
       "loading": "Loading projects...",
       "view_all": "View All",
       "view_case_study": "View Case Study"
+    },
+    "community": {
+      "loading": "Loading community signal...",
+      "feed": {
+        "title_active": "Active",
+        "title_pulse": "Community Pulse",
+        "subtitle": "Recent actions from the platform so returning players can see the economy and forum moving.",
+        "empty": "No visible activity yet. Be the first to move the feed.",
+        "events": {
+          "default": "joined the community activity",
+          "forum_post_created": "started a forum discussion",
+          "forum_comment_created": "replied in the forum",
+          "forum_like_added": "liked a forum post",
+          "forum_like_removed": "updated a forum reaction",
+          "forum_room_created": "created a breakout room",
+          "poll_vote_cast": "voted in a community poll",
+          "daily_bonus_claimed": "checked in for the day",
+          "ticket_listing_created": "listed market tickets",
+          "ticket_listing_purchased": "bought market tickets",
+          "ticket_listing_withdrawn": "withdrew a ticket listing",
+          "driver_bet_created": "opened a driver bet",
+          "driver_bet_ticket_bought": "joined a driver bet",
+          "driver_bet_resolved": "resolved a driver bet",
+          "minigame_play_completed": "completed a minigame run"
+        }
+      },
+      "snapshot": {
+        "title": "This Week at GPS",
+        "subtitle": "Contribution scores are validated by developers before recognition.",
+        "stats": {
+          "active_participants": "Active contributors",
+          "forum_posts": "Forum actions",
+          "poll_votes": "Poll votes",
+          "pending_scores": "Scores in validation"
+        }
+      },
+      "poll": {
+        "label": "Quick Poll",
+        "helper": "Vote once. Poll participation is scored separately and validated weekly.",
+        "login_prompt": "Log in to cast your vote.",
+        "voting": "Voting...",
+        "vote_count": "{{count}} · {{percentage}}%",
+        "vote_failed": "Failed to submit vote"
+      },
+      "polls": {
+        "next_modifier": {
+          "question": "Which modifier should shape the next featured race?",
+          "options": {
+            "weather": "Unstable weather",
+            "tire_wear": "High tire wear",
+            "safety_car": "Safety car chance"
+          }
+        }
+      },
+      "notifications": {
+        "welcome_back_title": "Welcome back",
+        "welcome_back_body": "{{activeCount}} players participated recently. Check the feed and join the next quick action."
+      }
     }
   },
   "about": {
@@ -217,6 +314,8 @@
       "full_name": "Full Name",
       "requested": "Requested",
       "end_date": "End Date",
+      "identifiable_name": "Identifiable Name",
+      "organization": "Organization",
       "declare_winner": "Declare Winner",
       "mission_control": {
         "title": "Mission Control",
@@ -254,6 +353,52 @@
           "deadline": "Deadline (Optional)"
         }
       },
+      "contribution_validation": {
+        "title": "Contribution Validation",
+        "loading": "Loading contribution scores...",
+        "empty": "No contribution scores for this period yet.",
+        "no_period": "No contribution period found yet.",
+        "refresh_scores": "Refresh Scores",
+        "refresh_failed": "Failed to refresh contribution scores",
+        "suspend": "Suspend",
+        "unsuspend": "Unsuspend",
+        "suspend_failed": "Failed to suspend contribution score",
+        "unsuspend_failed": "Failed to unsuspend contribution score",
+        "suspend_reason_prompt": "Why should this weekly contribution score be inspected?",
+        "auto_resolves": "Auto-resolves {{date}}",
+        "total_points": "{{count}} pts",
+        "top_events": "Top scoring events",
+        "period_status": {
+          "OPEN": "Open",
+          "VALIDATION": "Validation",
+          "RESOLVED": "Resolved"
+        },
+        "score_status": {
+          "PENDING": "Pending",
+          "SUSPENDED": "Suspended",
+          "RESOLVED": "Resolved"
+        },
+        "breakdown": {
+          "base": "Base",
+          "likes": "Likes",
+          "polls": "Polls",
+          "market": "Market",
+          "minigames": "Minigames"
+        }
+      },
+      "poll_management": {
+        "title": "Poll Management",
+        "empty": "No polls created yet",
+        "status": "Status",
+        "votes": "Votes",
+        "ends": "Ends",
+        "finalize": "Finalize",
+        "edit_poll": "Edit Poll",
+        "question_key": "Question Key",
+        "ends_at": "Ends At",
+        "delete_confirm": "Are you sure you want to delete this poll?",
+        "finalize_confirm": "Are you sure you want to finalize this poll?"
+      },
       "sections": {
         "dev_requests": "Pending Developer Requests",
         "mission_submissions": "Pending Mission Submissions",
@@ -261,7 +406,8 @@
         "calendar": "Workload Calendar",
         "pending_deliverables": "Pending Deliverables",
         "forum_acks": "Forum Acknowledgements",
-        "test_requests": "Test Player Requests"
+        "test_requests": "Test Player Requests",
+        "private_room_requests": "Private Room Access Requests"
       },
       "empty": {
         "dev_requests": "No pending developer requests",
@@ -269,7 +415,8 @@
         "active_bets": "No active bets needing resolution",
         "pending_deliverables": "No pending deliverables.",
         "forum_acks": "No pending acknowledgements",
-        "test_requests": "No pending test player requests"
+        "test_requests": "No pending test player requests",
+        "private_room_requests": "No pending private room access requests"
       },
       "actions": {
         "approve": "Approve",
@@ -383,6 +530,9 @@
       "aviation": "Aviation",
       "motorsports": "Motorsports"
     },
+    "badges": {
+      "released": "RELEASED"
+    },
     "access": {
       "open": "Open Access",
       "authorized": "Authorized Only"
@@ -395,15 +545,15 @@
     "no_items": "No products found in this category.",
     "items": {
       "flight_sim": {
-        "name": "Commercial Flight Dynamics",
-        "description": "High-fidelity computerized simulation of commercial aircraft aerodynamics and systems.",
-        "mechanism": "6-DOF rigid body physics, real-time fluid dynamics approximation, complex avionic state machines.",
-        "action": "View Simulation"
+        "name": "Box This Lap",
+        "description": "F1 constructor championship game focused on race-weekend decisions and points maximization.",
+        "mechanism": "Constructor strategy drafting, budget-risk balancing, dynamic scoring based on race outcomes.",
+        "action": "Play Championship"
       },
       "race_strategy": {
-        "name": "DeltaDash 3.1 BETA",
-        "description": "Openwheel boardgame with delicate strategy management and memes.",
-        "mechanism": "Sophisticated strategy management, resource luck-press, and expansion compatibility.",
+        "name": "DeltaDash",
+        "description": "Officially released open-wheel boardgame with delicate strategy management and memes.",
+        "mechanism": "Sophisticated strategy management, resource luck-press, expansion compatibility, and live community payout competition.",
         "action": "Play DeltaDash"
       },
       "telemetry": {
@@ -660,7 +810,7 @@
       "unlocked": "UNLOCKED",
       "test_player": {
         "title": "Test Player Access",
-        "desc": "Request access to test unreleased or premium programs like Skyline Tragedy or DeltaDash. Approved testers receive <bold>+20 Reputation</bold> and free access.",
+        "desc": "Request access to test unreleased or premium programs like Skyline Tragedy. Approved testers receive <bold>+20 Reputation</bold> and free access.",
         "btn": "Request Access"
       },
       "history": {

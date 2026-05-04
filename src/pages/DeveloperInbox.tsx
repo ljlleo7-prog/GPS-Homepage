@@ -1,8 +1,21 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Shield, CheckCircle, XCircle, MessageSquare, Trophy, AlertTriangle, ExternalLink, Gamepad2, Calendar } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, MessageSquare, Trophy, AlertTriangle, ExternalLink, Gamepad2, Calendar, Vote, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import {
+  ContributionValidationData,
+  fetchContributionValidation,
+  refreshContributionScores,
+  suspendContributionScore,
+  unsuspendContributionScore,
+  createCommunityPoll,
+  fetchAllCommunityPolls,
+  editCommunityPoll,
+  deleteCommunityPoll,
+  finalizeCommunityPoll,
+  CommunityPollListItem
+} from '../lib/community';
 import { useEconomy } from '../context/EconomyContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,9 +26,19 @@ interface InboxData {
   pending_acks: PendingAck[];
   pending_tests: PendingTest[];
   pending_deliverables: PendingDeliverable[];
+  pending_private_room_requests?: PrivateRoomRequest[];
   // Interest-bearing instruments for calendar schedule
   interest_instruments?: InterestInstrument[];
   deliverable_schedule?: DeliverableScheduleItem[];
+}
+
+interface PrivateRoomRequest {
+  id: string;
+  user_id: string;
+  username: string;
+  identifiable_name: string;
+  organization: string | null;
+  created_at: string;
 }
 
 interface Mission {
@@ -140,8 +163,15 @@ const DeveloperInbox = () => {
     pending_acks: [],
     pending_tests: [],
     pending_deliverables: [],
-    interest_instruments: []
+    interest_instruments: [],
+    pending_private_room_requests: []
   });
+  const [contributionValidation, setContributionValidation] = useState<ContributionValidationData>({ period: null, scores: [] });
+  const [contributionLoading, setContributionLoading] = useState(false);
+  const [pollForm, setPollForm] = useState({ slug: '', questionKey: '', options: ['', ''], durationHours: 168 });
+  const [polls, setPolls] = useState<CommunityPollListItem[]>([]);
+  const [editingPoll, setEditingPoll] = useState<CommunityPollListItem | null>(null);
+  const [editPollForm, setEditPollForm] = useState({ questionKey: '', endsAt: '' });
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -150,6 +180,7 @@ const DeveloperInbox = () => {
   useEffect(() => {
     if (developerStatus === 'APPROVED') {
       fetchInbox();
+      fetchPolls();
     }
   }, [developerStatus]);
 
@@ -158,15 +189,15 @@ const DeveloperInbox = () => {
     try {
       console.log('Fetching developer inbox...');
       const { data: result, error } = await supabase.rpc('get_developer_inbox');
-      
+
       if (error) {
         console.error('RPC Error:', error);
         alert(`Error fetching inbox: ${error.message}`);
         throw error;
       }
-      
+
       console.log('Inbox result:', result);
-      
+
       if (result) {
         if (result.success) {
           const nextData: InboxData = {
@@ -180,6 +211,8 @@ const DeveloperInbox = () => {
             deliverable_schedule: (result as any).deliverable_schedule || []
           };
           setData(nextData);
+          fetchContributionQueue();
+          fetchPrivateRoomRequests();
         } else {
           console.error('Inbox fetch failed logically:', result.message);
           // Show alert for logical failures (e.g. Unauthorized or RPC internal error)
@@ -192,6 +225,38 @@ const DeveloperInbox = () => {
       console.error('Error fetching inbox:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPrivateRoomRequests = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('forum_private_room_requests')
+        .select(`
+          id,
+          user_id,
+          identifiable_name,
+          organization,
+          created_at,
+          profiles!forum_private_room_requests_user_id_fkey(username)
+        `)
+        .eq('status', 'PENDING')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const requests: PrivateRoomRequest[] = (data || []).map((req: any) => ({
+        id: req.id,
+        user_id: req.user_id,
+        username: req.profiles?.username || 'Unknown',
+        identifiable_name: req.identifiable_name,
+        organization: req.organization,
+        created_at: req.created_at
+      }));
+
+      setData(prev => ({ ...prev, pending_private_room_requests: requests }));
+    } catch (error) {
+      console.error('Error fetching private room requests:', error);
     }
   };
 
@@ -216,6 +281,136 @@ const DeveloperInbox = () => {
           }));
           setMissions(missionsWithCounts);
       }
+  };
+
+  const fetchContributionQueue = async () => {
+    setContributionLoading(true);
+    try {
+      setContributionValidation(await fetchContributionValidation());
+    } catch (error) {
+      console.error('Error fetching contribution validation:', error);
+    } finally {
+      setContributionLoading(false);
+    }
+  };
+
+  const fetchPolls = async () => {
+    try {
+      const pollList = await fetchAllCommunityPolls();
+      setPolls(pollList);
+    } catch (error) {
+      console.error('Error fetching polls:', error);
+    }
+  };
+
+  const handleRefreshContributionScores = async () => {
+    try {
+      await refreshContributionScores();
+      await fetchContributionQueue();
+    } catch (error: any) {
+      alert(error.message || t('developer.inbox.contribution_validation.refresh_failed'));
+    }
+  };
+
+  const handleEditPoll = async (poll: CommunityPollListItem) => {
+    setEditingPoll(poll);
+    setEditPollForm({ questionKey: poll.question_key, endsAt: poll.ends_at || '' });
+  };
+
+  const handleSaveEditPoll = async () => {
+    if (!editingPoll) return;
+    try {
+      await editCommunityPoll(editingPoll.id, editPollForm.questionKey, editPollForm.endsAt || undefined);
+      setEditingPoll(null);
+      await fetchPolls();
+    } catch (error: any) {
+      alert(error.message || 'Failed to edit poll');
+    }
+  };
+
+  const handleDeletePoll = async (pollId: string) => {
+    if (!confirm(t('developer.inbox.poll_management.delete_confirm'))) return;
+    try {
+      await deleteCommunityPoll(pollId);
+      await fetchPolls();
+    } catch (error: any) {
+      alert(error.message || 'Failed to delete poll');
+    }
+  };
+
+  const handleFinalizePoll = async (pollId: string) => {
+    if (!confirm(t('developer.inbox.poll_management.finalize_confirm'))) return;
+    try {
+      await finalizeCommunityPoll(pollId);
+      await fetchPolls();
+    } catch (error: any) {
+      alert(error.message || 'Failed to finalize poll');
+    }
+  };
+
+  const handleSuspendContributionScore = async (scoreId: string) => {
+    const reason = prompt(t('developer.inbox.contribution_validation.suspend_reason_prompt'));
+    if (reason === null) return;
+    try {
+      await suspendContributionScore(scoreId, reason);
+      await fetchContributionQueue();
+    } catch (error: any) {
+      alert(error.message || t('developer.inbox.contribution_validation.suspend_failed'));
+    }
+  };
+
+  const handleUnsuspendContributionScore = async (scoreId: string) => {
+    try {
+      await unsuspendContributionScore(scoreId);
+      await fetchContributionQueue();
+    } catch (error: any) {
+      alert(error.message || t('developer.inbox.contribution_validation.unsuspend_failed'));
+    }
+  };
+
+  const handleCreatePoll = async () => {
+    if (!pollForm.slug || !pollForm.questionKey || pollForm.options.filter(o => o.trim()).length < 2) {
+      alert('Please fill in all fields and provide at least 2 options');
+      return;
+    }
+    try {
+      await createCommunityPoll(
+        pollForm.slug,
+        pollForm.questionKey,
+        pollForm.options.filter(o => o.trim()).map(o => ({ option_key: o.trim() })),
+        pollForm.durationHours
+      );
+      setPollForm({ slug: '', questionKey: '', options: ['', ''], durationHours: 168 });
+      alert('Poll created successfully');
+    } catch (error: any) {
+      alert(error.message || 'Failed to create poll');
+    }
+  };
+
+  const handleApprovePrivateRoomRequest = async (requestId: string) => {
+    try {
+      const { data, error } = await supabase.rpc('approve_private_room_request', { p_request_id: requestId });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      fetchInbox();
+      alert('Request approved');
+    } catch (error) {
+      console.error('Error approving request:', error);
+      alert('Failed to approve request');
+    }
+  };
+
+  const handleDenyPrivateRoomRequest = async (requestId: string) => {
+    try {
+      const { data, error } = await supabase.rpc('deny_private_room_request', { p_request_id: requestId });
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.message);
+      fetchInbox();
+      alert('Request denied');
+    } catch (error) {
+      console.error('Error denying request:', error);
+      alert('Failed to deny request');
+    }
   };
 
   useEffect(() => {
@@ -958,6 +1153,174 @@ data.pending_deliverables
                     )}
                 </Section>
 
+                {/* Community Poll Creation */}
+                <Section title="Create Community Poll" icon={<Vote />} count={0}>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-mono text-text-secondary mb-1">Slug (URL-friendly ID)</label>
+                            <input
+                                type="text"
+                                value={pollForm.slug}
+                                onChange={(e) => setPollForm({ ...pollForm, slug: e.target.value })}
+                                className="w-full px-3 py-2 bg-background border border-white/10 rounded text-white font-mono text-sm"
+                                placeholder="next-race-modifier"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-mono text-text-secondary mb-1">Question Key (i18n key)</label>
+                            <input
+                                type="text"
+                                value={pollForm.questionKey}
+                                onChange={(e) => setPollForm({ ...pollForm, questionKey: e.target.value })}
+                                className="w-full px-3 py-2 bg-background border border-white/10 rounded text-white font-mono text-sm"
+                                placeholder="home.community.polls.question"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-mono text-text-secondary mb-1">Options (i18n keys)</label>
+                            {pollForm.options.map((opt, idx) => (
+                                <input
+                                    key={idx}
+                                    type="text"
+                                    value={opt}
+                                    onChange={(e) => {
+                                        const newOpts = [...pollForm.options];
+                                        newOpts[idx] = e.target.value;
+                                        setPollForm({ ...pollForm, options: newOpts });
+                                    }}
+                                    className="w-full px-3 py-2 bg-background border border-white/10 rounded text-white font-mono text-sm mb-2"
+                                    placeholder={`option_${idx + 1}`}
+                                />
+                            ))}
+                            <button
+                                onClick={() => setPollForm({ ...pollForm, options: [...pollForm.options, ''] })}
+                                className="text-xs text-primary hover:underline"
+                            >
+                                + Add option
+                            </button>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-mono text-text-secondary mb-1">Duration (hours, 0 = no end)</label>
+                            <input
+                                type="number"
+                                value={pollForm.durationHours}
+                                onChange={(e) => setPollForm({ ...pollForm, durationHours: parseInt(e.target.value) || 0 })}
+                                className="w-full px-3 py-2 bg-background border border-white/10 rounded text-white font-mono text-sm"
+                            />
+                        </div>
+                        <button
+                            onClick={handleCreatePoll}
+                            className="px-4 py-2 bg-primary text-background rounded font-mono hover:bg-primary/80 transition-colors"
+                        >
+                            Create Poll
+                        </button>
+                    </div>
+                </Section>
+
+                {/* Poll Management */}
+                <Section title={t('developer.inbox.poll_management.title')} icon={<Vote />} count={polls.length}>
+                    {polls.length === 0 ? (
+                        <EmptyState message={t('developer.inbox.poll_management.empty')} />
+                    ) : (
+                        <div className="grid gap-4">
+                            {polls.map(poll => (
+                                <Card key={poll.id}>
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-1">
+                                            <h3 className="font-bold text-white text-lg">{poll.question_key}</h3>
+                                            <p className="text-sm text-text-secondary">{t('developer.inbox.poll_management.status')}: {poll.status}</p>
+                                            <p className="text-sm text-text-secondary">{t('developer.inbox.poll_management.votes')}: {poll.vote_count}</p>
+                                            <p className="text-xs text-text-secondary mt-1">
+                                                {t('developer.inbox.poll_management.ends')}: {poll.ends_at ? new Date(poll.ends_at).toLocaleString(i18n.language) : 'N/A'}
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <ActionButton onClick={() => handleEditPoll(poll)} variant="approve" label={t('common.edit')} />
+                                            <ActionButton onClick={() => handleFinalizePoll(poll.id)} variant="approve" label={t('developer.inbox.poll_management.finalize')} />
+                                            <ActionButton onClick={() => handleDeletePoll(poll.id)} variant="reject" label={t('common.delete')} />
+                                        </div>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                </Section>
+
+                {/* Contribution Validation */}
+                <Section title={t('developer.inbox.contribution_validation.title')} icon={<ShieldCheckIcon />} count={contributionValidation.scores.length}>
+                    <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="text-sm text-text-secondary font-mono">
+                            {contributionValidation.period ? (
+                                <>
+                                    {new Date(contributionValidation.period.period_start).toLocaleDateString(i18n.language)} – {new Date(contributionValidation.period.period_end).toLocaleDateString(i18n.language)} · {t(`developer.inbox.contribution_validation.period_status.${contributionValidation.period.status}`)} · {t('developer.inbox.contribution_validation.auto_resolves', { date: new Date(contributionValidation.period.auto_resolves_at).toLocaleString(i18n.language) })}
+                                </>
+                            ) : (
+                                t('developer.inbox.contribution_validation.no_period')
+                            )}
+                        </div>
+                        <button
+                            onClick={handleRefreshContributionScores}
+                            className="px-3 py-2 bg-primary/10 border border-primary/30 text-primary rounded text-sm font-mono hover:bg-primary hover:text-background transition-colors"
+                        >
+                            {t('developer.inbox.contribution_validation.refresh_scores')}
+                        </button>
+                    </div>
+                    {contributionLoading ? (
+                        <div className="text-text-secondary text-sm italic">{t('developer.inbox.contribution_validation.loading')}</div>
+                    ) : contributionValidation.scores.length === 0 ? (
+                        <EmptyState message={t('developer.inbox.contribution_validation.empty')} />
+                    ) : (
+                        <div className="grid gap-4">
+                            {contributionValidation.scores.map(score => (
+                                <Card key={score.id}>
+                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                        <div className="flex-1">
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <h3 className="text-lg font-bold text-white">{score.username}</h3>
+                                                <span className={`px-2 py-1 text-xs font-mono rounded border ${score.status === 'SUSPENDED' ? 'bg-red-500/10 text-red-400 border-red-500/30' : score.status === 'RESOLVED' ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'}`}>
+                                                    {t(`developer.inbox.contribution_validation.score_status.${score.status}`)}
+                                                </span>
+                                                <span className="text-primary font-mono text-sm">{t('developer.inbox.contribution_validation.total_points', { count: score.total_points })}</span>
+                                            </div>
+                                            {score.suspension_reason && (
+                                                <p className="mt-2 text-sm text-red-300">{score.suspension_reason}</p>
+                                            )}
+                                            <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-mono md:grid-cols-5">
+                                                <span className="bg-white/5 rounded px-2 py-1 text-text-secondary">{t('developer.inbox.contribution_validation.breakdown.likes')}: {score.like_points}</span>
+                                                <span className="bg-white/5 rounded px-2 py-1 text-text-secondary">{t('developer.inbox.contribution_validation.breakdown.polls')}: {score.poll_points}</span>
+                                                <span className="bg-white/5 rounded px-2 py-1 text-text-secondary">{t('developer.inbox.contribution_validation.breakdown.market')}: {score.market_points}</span>
+                                                <span className="bg-white/5 rounded px-2 py-1 text-text-secondary">{t('developer.inbox.contribution_validation.breakdown.minigames')}: {score.minigame_points}</span>
+                                                <span className="bg-white/5 rounded px-2 py-1 text-text-secondary">{t('developer.inbox.contribution_validation.breakdown.base')}: {score.base_points}</span>
+                                            </div>
+                                            {score.top_events.length > 0 && (
+                                                <div className="mt-3 space-y-1">
+                                                    <div className="text-xs uppercase tracking-wide text-text-secondary">{t('developer.inbox.contribution_validation.top_events')}</div>
+                                                    {score.top_events.map((event, index) => (
+                                                        <div key={`${score.id}-${index}`} className="text-xs text-text-secondary font-mono">
+                                                            {event.event_type} · {event.points} pts
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            {score.status === 'SUSPENDED' ? (
+                                                <button onClick={() => handleUnsuspendContributionScore(score.id)} className="px-3 py-1 bg-green-500/10 hover:bg-green-500/20 text-green-400 text-xs rounded border border-green-500/20">
+                                                    {t('developer.inbox.contribution_validation.unsuspend')}
+                                                </button>
+                                            ) : (
+                                                <button onClick={() => handleSuspendContributionScore(score.id)} className="px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs rounded border border-red-500/20">
+                                                    {t('developer.inbox.contribution_validation.suspend')}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                </Section>
+
                 {/* 1. Pending Developer Requests */}
                 <Section title={t('developer.inbox.sections.dev_requests')} icon={<UserIcon />} count={data.pending_devs.length}>
           {data.pending_devs.length === 0 ? (
@@ -980,6 +1343,42 @@ data.pending_deliverables
                                             />
                                             <ActionButton 
                                                 onClick={() => handleDeclineDev(dev.id)} 
+                                                variant="reject"
+                                                label={t('common.decline')}
+                                            />
+                                        </div>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                </Section>
+
+                {/* Private Room Access Requests */}
+                <Section title={t('developer.inbox.sections.private_room_requests')} icon={<Lock />} count={data.pending_private_room_requests?.length || 0}>
+                    {(data.pending_private_room_requests?.length || 0) === 0 ? (
+                        <EmptyState message={t('developer.inbox.empty.private_room_requests')} />
+                    ) : (
+                        <div className="grid gap-4">
+                            {data.pending_private_room_requests?.map(req => (
+                                <Card key={req.id}>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h3 className="font-bold text-white text-lg">{req.username}</h3>
+                                            <p className="text-sm text-text-secondary">{t('developer.inbox.identifiable_name')}: {req.identifiable_name}</p>
+                                            {req.organization && (
+                                                <p className="text-sm text-text-secondary">{t('developer.inbox.organization')}: {req.organization}</p>
+                                            )}
+                                            <p className="text-xs text-text-secondary mt-1">{t('developer.inbox.requested')}: {new Date(req.created_at).toLocaleDateString(i18n.language)}</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <ActionButton
+                                                onClick={() => handleApprovePrivateRoomRequest(req.id)}
+                                                variant="approve"
+                                                label={t('common.approve')}
+                                            />
+                                            <ActionButton
+                                                onClick={() => handleDenyPrivateRoomRequest(req.id)}
                                                 variant="reject"
                                                 label={t('common.decline')}
                                             />
@@ -1390,6 +1789,53 @@ data.pending_deliverables
                 </motion.div>
             </div>
         )}
+
+        {/* Edit Poll Modal */}
+        {editingPoll && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-surface border border-white/20 rounded-lg p-6 max-w-md w-full"
+                >
+                    <h3 className="text-xl font-bold text-white mb-4">{t('developer.inbox.poll_management.edit_poll')}</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm text-text-secondary mb-2">{t('developer.inbox.poll_management.question_key')}</label>
+                            <input
+                                type="text"
+                                value={editPollForm.questionKey}
+                                onChange={(e) => setEditPollForm({ ...editPollForm, questionKey: e.target.value })}
+                                className="w-full bg-black/30 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-text-secondary mb-2">{t('developer.inbox.poll_management.ends_at')}</label>
+                            <input
+                                type="datetime-local"
+                                value={editPollForm.endsAt}
+                                onChange={(e) => setEditPollForm({ ...editPollForm, endsAt: e.target.value })}
+                                className="w-full bg-black/30 border border-white/10 rounded p-2 text-white focus:border-primary outline-none"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2 mt-6">
+                            <button
+                                onClick={() => setEditingPoll(null)}
+                                className="px-4 py-2 text-text-secondary hover:text-white"
+                            >
+                                {t('common.cancel')}
+                            </button>
+                            <button
+                                onClick={handleSaveEditPoll}
+                                className="px-4 py-2 bg-primary text-black font-bold rounded hover:bg-primary/80"
+                            >
+                                {t('common.save')}
+                            </button>
+                        </div>
+                    </div>
+                </motion.div>
+            </div>
+        )}
       </div>
     </div>
   );
@@ -1454,5 +1900,6 @@ const UserIcon = () => <Shield size={20} className="text-cyan-400" />;
 const TrophyIcon = () => <Trophy size={20} className="text-yellow-400" />;
 const AlertTriangleIcon = () => <AlertTriangle size={20} className="text-orange-400" />;
 const MessageSquareIcon = () => <MessageSquare size={20} className="text-purple-400" />;
+const ShieldCheckIcon = () => <Shield size={20} className="text-primary" />;
 
 export default DeveloperInbox;
