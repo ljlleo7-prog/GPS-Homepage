@@ -1,7 +1,7 @@
 import { useEconomy } from '../context/EconomyContext';
 import { motion } from 'framer-motion';
 import { useTranslation, Trans } from 'react-i18next';
-import { Gift, Shield, UserCheck, Star, Gamepad2 } from 'lucide-react';
+import { Gift, Shield, UserCheck, Star, Gamepad2, Award } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import TestPlayerRequestModal from '../components/dashboard/TestPlayerRequestModal';
@@ -14,6 +14,8 @@ const Wallet = () => {
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
   const [updatingPrivacy, setUpdatingPrivacy] = useState(false);
+  const [contributionSummary, setContributionSummary] = useState<any>(null);
+  const [loadingContributions, setLoadingContributions] = useState(false);
 
   useEffect(() => {
     const fetchPrivacySetting = async () => {
@@ -29,6 +31,20 @@ const Wallet = () => {
     };
     fetchPrivacySetting();
   }, []);
+
+  useEffect(() => {
+    const fetchContributionSummary = async () => {
+      setLoadingContributions(true);
+      const { data, error } = await supabase.rpc('get_my_contribution_summary');
+      if (!error && data) {
+        setContributionSummary(data);
+      }
+      setLoadingContributions(false);
+    };
+    if (wallet) {
+      fetchContributionSummary();
+    }
+  }, [wallet]);
 
   const handleToggleActivityPrivacy = async () => {
     setUpdatingPrivacy(true);
@@ -155,6 +171,54 @@ const Wallet = () => {
               />
             </button>
           </div>
+        </motion.div>
+
+        {/* Contribution Points */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-surface border border-white/10 rounded-lg p-6 mb-8"
+        >
+          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <Award size={20} className="text-yellow-400" />
+            {t('economy.wallet.contributions.title')}
+          </h3>
+
+          {loadingContributions ? (
+            <p className="text-text-secondary text-sm">{t('economy.wallet.loading')}</p>
+          ) : contributionSummary?.success ? (
+            <div>
+              <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded">
+                <p className="text-sm text-text-secondary mb-1">{t('economy.wallet.contributions.total_label')}</p>
+                <p className="text-3xl font-bold text-yellow-400 font-mono">
+                  {contributionSummary.total_points} <span className="text-lg">{t('economy.wallet.contributions.points')}</span>
+                </p>
+              </div>
+
+              {contributionSummary.breakdown && contributionSummary.breakdown.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-bold text-white mb-2">{t('economy.wallet.contributions.breakdown_label')}</p>
+                  {contributionSummary.breakdown.map((item: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between p-3 bg-white/5 rounded border border-white/10">
+                      <div>
+                        <p className="text-white font-mono text-sm">{item.event_type}</p>
+                        <p className="text-xs text-text-secondary">
+                          {t('economy.wallet.contributions.times', { count: item.times })}
+                        </p>
+                      </div>
+                      <p className="text-yellow-400 font-bold font-mono">
+                        +{item.total_points}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-text-secondary text-sm">{t('economy.wallet.contributions.no_contributions')}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-text-secondary text-sm">{t('economy.wallet.contributions.no_contributions')}</p>
+          )}
         </motion.div>
 
         {/* Action Cards */}

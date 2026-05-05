@@ -839,6 +839,14 @@
         "desc": "Description",
         "amount": "Amount",
         "no_transactions": "No transactions found."
+      },
+      "contributions": {
+        "title": "Contribution Points",
+        "total_label": "Total Contribution Points",
+        "points": "PTS",
+        "breakdown_label": "Breakdown by Type",
+        "times": "{{count}} times",
+        "no_contributions": "No contributions yet."
       }
     }
   },

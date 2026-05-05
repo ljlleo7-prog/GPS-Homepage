@@ -840,6 +840,14 @@
           "date": "日期",
           "description": "描述"
         }
+      },
+      "contributions": {
+        "title": "贡献积分",
+        "total_label": "总贡献积分",
+        "points": "积分",
+        "breakdown_label": "按类型细分",
+        "times": "{{count}} 次",
+        "no_contributions": "暂无贡献记录。"
       }
     }
   },
