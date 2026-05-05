@@ -531,8 +531,8 @@ const Forum = () => {
           </AnimatePresence>
         </div>
 
-        {/* Community Poll */}
-        {selectedRoom && <QuickPollCard roomId={selectedRoom.id} />}
+        {/* Community Poll - Disabled for now */}
+        {/* {selectedRoom && <QuickPollCard roomId={selectedRoom.id} />} */}
 
         {/* Post List */}
         <div className="grid gap-6">

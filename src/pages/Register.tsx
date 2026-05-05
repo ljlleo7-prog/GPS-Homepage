@@ -10,9 +10,15 @@ const Register = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showActivity, setShowActivity] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  const isValidEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +31,12 @@ const Register = () => {
       return;
     }
 
+    if (!isValidEmail(email)) {
+      setError(t('auth.register.error_email_format'));
+      setLoading(false);
+      return;
+    }
+
     try {
       const { error } = await supabase.auth.signUp({
         email,
@@ -32,6 +44,7 @@ const Register = () => {
         options: {
           data: {
             username,
+            show_activity: showActivity,
           },
         },
       });
@@ -125,6 +138,19 @@ const Register = () => {
                 required
               />
             </div>
+          </div>
+
+          <div className="flex items-start">
+            <input
+              type="checkbox"
+              id="showActivity"
+              checked={showActivity}
+              onChange={(e) => setShowActivity(e.target.checked)}
+              className="mt-1 mr-3 h-4 w-4 rounded border-white/10 bg-background text-primary focus:ring-primary"
+            />
+            <label htmlFor="showActivity" className="text-sm text-text-secondary">
+              {t('auth.register.show_activity_label')}
+            </label>
           </div>
 
           <button

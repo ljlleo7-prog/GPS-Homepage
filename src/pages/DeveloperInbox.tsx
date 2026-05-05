@@ -1154,30 +1154,30 @@ data.pending_deliverables
                 </Section>
 
                 {/* Community Poll Creation */}
-                <Section title="Create Community Poll" icon={<Vote />} count={0}>
+                <Section title={t('developer.inbox.poll_creation.title')} icon={<Vote />} count={0}>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-mono text-text-secondary mb-1">Slug (URL-friendly ID)</label>
+                            <label className="block text-sm font-mono text-text-secondary mb-1">{t('developer.inbox.poll_creation.slug_label')}</label>
                             <input
                                 type="text"
                                 value={pollForm.slug}
                                 onChange={(e) => setPollForm({ ...pollForm, slug: e.target.value })}
                                 className="w-full px-3 py-2 bg-background border border-white/10 rounded text-white font-mono text-sm"
-                                placeholder="next-race-modifier"
+                                placeholder={t('developer.inbox.poll_creation.slug_placeholder')}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-mono text-text-secondary mb-1">Question Key (i18n key)</label>
+                            <label className="block text-sm font-mono text-text-secondary mb-1">{t('developer.inbox.poll_creation.question_key_label')}</label>
                             <input
                                 type="text"
                                 value={pollForm.questionKey}
                                 onChange={(e) => setPollForm({ ...pollForm, questionKey: e.target.value })}
                                 className="w-full px-3 py-2 bg-background border border-white/10 rounded text-white font-mono text-sm"
-                                placeholder="home.community.polls.question"
+                                placeholder={t('developer.inbox.poll_creation.question_key_placeholder')}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-mono text-text-secondary mb-1">Options (i18n keys)</label>
+                            <label className="block text-sm font-mono text-text-secondary mb-1">{t('developer.inbox.poll_creation.options_label')}</label>
                             {pollForm.options.map((opt, idx) => (
                                 <input
                                     key={idx}
@@ -1189,18 +1189,18 @@ data.pending_deliverables
                                         setPollForm({ ...pollForm, options: newOpts });
                                     }}
                                     className="w-full px-3 py-2 bg-background border border-white/10 rounded text-white font-mono text-sm mb-2"
-                                    placeholder={`option_${idx + 1}`}
+                                    placeholder={t('developer.inbox.poll_creation.option_placeholder')}
                                 />
                             ))}
                             <button
                                 onClick={() => setPollForm({ ...pollForm, options: [...pollForm.options, ''] })}
                                 className="text-xs text-primary hover:underline"
                             >
-                                + Add option
+                                {t('developer.inbox.poll_creation.add_option')}
                             </button>
                         </div>
                         <div>
-                            <label className="block text-sm font-mono text-text-secondary mb-1">Duration (hours, 0 = no end)</label>
+                            <label className="block text-sm font-mono text-text-secondary mb-1">{t('developer.inbox.poll_creation.duration_label')}</label>
                             <input
                                 type="number"
                                 value={pollForm.durationHours}
@@ -1212,7 +1212,7 @@ data.pending_deliverables
                             onClick={handleCreatePoll}
                             className="px-4 py-2 bg-primary text-background rounded font-mono hover:bg-primary/80 transition-colors"
                         >
-                            Create Poll
+                            {t('developer.inbox.poll_creation.create_button')}
                         </button>
                     </div>
                 </Section>

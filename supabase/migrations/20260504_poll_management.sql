@@ -51,7 +51,12 @@ BEGIN
 END;
 $$;
 
+-- Drop the old version without parameters
+DROP FUNCTION IF EXISTS public.get_active_community_poll();
+
 -- Update get_active_community_poll to support room filtering
+-- NULL room_ids = display only in public forums
+-- Array room_ids = display only in specified rooms
 CREATE OR REPLACE FUNCTION public.get_active_community_poll(p_room_id UUID DEFAULT NULL)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -63,13 +68,26 @@ DECLARE
   v_poll RECORD;
   v_options JSONB;
   v_selected UUID;
+  v_is_public BOOLEAN := false;
 BEGIN
+  -- Check if the current room is public (default to false if no room specified)
+  IF p_room_id IS NOT NULL THEN
+    SELECT COALESCE(is_public, false) INTO v_is_public
+    FROM public.forum_rooms
+    WHERE id = p_room_id;
+  END IF;
+
   SELECT * INTO v_poll
   FROM public.community_polls
   WHERE status = 'ACTIVE'
     AND starts_at <= NOW()
     AND (ends_at IS NULL OR ends_at > NOW())
-    AND (room_ids IS NULL OR p_room_id = ANY(room_ids))
+    AND (
+      -- If room_ids is NULL, only show in public rooms
+      (room_ids IS NULL AND v_is_public = true) OR
+      -- If room_ids is set, only show in those specific rooms
+      (room_ids IS NOT NULL AND p_room_id = ANY(room_ids))
+    )
   ORDER BY starts_at DESC
   LIMIT 1;
 

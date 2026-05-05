@@ -288,7 +288,9 @@
       "submit": "Create Account",
       "existing_user": "Already have an ID?",
       "login_link": "Access System",
-      "error_username": "Username must be at least 3 characters long"
+      "error_username": "Username must be at least 3 characters long",
+      "error_email_format": "Please enter a valid email address",
+      "show_activity_label": "Allow others to see my activity in community feeds (can be changed later in Wallet settings)"
     },
     "username_setup": {
       "title": "Setup Profile",
@@ -398,6 +400,18 @@
         "ends_at": "Ends At",
         "delete_confirm": "Are you sure you want to delete this poll?",
         "finalize_confirm": "Are you sure you want to finalize this poll?"
+      },
+      "poll_creation": {
+        "title": "Create Community Poll",
+        "slug_label": "Slug (URL-friendly ID)",
+        "slug_placeholder": "next-race-modifier",
+        "question_key_label": "Question Key (i18n key)",
+        "question_key_placeholder": "home.community.polls.question",
+        "options_label": "Options (i18n keys)",
+        "option_placeholder": "home.community.polls.option",
+        "add_option": "+ Add option",
+        "duration_label": "Duration (hours, 0 = no end)",
+        "create_button": "Create Poll"
       },
       "sections": {
         "dev_requests": "Pending Developer Requests",
@@ -794,6 +808,11 @@
         "level1": "LVL 1 (>30 Rep): Access Community Missions",
         "level2": "LVL 2 (>50 Rep): Trade in Ticket Market",
         "level3": "LVL 3 (>70 Rep): Launch Campaigns & Missions"
+      },
+      "privacy": {
+        "title": "Privacy Settings",
+        "show_activity": "Show my activity publicly",
+        "show_activity_desc": "Allow others to see your actions in the community activity feed"
       },
       "loading": "Loading Wallet...",
       "login_msg": "Please log in to view your wallet.",

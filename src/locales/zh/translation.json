@@ -291,7 +291,9 @@
       "submit": "创建账户",
       "existing_user": "已有 ID？",
       "login_link": "访问系统",
-      "error_username": "用户名至少需要 3 个字符"
+      "error_username": "用户名至少需要 3 个字符",
+      "error_email_format": "请输入有效的邮箱地址",
+      "show_activity_label": "允许其他人在社区动态中看到我的活动（稍后可在钱包设置中更改）"
     },
     "username_setup": {
       "title": "设置个人资料",
@@ -402,6 +404,18 @@
         "ends_at": "结束于",
         "delete_confirm": "确定要删除此投票吗？",
         "finalize_confirm": "确定要结束此投票吗？"
+      },
+      "poll_creation": {
+        "title": "创建社区投票",
+        "slug_label": "标识符（URL友好ID）",
+        "slug_placeholder": "next-race-modifier",
+        "question_key_label": "问题键（i18n键）",
+        "question_key_placeholder": "home.community.polls.question",
+        "options_label": "选项（i18n键）",
+        "option_placeholder": "home.community.polls.option",
+        "add_option": "+ 添加选项",
+        "duration_label": "持续时间（小时，0 = 无限期）",
+        "create_button": "创建投票"
       },
       "sections": {
         "dev_requests": "待处理开发者申请",
@@ -802,6 +816,11 @@
         "level1": "等级 1 (>30 声望): 访问社区任务",
         "level2": "等级 2 (>50 声望): 在票务市场交易",
         "level3": "等级 3 (>70 声望): 发起活动和任务"
+      },
+      "privacy": {
+        "title": "隐私设置",
+        "show_activity": "公开显示我的活动",
+        "show_activity_desc": "允许其他人在社区活动动态中看到您的操作"
       },
       "test_player": {
         "title": "测试玩家计划",

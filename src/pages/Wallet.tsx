@@ -12,6 +12,36 @@ const Wallet = () => {
   const [claiming, setClaiming] = useState(false);
   const [requesting, setRequesting] = useState(false);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
+  const [updatingPrivacy, setUpdatingPrivacy] = useState(false);
+
+  useEffect(() => {
+    const fetchPrivacySetting = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('show_activity')
+          .eq('id', user.id)
+          .single();
+        if (data) setShowActivity(data.show_activity || false);
+      }
+    };
+    fetchPrivacySetting();
+  }, []);
+
+  const handleToggleActivityPrivacy = async () => {
+    setUpdatingPrivacy(true);
+    const { data, error } = await supabase.rpc('update_activity_privacy', {
+      p_show_activity: !showActivity
+    });
+    if (error) {
+      alert('Failed to update privacy setting');
+    } else {
+      setShowActivity(!showActivity);
+    }
+    setUpdatingPrivacy(false);
+  };
 
   useEffect(() => {
     // Refresh economy data is handled by context
@@ -98,6 +128,34 @@ const Wallet = () => {
             <p className="text-xs text-text-secondary mt-2">{t('economy.wallet.rep_desc')}</p>
           </motion.div>
         </div>
+
+        {/* Privacy Settings */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-surface border border-white/10 rounded-lg p-6 mb-8"
+        >
+          <h3 className="text-lg font-bold text-white mb-4">{t('economy.wallet.privacy.title')}</h3>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white mb-1">{t('economy.wallet.privacy.show_activity')}</p>
+              <p className="text-xs text-text-secondary">{t('economy.wallet.privacy.show_activity_desc')}</p>
+            </div>
+            <button
+              onClick={handleToggleActivityPrivacy}
+              disabled={updatingPrivacy}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                showActivity ? 'bg-primary' : 'bg-white/20'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  showActivity ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </motion.div>
 
         {/* Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
