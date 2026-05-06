@@ -1219,5 +1219,61 @@
       "team": "车队",
       "no_data": "该车手在当前赛事没有可用的遥测流。"
     }
+  },
+  "deduction_game": {
+    "title": "F1车队推理",
+    "lobby": {
+      "create_game": "创建新游戏",
+      "players": "玩家数",
+      "total_races": "总场次",
+      "create_start": "创建并开始游戏",
+      "creating": "创建中...",
+      "login_required": "请登录后游玩",
+      "how_to_play": "游戏规则"
+    },
+    "roles": {
+      "TP": "车队总监",
+      "TC": "技师",
+      "IS": "检查员",
+      "ST": "策略师"
+    },
+    "alignment": {
+      "positive": "正面",
+      "negative": "负面"
+    },
+    "status": {
+      "lobby": "大厅",
+      "night_phase": "夜间阶段",
+      "race_resolution": "比赛结算",
+      "discussion": "讨论",
+      "voting": "投票",
+      "ended": "游戏结束"
+    },
+    "game": {
+      "status": "状态",
+      "round": "回合",
+      "board_pressure": "董事会压力",
+      "your_role": "你的角色",
+      "players": "玩家",
+      "latest_race": "最新比赛",
+      "fired": "已开除",
+      "loading": "加载中...",
+      "room_not_found": "房间未找到"
+    },
+    "actions": {
+      "night_action": "夜间行动",
+      "protect": "保护",
+      "sabotage": "破坏",
+      "driver": "车手",
+      "vote_to_fire": "投票开除",
+      "fire": "开除"
+    },
+    "rules": {
+      "rule_1": "隐藏角色：TP（公开）、TC、IS、ST",
+      "rule_2": "隐藏阵营：正面 vs 负面",
+      "rule_3": "正面阵营通过开除所有负面玩家获胜",
+      "rule_4": "负面阵营通过导致车队被除名获胜",
+      "rule_5": "每回合：夜间行动 → 比赛 → 讨论 → 投票"
+    }
   }
 }

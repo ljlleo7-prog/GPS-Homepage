@@ -1257,5 +1257,61 @@
       "team": "Team",
       "no_data": "No telemetry stream is available for this driver in the selected session."
     }
+  },
+  "deduction_game": {
+    "title": "F1 Team Deduction",
+    "lobby": {
+      "create_game": "Create New Game",
+      "players": "Players",
+      "total_races": "Total Races",
+      "create_start": "Create & Start Game",
+      "creating": "Creating...",
+      "login_required": "Please log in to play",
+      "how_to_play": "How to Play"
+    },
+    "roles": {
+      "TP": "Team Principal",
+      "TC": "Technician",
+      "IS": "Inspector",
+      "ST": "Strategist"
+    },
+    "alignment": {
+      "positive": "Positive",
+      "negative": "Negative"
+    },
+    "status": {
+      "lobby": "Lobby",
+      "night_phase": "Night Phase",
+      "race_resolution": "Race Resolution",
+      "discussion": "Discussion",
+      "voting": "Voting",
+      "ended": "Game Ended"
+    },
+    "game": {
+      "status": "Status",
+      "round": "Round",
+      "board_pressure": "Board Pressure",
+      "your_role": "Your Role",
+      "players": "Players",
+      "latest_race": "Latest Race",
+      "fired": "FIRED",
+      "loading": "Loading...",
+      "room_not_found": "Room not found"
+    },
+    "actions": {
+      "night_action": "Night Action",
+      "protect": "Protect",
+      "sabotage": "Sabotage",
+      "driver": "Driver",
+      "vote_to_fire": "Vote to Fire",
+      "fire": "Fire"
+    },
+    "rules": {
+      "rule_1": "Hidden roles: TP (public), TC, IS, ST",
+      "rule_2": "Hidden alignments: Positive vs Negative",
+      "rule_3": "Positive wins by firing all negatives",
+      "rule_4": "Negative wins by causing team expulsion",
+      "rule_5": "Each round: night actions → race → discussion → voting"
+    }
   }
 }

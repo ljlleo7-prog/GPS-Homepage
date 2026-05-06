@@ -19,15 +19,19 @@ import Minigame from './pages/Minigame';
 import Telemetry from './pages/Telemetry';
 import { AuthProvider } from './context/AuthContext';
 import { EconomyProvider } from './context/EconomyContext';
+import { DeductionGameProvider } from './context/DeductionGameContext';
+import DeductionGameRoom from './pages/DeductionGameRoom';
+import DeductionGameLobby from './pages/DeductionGameLobby';
 
 function App() {
   return (
     <I18nextProvider i18n={i18n}>
       <AuthProvider>
         <EconomyProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Layout />}>
+          <DeductionGameProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Layout />}>
                 <Route index element={<Home />} />
                 <Route path="news" element={<News />} />
                 <Route path="news/:id" element={<ArticleDetails />} />
@@ -43,9 +47,12 @@ function App() {
                 <Route path="contact" element={<Contact />} />
                 <Route path="login" element={<Login />} />
                 <Route path="register" element={<Register />} />
+                <Route path="deduction-game" element={<DeductionGameLobby />} />
+                <Route path="deduction-game/:roomId" element={<DeductionGameRoom />} />
               </Route>
             </Routes>
           </BrowserRouter>
+          </DeductionGameProvider>
         </EconomyProvider>
       </AuthProvider>
     </I18nextProvider>
