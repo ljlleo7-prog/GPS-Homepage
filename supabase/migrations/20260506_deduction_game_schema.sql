@@ -271,6 +271,34 @@ CREATE TABLE deduction_messages (
 CREATE INDEX idx_deduction_messages_room_round ON deduction_messages(room_id, round_number);
 CREATE INDEX idx_deduction_messages_created ON deduction_messages(created_at DESC);
 
+CREATE VIEW deduction_room_players_public AS
+SELECT
+  id,
+  room_id,
+  seat_index,
+  user_id,
+  bot_id,
+  display_name,
+  CASE
+    WHEN is_tp OR user_id = auth.uid() OR was_fired_round IS NOT NULL THEN role
+    ELSE NULL
+  END AS role,
+  CASE
+    WHEN user_id = auth.uid() OR was_fired_round IS NOT NULL THEN alignment
+    ELSE NULL
+  END AS alignment,
+  is_tp,
+  is_alive,
+  was_fired_round,
+  CASE
+    WHEN user_id = auth.uid() THEN private_state
+    ELSE '{"known_alignments": {}, "action_results": []}'::jsonb
+  END AS private_state,
+  joined_at
+FROM deduction_room_players;
+
+GRANT SELECT ON deduction_room_players_public TO authenticated;
+
 -- ============================================================================
 -- ROW LEVEL SECURITY POLICIES
 -- ============================================================================
@@ -300,46 +328,28 @@ CREATE POLICY "Hosts can update their rooms"
   TO authenticated
   USING (auth.uid() = host_user_id);
 
--- Players: visible to room members
-CREATE POLICY "Players viewable by room members"
+-- Players: public projection is exposed through deduction_room_players_public.
+CREATE POLICY "Players are readable by authenticated users"
   ON deduction_room_players FOR SELECT
   TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM deduction_room_players drp
-      WHERE drp.room_id = deduction_room_players.room_id
-      AND drp.user_id = auth.uid()
-    )
-  );
+  USING (true);
 
 CREATE POLICY "Users can join rooms"
   ON deduction_room_players FOR INSERT
   TO authenticated
   WITH CHECK (user_id = auth.uid() OR user_id IS NULL);
 
--- Season state: visible to room members
-CREATE POLICY "Season state viewable by room members"
+-- Season state: public room progress is visible to authenticated users
+CREATE POLICY "Season state viewable by authenticated users"
   ON deduction_season_state FOR SELECT
   TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM deduction_room_players
-      WHERE room_id = deduction_season_state.room_id
-      AND user_id = auth.uid()
-    )
-  );
+  USING (true);
 
--- Races: visible to room members
-CREATE POLICY "Races viewable by room members"
+-- Races: public race reports are visible to authenticated users
+CREATE POLICY "Races viewable by authenticated users"
   ON deduction_races FOR SELECT
   TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM deduction_room_players
-      WHERE room_id = deduction_races.room_id
-      AND user_id = auth.uid()
-    )
-  );
+  USING (true);
 
 -- Actions: only visible to action owner (secret)
 CREATE POLICY "Actions viewable by owner only"

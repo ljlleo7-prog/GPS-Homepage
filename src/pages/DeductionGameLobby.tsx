@@ -69,6 +69,19 @@ export default function DeductionGameLobby() {
         <h1 className="text-3xl font-bold mb-8">{t('deduction_game.title')}</h1>
 
         <div className="bg-gray-800 p-6 rounded-lg">
+          <h2 className="text-xl font-bold mb-4">Quick Local Alpha</h2>
+          <p className="text-sm text-gray-300 mb-4">
+            Play instantly with bots in your browser. This avoids Supabase edge functions and is best for cold-start testing.
+          </p>
+          <button
+            onClick={() => navigate('/deduction-game/local')}
+            className="w-full bg-green-600 hover:bg-green-700 p-3 rounded font-bold"
+          >
+            Play Local Bot Game
+          </button>
+        </div>
+
+        <div className="bg-gray-800 p-6 rounded-lg mt-8">
           <h2 className="text-xl font-bold mb-4">{t('deduction_game.lobby.create_game')}</h2>
 
           <div className="space-y-4 mb-6">

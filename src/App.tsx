@@ -22,6 +22,7 @@ import { EconomyProvider } from './context/EconomyContext';
 import { DeductionGameProvider } from './context/DeductionGameContext';
 import DeductionGameRoom from './pages/DeductionGameRoom';
 import DeductionGameLobby from './pages/DeductionGameLobby';
+import DeductionGameLocal from './pages/DeductionGameLocal';
 
 function App() {
   return (
@@ -48,6 +49,7 @@ function App() {
                 <Route path="login" element={<Login />} />
                 <Route path="register" element={<Register />} />
                 <Route path="deduction-game" element={<DeductionGameLobby />} />
+                <Route path="deduction-game/local" element={<DeductionGameLocal />} />
                 <Route path="deduction-game/:roomId" element={<DeductionGameRoom />} />
               </Route>
             </Routes>
