@@ -10,6 +10,9 @@ import { shuffle, pickRandom } from './deduction/utils';
 import { parseComment, parsePublicKnowledge, buildSuspicionMap, evaluateBotTargets, getTopEvaluation, buildRoleCertaintyMap, isExplosiveClaim, hasPublicClaimContradiction, countRoleClaims, updateSuspicionsAfterDeath, isAtRiskOfElimination, findStrategicTarget, derivePublicSuspicions } from './deduction/gameLogic';
 import type { LocalPlayer, LocalRace, DiscussionMessage, SuspicionMap, SharedKnowledge, BotPrivateKnowledge, TemplateIntent, TemplateReason, TemplateCertainty, TemplateModule, TemplateSide, InspectorNightMode, BotPersonalityType, BotEvaluation } from './deduction/types';
 
+type TemplateActionVerb = 'protected' | 'sabotaged' | 'analyzed' | 'inspected' | 'ejected' | 'learned';
+type TemplateTarget = { kind: 'player'; value: number; label: string } | { kind: 'driver'; value: number; label: string } | { kind: 'all'; value: 0; label: string };
+
 const botNames = ['Vega', 'Orion', 'Nova', 'Apex', 'Rift', 'Pulse', 'Echo', 'Blitz'];
 
 function makePlayers(count: number, observerMode: boolean = false): LocalPlayer[] {
@@ -216,8 +219,36 @@ function intentUsesReason(): boolean {
   return true;
 }
 
-function intentUsesCertainty(): boolean {
-  return true;
+function intentUsesCertainty(intent: TemplateIntent): boolean {
+  return intent !== 'action';
+}
+
+function actionLabel(action: TemplateActionVerb, t: (key: string, params?: Record<string, unknown>) => string): string {
+  if (action === 'protected') return t('deduction_game.actions.protect').toLowerCase();
+  if (action === 'sabotaged') return t('deduction_game.actions.sabotage').toLowerCase();
+  if (action === 'analyzed') return t('deduction_game.actions.analyze').toLowerCase();
+  if (action === 'inspected') return t('deduction_game.actions.sense').toLowerCase();
+  if (action === 'ejected') return t('deduction_game.actions.eject').toLowerCase();
+  return t('deduction_game.actions.know_all').toLowerCase();
+}
+
+function isDriverAction(action: TemplateActionVerb): boolean {
+  return action === 'protected' || action === 'sabotaged' || action === 'analyzed';
+}
+
+function isRevealAction(action: TemplateActionVerb): boolean {
+  return action === 'inspected' || action === 'learned';
+}
+
+function revealCode(role: Role, side: TemplateSide): string {
+  if (side === 'positive') return `${role}+`;
+  if (side === 'negative') return `${role}-`;
+  return `${role}?`;
+}
+
+function buildActionTargetLabel(target: TemplateTarget, t: (key: string, params?: Record<string, unknown>) => string): string {
+  if (target.kind === 'driver') return t('deduction_game.log.driver_name', { number: target.value });
+  return target.label;
 }
 
 function defaultTemplateModules(): TemplateModule[] {
@@ -234,10 +265,13 @@ function roleLabelWithPolarity(roleLabel: string, intent: TemplateIntent): strin
   return roleLabel;
 }
 
-function buildTemplateMessage(intent: TemplateIntent, targetNumber: number, reason: TemplateReason | null, certainty: TemplateCertainty | null, roleLabel: string, actionLabel: string, driverNumber: number, t: (key: string, params?: Record<string, unknown>) => string, modules: TemplateModule[] = defaultTemplateModules()): string {
-  const reasonParams = { number: targetNumber, role: roleLabelWithPolarity(roleLabel, intent), action: actionLabel, driver: driverNumber, intent: t(`deduction_game.log.segment_intent_${intent}`) };
+function buildTemplateMessage(intent: TemplateIntent, targetNumber: number, reason: TemplateReason | null, certainty: TemplateCertainty | null, roleLabel: string, actionLabelText: string, driverNumber: number, t: (key: string, params?: Record<string, unknown>) => string, modules: TemplateModule[] = defaultTemplateModules(), actionTargetLabel?: string, revealLabel?: string): string {
+  const reasonParams = { number: targetNumber, role: roleLabelWithPolarity(roleLabel, intent), reveal: revealLabel ?? roleLabel, action: actionLabelText, target: actionTargetLabel ?? t('deduction_game.log.driver_name', { number: driverNumber }), driver: driverNumber, intent: t(`deduction_game.log.segment_intent_${intent}`) };
   const parts = modules.flatMap((module) => {
-    if (module === 'intent') return [t(`deduction_game.log.template_intent_${intent}`, reasonParams)];
+    if (module === 'intent') {
+      const actionKey = intent === 'action' && revealLabel ? 'template_intent_action_reveal' : `template_intent_${intent}`;
+      return [t(`deduction_game.log.${actionKey}`, reasonParams)];
+    }
     if (module === 'reason' && reason) {
       const specificReason = t(`deduction_game.log.template_reason_${intent}_${reason}`, reasonParams);
       return [specificReason === `deduction_game.log.template_reason_${intent}_${reason}` ? t(`deduction_game.log.template_reason_${reason}`, reasonParams) : specificReason];
@@ -551,13 +585,15 @@ export default function DeductionGameLocal() {
   const [showVoteReveal, setShowVoteReveal] = useState(false);
   const [suspicions, setSuspicions] = useState<SuspicionMap>({});
   const [baseSuspicions, setBaseSuspicions] = useState<SuspicionMap>({});
-  const [sharedKnowledge, setSharedKnowledge] = useState<SharedKnowledge>({ claims: {}, pressure: 0, dnfs: 0 });
+  const [sharedKnowledge, setSharedKnowledge] = useState<SharedKnowledge>({ claims: {}, revealClaims: [], pressure: 0, dnfs: 0 });
   const [botPrivateKnowledge, setBotPrivateKnowledge] = useState<Record<string, BotPrivateKnowledge>>({});
   const [templateIntent, setTemplateIntent] = useState<TemplateIntent | null>(null);
   const [templateTarget, setTemplateTarget] = useState<number | null>(null);
   const [templateReason, setTemplateReason] = useState<TemplateReason | null>(null);
   const [templateRole, setTemplateRole] = useState<Role>('TC');
   const [templateSide, setTemplateSide] = useState<TemplateSide>('unknown');
+  const [templateAction, setTemplateAction] = useState<TemplateActionVerb>('inspected');
+  const [templateActionTarget, setTemplateActionTarget] = useState<TemplateTarget | null>(null);
   const [templateCertainty, setTemplateCertainty] = useState<TemplateCertainty | null>(null);
   const [showManual, setShowManual] = useState(false);
   const [showDev, setShowDev] = useState(false);
@@ -618,6 +654,15 @@ export default function DeductionGameLocal() {
     { value: 'ST', abbr: 'ST' },
   ], []);
 
+  const templateActions = useMemo<Array<{ value: TemplateActionVerb; abbr: string }>>(() => [
+    { value: 'inspected', abbr: 'sense' },
+    { value: 'ejected', abbr: 'expel' },
+    { value: 'protected', abbr: 'prot' },
+    { value: 'sabotaged', abbr: 'sab' },
+    { value: 'analyzed', abbr: 'ana' },
+    { value: 'learned', abbr: 'know' },
+  ], []);
+
   const templateSides = useMemo<Array<{ value: TemplateSide; abbr: string }>>(() => [
     { value: 'unknown', abbr: '?' },
     { value: 'positive', abbr: '+' },
@@ -646,6 +691,17 @@ export default function DeductionGameLocal() {
     return target ? `#${target.number} ${target.name}` : '';
   }, [nightSelection, players, t]);
 
+  const templateTargets = useMemo<TemplateTarget[]>(() => [
+    { kind: 'driver', value: 1, label: t('deduction_game.log.driver_name', { number: 1 }) },
+    { kind: 'driver', value: 2, label: t('deduction_game.log.driver_name', { number: 2 }) },
+    ...players.filter((player) => player.isAlive).map((player) => ({ kind: 'player' as const, value: player.number, label: `#${player.number} ${player.name}` })),
+  ], [players, t]);
+
+  const filteredTemplateTargets = useMemo(() => {
+    if (isDriverAction(templateAction)) return templateTargets.filter((target) => target.kind === 'driver');
+    return templateTargets.filter((target) => target.kind === 'player');
+  }, [templateAction, templateTargets]);
+
   const liveVoteCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     Object.values(voteResults).forEach((targetId) => {
@@ -656,8 +712,14 @@ export default function DeductionGameLocal() {
 
   const selectedTemplateIntent = templateIntent ?? 'sus';
   const templateTargetNumber = templateTarget ?? players.find((player) => !player.isHuman && player.isAlive)?.number ?? 1;
-  const templateActionLabel = humanActionLabel?.toLowerCase() ?? t('deduction_game.actions.no_action').toLowerCase();
-  const templateDriverNumber = Number(selectedDriver);
+  const selectedActionTarget = useMemo<TemplateTarget>(() => (
+    templateActionTarget && filteredTemplateTargets.some((target) => target.kind === templateActionTarget.kind && target.value === templateActionTarget.value)
+      ? templateActionTarget
+      : filteredTemplateTargets[0] ?? { kind: 'driver', value: 1, label: t('deduction_game.log.driver_name', { number: 1 }) }
+  ), [filteredTemplateTargets, t, templateActionTarget]);
+  const templateActionLabel = actionLabel(templateAction, t);
+  const templateActionTargetLabel = buildActionTargetLabel(selectedActionTarget, t);
+  const templateDriverNumber = selectedActionTarget.kind === 'driver' ? selectedActionTarget.value : Number(selectedDriver);
   const templateRoleLabel = claimCode(templateRole, sideToAlignment(templateSide));
   const baseTemplatePreview = useMemo(() => buildTemplateMessage(
     selectedTemplateIntent,
@@ -668,8 +730,10 @@ export default function DeductionGameLocal() {
     templateActionLabel,
     templateDriverNumber,
     t,
-    ['intent', ...(templateReason ? ['reason' as const] : []), ...(templateCertainty ? ['certainty' as const] : [])],
-  ), [t, templateActionLabel, templateCertainty, templateDriverNumber, selectedTemplateIntent, templateReason, templateRoleLabel, templateTargetNumber]);
+    ['intent', ...(templateReason ? ['reason' as const] : []), ...(templateCertainty && selectedTemplateIntent !== 'action' ? ['certainty' as const] : [])],
+    templateActionTargetLabel,
+    isRevealAction(templateAction) ? revealCode(templateRole, templateSide) : undefined,
+  ), [t, templateAction, templateActionLabel, templateActionTargetLabel, templateCertainty, templateDriverNumber, templateRole, templateSide, selectedTemplateIntent, templateReason, templateRoleLabel, templateTargetNumber]);
 
   const templatePreview = templateIntent ? baseTemplatePreview : t('deduction_game.log.step_choose_intent');
 
@@ -683,13 +747,23 @@ export default function DeductionGameLocal() {
     setSuspicions(derivePublicSuspicions(players, gameLog, sharedKnowledge, baseSuspicions, botPrivateKnowledge));
   }, [baseSuspicions, botPrivateKnowledge, gameLog, players, sharedKnowledge]);
 
-  const applyTemplate = useCallback((updates?: Partial<{ intent: TemplateIntent; target: number; reason: TemplateReason; certainty: TemplateCertainty; role: Role; side: TemplateSide }>) => {
+  const applyTemplate = useCallback((updates?: Partial<{ intent: TemplateIntent; target: number; reason: TemplateReason; certainty: TemplateCertainty; role: Role; side: TemplateSide; action: TemplateActionVerb; actionTarget: TemplateTarget }>) => {
     const nextIntent = updates?.intent ?? selectedTemplateIntent;
     const nextTarget = updates?.target ?? templateTargetNumber;
     const nextReason = updates?.reason ?? templateReason;
     const nextCertainty = updates?.certainty ?? templateCertainty;
     const nextRole = updates?.role ?? templateRole;
     const nextSide = updates?.side ?? templateSide;
+    const nextAction = updates?.action ?? templateAction;
+    const validTargets = isDriverAction(nextAction)
+      ? templateTargets.filter((target) => target.kind === 'driver')
+      : templateTargets.filter((target) => target.kind === 'player');
+    const requestedActionTarget = updates?.actionTarget ?? templateActionTarget;
+    const nextActionTarget = requestedActionTarget && validTargets.some((target) => target.kind === requestedActionTarget.kind && target.value === requestedActionTarget.value)
+      ? requestedActionTarget
+      : validTargets[0] ?? selectedActionTarget;
+    const nextActionTargetLabel = buildActionTargetLabel(nextActionTarget, t);
+    const nextDriver = nextActionTarget.kind === 'driver' ? nextActionTarget.value : templateDriverNumber;
 
     if (updates?.intent) setTemplateIntent(updates.intent);
     if (updates?.target) setTemplateTarget(updates.target);
@@ -697,32 +771,38 @@ export default function DeductionGameLocal() {
     if (updates?.certainty) setTemplateCertainty(updates.certainty);
     if (updates?.role) setTemplateRole(updates.role);
     if (updates?.side) setTemplateSide(updates.side);
+    if (updates?.action) setTemplateAction(updates.action);
+    if (updates?.action || updates?.actionTarget) setTemplateActionTarget(nextActionTarget);
 
     setHumanMessage(buildTemplateMessage(
       nextIntent,
       nextTarget,
       nextReason,
-      nextCertainty,
+      nextIntent === 'action' ? null : nextCertainty,
       claimCode(nextRole, sideToAlignment(nextSide)),
-      templateActionLabel,
-      templateDriverNumber,
+      actionLabel(nextAction, t),
+      nextDriver,
       t,
-      ['intent', ...(nextReason ? ['reason' as const] : []), ...(nextCertainty ? ['certainty' as const] : [])],
+      ['intent', ...(nextReason ? ['reason' as const] : []), ...(nextCertainty && nextIntent !== 'action' ? ['certainty' as const] : [])],
+      nextActionTargetLabel,
+      isRevealAction(nextAction) ? revealCode(nextRole, nextSide) : undefined,
     ));
     inputRef.current?.focus();
-  }, [t, templateActionLabel, templateCertainty, templateDriverNumber, selectedTemplateIntent, templateReason, templateRole, templateSide, templateTargetNumber]);
+  }, [t, selectedActionTarget, templateAction, templateActionTarget, templateCertainty, templateDriverNumber, selectedTemplateIntent, templateReason, templateRole, templateSide, templateTargetNumber, templateTargets]);
 
   const templateStepHint = useMemo(() => {
     if (!templateIntent) return t('deduction_game.log.step_choose_intent');
+    if (templateIntent === 'action' && !templateActionTarget) return t('deduction_game.log.step_choose_action_target');
     if (intentNeedsTarget(templateIntent) && !templateTarget) return t('deduction_game.log.step_choose_target');
     return t('deduction_game.log.step_append_optional');
-  }, [t, templateIntent, templateTarget]);
+  }, [t, templateIntent, templateTarget, templateActionTarget]);
 
   const commandHint = useMemo(() => {
     const command = humanMessage.trim().toLowerCase().replace(/^\//, '');
     if (!command || command.includes(' ')) return templatePreview;
 
     const intent = templateIntents.find((segment) => segment.abbr.startsWith(command) || segment.value.startsWith(command));
+    const action = templateActions.find((segment) => segment.abbr.startsWith(command) || segment.value.startsWith(command));
     const reason = templateReasons.find((segment) => segment.abbr.startsWith(command) || segment.value.startsWith(command));
     const certainty = templateCertainties.find((segment) => segment.abbr.startsWith(command) || segment.value.startsWith(command));
 
@@ -730,18 +810,22 @@ export default function DeductionGameLocal() {
     const side = templateSides.find((segment) => segment.abbr === command || segment.value.startsWith(command));
 
     if (intent) return t('deduction_game.log.completion_hint', { command: `/${intent.abbr}`, value: t(`deduction_game.log.segment_intent_${intent.value}`) });
+    if (action) return t('deduction_game.log.completion_hint', { command: `/${action.abbr}`, value: actionLabel(action.value, t) });
     if (reason) return t('deduction_game.log.completion_hint', { command: `/${reason.abbr}`, value: t(`deduction_game.log.segment_reason_${reason.value}`) });
     if (role) return t('deduction_game.log.completion_hint', { command: `/${role.abbr}`, value: t('deduction_game.log.segment_role_value', { role: role.value }) });
     if (side) return t('deduction_game.log.completion_hint', { command: `/${side.abbr}`, value: t(`deduction_game.alignment.${side.value === 'unknown' ? 'positive' : side.value}`) });
     if (certainty) return t('deduction_game.log.completion_hint', { command: `/${certainty.abbr}`, value: t(`deduction_game.log.segment_certainty_${certainty.value}`) });
     return templatePreview;
-  }, [humanMessage, t, templateCertainties, templateIntents, templatePreview, templateReasons, templateRoles, templateSides]);
+  }, [humanMessage, t, templateActions, templateCertainties, templateIntents, templatePreview, templateReasons, templateRoles, templateSides]);
 
   const showTemplateTarget = templateIntent ? intentNeedsTarget(templateIntent) : false;
-  const showTemplateRole = templateIntent ? intentUsesRole(templateIntent) && (!showTemplateTarget || Boolean(templateTarget)) : false;
+  const showTemplateAction = templateIntent === 'action';
+  const showTemplateActionTarget = templateIntent === 'action';
+  const showTemplateReveal = templateIntent === 'action' && isRevealAction(templateAction);
+  const showTemplateRole = templateIntent ? (showTemplateReveal || (intentUsesRole(templateIntent) && (!showTemplateTarget || Boolean(templateTarget)))) : false;
   const showTemplateSide = showTemplateRole;
   const showTemplateReason = templateIntent ? intentUsesReason() && (!showTemplateTarget || Boolean(templateTarget)) : false;
-  const showTemplateCertainty = templateIntent ? intentUsesCertainty() && (!showTemplateTarget || Boolean(templateTarget)) : false;
+  const showTemplateCertainty = templateIntent ? intentUsesCertainty(templateIntent) && (!showTemplateTarget || Boolean(templateTarget)) : false;
 
   const submitBotVote = useCallback((bot: LocalPlayer) => {
     const voteTarget = botVote(bot, players, suspicions, sharedKnowledge, gameLog, botPrivateKnowledge);
@@ -909,7 +993,7 @@ export default function DeductionGameLocal() {
     setInspectorNightMode('sense');
     setSuspicions({});
     setBaseSuspicions({});
-    setSharedKnowledge({ claims: {}, pressure: 0, dnfs: 0 });
+    setSharedKnowledge({ claims: {}, revealClaims: [], pressure: 0, dnfs: 0 });
     setBotPrivateKnowledge({});
   };
 
@@ -1495,6 +1579,38 @@ export default function DeductionGameLocal() {
                             ))}
                           </div>
                         </div>
+                        {showTemplateAction && (
+                        <div>
+                          <div className="text-gray-500 mb-1">{t('deduction_game.log.segment_action')}</div>
+                          <div className="flex flex-wrap gap-1">
+                            {templateActions.map((segment) => (
+                              <button
+                                key={segment.value}
+                                onClick={() => applyTemplate({ action: segment.value })}
+                                className={`px-2 py-1 rounded border ${templateAction === segment.value ? 'bg-rose-600/40 border-rose-400 text-white' : 'bg-neutral-900 border-white/10 text-gray-300 hover:border-rose-500/50'}`}
+                              >
+                                /{segment.abbr}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        )}
+                        {showTemplateActionTarget && (
+                        <div>
+                          <div className="text-gray-500 mb-1">{t('deduction_game.log.segment_action_target')}</div>
+                          <div className="flex flex-wrap gap-1">
+                            {filteredTemplateTargets.map((target) => (
+                              <button
+                                key={`${target.kind}-${target.value}`}
+                                onClick={() => applyTemplate({ actionTarget: target })}
+                                className={`px-2 py-1 rounded border ${selectedActionTarget.kind === target.kind && selectedActionTarget.value === target.value ? 'bg-blue-600/40 border-blue-400 text-white' : 'bg-neutral-900 border-white/10 text-gray-300 hover:border-blue-500/50'}`}
+                              >
+                                {target.kind === 'driver' ? `D${target.value}` : target.kind === 'all' ? t('deduction_game.actions.all_players_short') : `#${target.value}`}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        )}
                         {showTemplateTarget && (
                         <div>
                           <div className="text-gray-500 mb-1">{t('deduction_game.log.segment_target_required')}</div>
@@ -1590,11 +1706,16 @@ export default function DeductionGameLocal() {
                           const val = event.target.value;
                           const command = val.trim().toLowerCase().replace(/^\//, '');
                           const intent = templateIntents.find((segment) => segment.abbr === command || segment.value === command);
+                          const action = templateActions.find((segment) => segment.abbr === command || segment.value === command);
                           const reason = templateReasons.find((segment) => segment.abbr === command || segment.value === command);
                           const certainty = templateCertainties.find((segment) => segment.abbr === command || segment.value === command);
 
                           if (intent) {
                             applyTemplate({ intent: intent.value });
+                            return;
+                          }
+                          if (action) {
+                            applyTemplate({ intent: 'action', action: action.value });
                             return;
                           }
                           if (reason) {

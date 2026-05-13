@@ -1,4 +1,4 @@
-import type { Alignment, Role, RoomStatus } from '@/types/deduction';
+import type { Alignment, Role } from '@/types/deduction';
 
 export type BotPersonalityType = 'aggressive' | 'cautious' | 'balanced' | 'chaotic';
 
@@ -31,6 +31,18 @@ export interface DiscussionMessage {
 
 export type SuspicionMap = Record<string, Record<string, number>>;
 
+export type ActionVerb = 'protected' | 'sabotaged' | 'analyzed' | 'inspected' | 'ejected' | 'learned';
+
+export interface RevealClaim {
+  speakerId: string;
+  targetId: string;
+  role: Role;
+  alignment?: Alignment;
+  actionVerb: 'inspected' | 'learned';
+  credible: boolean;
+  contested: boolean;
+}
+
 export interface BotEvaluation {
   target: LocalPlayer;
   publicScore: number;
@@ -41,7 +53,8 @@ export interface BotEvaluation {
 }
 
 export interface SharedKnowledge {
-  claims: Record<string, { role?: Role; alignment?: Alignment; actionVerb?: string; actionDriver?: number }>;
+  claims: Record<string, { role?: Role; alignment?: Alignment; actionVerb?: ActionVerb; actionDriver?: number }>;
+  revealClaims: RevealClaim[];
   pressure: number;
   dnfs: number;
   entropy?: number;
@@ -74,7 +87,9 @@ export interface ParsedComment {
   target: LocalPlayer | null;
   claimedRole?: Role;
   claimedAlignment?: Alignment;
-  actionVerb?: 'protected' | 'sabotaged' | 'analyzed' | 'inspected' | 'ejected';
+  revealedRole?: Role;
+  revealedAlignment?: Alignment;
+  actionVerb?: ActionVerb;
   actionDriver?: number;
   isSelfClaim?: boolean;
 }

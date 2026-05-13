@@ -1,5 +1,5 @@
 import type { Role, Alignment } from '@/types/deduction';
-import type { LocalPlayer, DiscussionMessage, SuspicionMap, SharedKnowledge, BotPrivateKnowledge, BotEvaluation, ParsedComment, RoleCertaintyMap } from './types';
+import type { LocalPlayer, DiscussionMessage, SuspicionMap, SharedKnowledge, BotPrivateKnowledge, BotEvaluation, ParsedComment, RoleCertaintyMap, ActionVerb, RevealClaim } from './types';
 
 export function logOdds(p: number): number {
   const clamped = Math.max(0.01, Math.min(0.99, p / 100));
@@ -12,7 +12,7 @@ export function fromLogOdds(lo: number): number {
 
 export function hasPublicClaimContradiction(claim?: SharedKnowledge['claims'][string]): boolean {
   if (!claim?.role || !claim.actionVerb) return false;
-  if (claim.role === 'TP') return claim.actionVerb !== 'ejected';
+  if (claim.role === 'TP') return claim.actionVerb !== 'ejected' && claim.actionVerb !== 'learned';
   if (claim.role === 'TC') return claim.actionVerb !== 'protected' && claim.actionVerb !== 'sabotaged';
   if (claim.role === 'IS') return claim.actionVerb !== 'inspected' && claim.actionVerb !== 'ejected';
   if (claim.role === 'ST') return claim.actionVerb !== 'analyzed' && claim.actionVerb !== 'sabotaged';
@@ -38,12 +38,11 @@ export function parseComment(players: LocalPlayer[], message: string): ParsedCom
   const targetNumberMatch = message.match(/#(\d+)\b/);
   const targetNumber = targetNumberMatch ? Number(targetNumberMatch[1]) : undefined;
   const target = targetNumber === undefined ? null : players.find((player) => player.number === targetNumber) ?? null;
-  const roleMatch = message.match(/\b(TP|TC|IS|ST)([+-])?\b/i);
-  const claimedRole = roleMatch?.[1]?.toUpperCase() as Role | undefined;
-  const claimedAlignment = roleMatch?.[2] === '-' ? 'negative' : roleMatch?.[2] === '+' ? 'positive' : undefined;
+  const roleMatches = [...message.matchAll(/\b(TP|TC|IS|ST)([+-])?\b/gi)];
+  const firstRole = roleMatches[0];
   const actionDriverMatch = lower.match(/driver\s*([12])|车手\s*([12])/);
   const actionDriver = actionDriverMatch ? Number(actionDriverMatch[1] ?? actionDriverMatch[2]) : undefined;
-  const actionVerb = lower.includes('protect') || lower.includes('保护')
+  const actionVerb: ActionVerb | undefined = lower.includes('protect') || lower.includes('保护')
     ? 'protected'
     : lower.includes('sabotage') || lower.includes('破坏')
       ? 'sabotaged'
@@ -51,12 +50,19 @@ export function parseComment(players: LocalPlayer[], message: string): ParsedCom
         ? 'analyzed'
         : lower.includes('sense') || lower.includes('inspect') || lower.includes('感知') || lower.includes('检查')
           ? 'inspected'
-          : lower.includes('eject') || lower.includes('kill') || lower.includes('驱逐') || lower.includes('击杀')
-            ? 'ejected'
-            : undefined;
+          : lower.includes('know-all') || lower.includes('learned all') || lower.includes('know all') || lower.includes('全知') || lower.includes('知道所有')
+            ? 'learned'
+            : lower.includes('eject') || lower.includes('expel') || lower.includes('kill') || lower.includes('驱逐') || lower.includes('放逐') || lower.includes('击杀')
+              ? 'ejected'
+              : undefined;
+  const isRevealAction = actionVerb === 'inspected' || actionVerb === 'learned';
+  const claimedRole = !isRevealAction && firstRole?.[1] ? firstRole[1].toUpperCase() as Role : undefined;
+  const claimedAlignment = !isRevealAction && firstRole?.[2] === '-' ? 'negative' : !isRevealAction && firstRole?.[2] === '+' ? 'positive' : undefined;
+  const revealedRole = isRevealAction && firstRole?.[1] ? firstRole[1].toUpperCase() as Role : undefined;
+  const revealedAlignment = isRevealAction && firstRole?.[2] === '-' ? 'negative' : isRevealAction && firstRole?.[2] === '+' ? 'positive' : undefined;
   const isSelfClaim = lower.includes('i claim') || lower.includes('my role') || lower.includes('i am') || lower.includes("i'm") || lower.includes('声明') || Boolean(actionVerb || actionDriver);
 
-  if (actionVerb || actionDriver) return { intent: 'claim', target, claimedRole, claimedAlignment, actionDriver, actionVerb, isSelfClaim };
+  if (actionVerb || actionDriver) return { intent: 'claim', target, claimedRole, claimedAlignment, revealedRole, revealedAlignment, actionDriver, actionVerb, isSelfClaim };
   if (lower.includes('trust') || lower.includes('信任')) return { intent: 'trust', target, claimedRole, claimedAlignment, isSelfClaim: false };
   if (lower.includes('explain') || lower.includes('why') || lower.includes('解释') || lower.includes('为什么')) return { intent: 'ask', target, claimedRole, claimedAlignment, isSelfClaim: false };
   if (lower.includes('abstain') || lower.includes('弃票')) return { intent: 'abstain', target, claimedRole, claimedAlignment, isSelfClaim: false };
@@ -68,24 +74,73 @@ export function parseComment(players: LocalPlayer[], message: string): ParsedCom
 }
 
 export function calculateInformationalEntropy(knowledge: SharedKnowledge, playerCount: number): number {
-  const claimCount = Object.keys(knowledge.claims).length;
   const roleClaims = Object.values(knowledge.claims).filter((c) => c.role).length;
   const actionClaims = Object.values(knowledge.claims).filter((c) => c.actionVerb).length;
   const alignmentClaims = Object.values(knowledge.claims).filter((c) => c.alignment).length;
+  const credibleReveals = knowledge.revealClaims.filter((claim) => claim.credible).length;
 
   const maxClaims = playerCount - 1;
-  const informationScore = (roleClaims + actionClaims + alignmentClaims) / (maxClaims * 3);
+  const informationScore = (roleClaims + actionClaims + alignmentClaims + credibleReveals) / (maxClaims * 4);
 
   return Math.max(0, Math.min(1, 1 - informationScore));
 }
 
+function canActionRevealRole(claim: SharedKnowledge['claims'][string] | undefined, actionVerb: RevealClaim['actionVerb']): boolean {
+  if (!claim?.role) return actionVerb === 'inspected';
+  if (actionVerb === 'learned') return claim.role === 'TP';
+  return claim.role === 'IS';
+}
+
+function revealSignature(claim: Pick<RevealClaim, 'role' | 'alignment'>): string {
+  return `${claim.role}:${claim.alignment ?? 'unknown'}`;
+}
+
+function withRevealCredibility(claims: SharedKnowledge['claims'], revealClaims: RevealClaim[]): RevealClaim[] {
+  const byTarget = new Map<string, RevealClaim[]>();
+  revealClaims.forEach((claim) => {
+    byTarget.set(claim.targetId, [...(byTarget.get(claim.targetId) ?? []), claim]);
+  });
+
+  return revealClaims.map((claim, claimIndex) => {
+    const speakerClaim = claims[claim.speakerId];
+    const sameTargetClaims = byTarget.get(claim.targetId) ?? [];
+    const firstMatchingClaim = sameTargetClaims.find((other) => revealSignature(other) === revealSignature(claim));
+    const earlierConflict = sameTargetClaims.find((other) => revealSignature(other) !== revealSignature(claim) && revealClaims.indexOf(other) < claimIndex);
+    const laterConflict = sameTargetClaims.find((other) => revealSignature(other) !== revealSignature(claim) && revealClaims.indexOf(other) > claimIndex);
+    const contested = Boolean(earlierConflict || laterConflict);
+    const isEarliestMatchingReveal = firstMatchingClaim === claim;
+    const credible = canActionRevealRole(speakerClaim, claim.actionVerb) && !hasPublicClaimContradiction(speakerClaim) && (!earlierConflict || isEarliestMatchingReveal);
+    return { ...claim, credible, contested };
+  });
+}
+
 export function parsePublicKnowledge(players: LocalPlayer[], messages: DiscussionMessage[], pressure: number, dnfs: number): SharedKnowledge {
   const claims: SharedKnowledge['claims'] = {};
+  const rawRevealClaims: RevealClaim[] = [];
 
   messages.forEach((message) => {
     const speaker = players.find((player) => player.id === message.playerId);
     if (!speaker) return;
     const parsed = parseComment(players, message.message);
+    const isReveal = (parsed.actionVerb === 'inspected' || parsed.actionVerb === 'learned') && parsed.target && parsed.revealedRole;
+
+    if (isReveal && parsed.target) {
+      rawRevealClaims.push({
+        speakerId: speaker.id,
+        targetId: parsed.target.id,
+        role: parsed.revealedRole,
+        alignment: parsed.revealedAlignment,
+        actionVerb: parsed.actionVerb as RevealClaim['actionVerb'],
+        credible: false,
+        contested: false,
+      });
+      claims[speaker.id] = {
+        ...(claims[speaker.id] ?? {}),
+        actionVerb: parsed.actionVerb,
+      };
+      return;
+    }
+
     if (!parsed.isSelfClaim) return;
     claims[speaker.id] = {
       ...(claims[speaker.id] ?? {}),
@@ -96,7 +151,8 @@ export function parsePublicKnowledge(players: LocalPlayer[], messages: Discussio
     };
   });
 
-  const knowledge: SharedKnowledge = { claims, pressure, dnfs };
+  const revealClaims = withRevealCredibility(claims, rawRevealClaims);
+  const knowledge: SharedKnowledge = { claims, revealClaims, pressure, dnfs };
   knowledge.entropy = calculateInformationalEntropy(knowledge, players.length);
   return knowledge;
 }
@@ -113,6 +169,100 @@ export function buildSuspicionMap(players: LocalPlayer[], dnfs: number): Suspici
     });
   });
   return map;
+}
+
+function publicCertaintyBefore(target: LocalPlayer, log: DiscussionMessage[], beforeIndex: number, players: LocalPlayer[]): number {
+  const priorMessages = log.slice(0, Math.max(0, beforeIndex));
+  const pressure = priorMessages.filter((msg) => {
+    const parsed = parseComment(players, msg.message);
+    return parsed.target?.id === target.id && (parsed.intent === 'suspect' || parsed.intent === 'challenge');
+  }).length;
+  const negativeReveals = priorMessages.filter((msg) => {
+    const parsed = parseComment(players, msg.message);
+    return parsed.target?.id === target.id && parsed.revealedAlignment === 'negative';
+  }).length;
+  const votePressure = priorMessages.filter((msg) => {
+    if (!msg.playerId.startsWith('vote-')) return false;
+    return parseComment(players, msg.message).target?.id === target.id;
+  }).length;
+
+  return Math.min(0.85, pressure * 0.12 + negativeReveals * 0.32 + votePressure * 0.18);
+}
+
+function credibilityGainMultiplier(player: LocalPlayer, eliminated: LocalPlayer, log: DiscussionMessage[], players: LocalPlayer[]): number {
+  const firstPlayerActionIndex = log.findIndex((msg) => {
+    if (msg.playerId !== player.id && msg.playerId !== `vote-${player.id}`) return false;
+    const parsed = parseComment(players, msg.message);
+    return parsed.target?.id === eliminated.id && (parsed.intent === 'suspect' || parsed.intent === 'challenge' || msg.playerId.startsWith('vote-'));
+  });
+
+  if (firstPlayerActionIndex < 0) return 1;
+  const certainty = publicCertaintyBefore(eliminated, log, firstPlayerActionIndex, players);
+  const sameTargetActionsBefore = log.slice(0, firstPlayerActionIndex).filter((msg) => {
+    if (msg.playerId === player.id || msg.playerId === `vote-${player.id}`) return false;
+    const parsed = parseComment(players, msg.message);
+    return parsed.target?.id === eliminated.id && (parsed.intent === 'suspect' || parsed.intent === 'challenge' || msg.playerId.startsWith('vote-'));
+  }).length;
+  const timingPenalty = Math.min(0.45, sameTargetActionsBefore * 0.08);
+
+  return Math.max(0.2, 1 - certainty - timingPenalty);
+}
+
+function deriveHistoricalCredibility(player: LocalPlayer, players: LocalPlayer[], log: DiscussionMessage[]): number {
+  let credibility = 0;
+
+  players.filter((candidate) => !candidate.isAlive && candidate.id !== player.id).forEach((eliminated) => {
+    const votedForEliminated = log.some((msg) => {
+      if (msg.playerId !== `vote-${player.id}`) return false;
+      return parseComment(players, msg.message).target?.id === eliminated.id;
+    });
+    const accusationCount = log.filter((msg) => {
+      if (msg.playerId !== player.id) return false;
+      const parsed = parseComment(players, msg.message);
+      return parsed.target?.id === eliminated.id && (parsed.intent === 'suspect' || parsed.intent === 'challenge');
+    }).length;
+    const defenseCount = log.filter((msg) => {
+      if (msg.playerId !== player.id) return false;
+      const parsed = parseComment(players, msg.message);
+      return parsed.target?.id === eliminated.id && parsed.intent === 'trust';
+    }).length;
+
+    if (eliminated.alignment === 'negative') {
+      const gainMultiplier = credibilityGainMultiplier(player, eliminated, log, players);
+      if (votedForEliminated) credibility += 1.1 * gainMultiplier;
+      credibility += Math.min(0.7, accusationCount * 0.25) * gainMultiplier;
+      credibility -= Math.min(0.7, defenseCount * 0.35);
+    } else {
+      if (votedForEliminated) credibility -= 0.8;
+      credibility -= Math.min(0.6, accusationCount * 0.25);
+      credibility += Math.min(0.4, defenseCount * 0.2);
+    }
+  });
+
+  return Math.max(-1.4, Math.min(1.8, credibility));
+}
+
+function deriveRevealSuspicion(observer: LocalPlayer, target: LocalPlayer, knowledge: SharedKnowledge): number {
+  let lo = 0;
+
+  knowledge.revealClaims.forEach((claim) => {
+    if (claim.targetId === target.id) {
+      if (claim.credible) {
+        if (claim.alignment === 'negative') lo += 1.2;
+        if (claim.alignment === 'positive') lo -= 0.7;
+        if (!claim.alignment && claim.role === 'TC') lo += 0.15;
+      } else if (claim.contested) {
+        lo += 0.2;
+      }
+    }
+
+    if (claim.speakerId === target.id && !claim.credible) {
+      lo += claim.contested ? 0.85 : 0.45;
+    }
+  });
+
+  if (observer.alignment === 'negative' && target.alignment === 'negative') lo -= 0.4;
+  return lo;
 }
 
 export function computeSuspicion(
@@ -139,13 +289,16 @@ export function computeSuspicion(
     lo += inference / 100;
   }
 
+  lo -= deriveHistoricalCredibility(target, players, log) * 0.55;
+
   if (knowledge.dnfs > 0) lo += 0.4 * knowledge.dnfs;
+  lo += deriveRevealSuspicion(bot, target, knowledge);
 
   let hasContradiction = false;
   let hasExplosive = false;
   let claimedRole: Role | undefined;
   let claimedAlignment: Alignment | undefined;
-  let claimedActionVerb: string | undefined;
+  let claimedActionVerb: ActionVerb | undefined;
   let claimedActionDriver: number | undefined;
   let trustCount = 0;
   let accuseCount = 0;
@@ -292,6 +445,7 @@ export function evaluateBotTargets(bot: LocalPlayer, players: LocalPlayer[], sus
 
       const seed = suspicions[bot.id]?.[target.id] ?? 20;
       const publicScore = computeSuspicion(seed, bot, target, players, log, knowledge, botPrivateKnowledge?.[bot.id]);
+      const targetCredibility = deriveHistoricalCredibility(target, players, log);
 
       const attackCounts: Record<string, number> = {};
       log.forEach((msg) => {
@@ -313,9 +467,9 @@ export function evaluateBotTargets(bot: LocalPlayer, players: LocalPlayer[], sus
         ? teammate ? (exposedTeammate ? -4 : -70) : 10
         : 0;
       const totalScore = Math.max(0, Math.min(100, publicScore + privateScore));
-      const publicReason: BotEvaluation['publicReason'] = explosiveClaim || claim?.alignment === 'negative' || claimContradiction
+      const publicReason: BotEvaluation['publicReason'] = explosiveClaim || claim?.alignment === 'negative' || claimContradiction || knowledge.revealClaims.some((reveal) => reveal.speakerId === target.id && !reveal.credible)
         ? 'claim'
-        : targetAttackedAnomaly
+        : targetAttackedAnomaly && targetCredibility < 0.8
           ? 'vote'
           : abnormalProtection || knowledge.pressure >= 18
             ? 'pressure'
@@ -376,6 +530,12 @@ export function deriveRoleSuspicion(
     }
   }
 
+  knowledge.revealClaims.filter((reveal) => reveal.targetId === target.id && reveal.credible).forEach((reveal) => {
+    if (reveal.alignment === 'negative') lo += 0.45;
+    if (reveal.alignment === 'positive') lo -= 0.3;
+  });
+  lo += knowledge.revealClaims.filter((reveal) => reveal.speakerId === target.id && !reveal.credible).length * 0.35;
+
   const roleMentions = log.filter((msg) => msg.message.toLowerCase().includes(claim?.role?.toLowerCase() ?? '')).length;
   lo += Math.min(0.35, roleMentions * 0.05);
 
@@ -397,9 +557,11 @@ export function derivePublicSuspicions(
       const seed = base[observer.id]?.[target.id] ?? 20;
       let lo = logOdds(seed);
       lo += deriveRoleSuspicion(target, players, log, knowledge);
+      lo -= deriveHistoricalCredibility(target, players, log) * 0.35;
 
       const publicClaim = knowledge.claims[target.id];
       const negativeClaims = Object.values(knowledge.claims).filter((claim) => claim.alignment === 'negative').length;
+      lo += deriveRevealSuspicion(observer, target, knowledge);
       if (publicClaim?.alignment === 'negative') lo += 0.3;
       if (publicClaim?.actionVerb === 'protected' && knowledge.dnfs > 0 && negativeClaims > 1) lo += 0.15;
       if (publicClaim?.actionVerb === 'inspected' && publicClaim.role === 'IS') lo -= 0.1;
@@ -427,9 +589,9 @@ export function updateSuspicionsAfterDeath(
 ): SuspicionMap {
   const updated: SuspicionMap = {};
   const votedForEliminated = Object.entries(voteResults)
-    .filter(([_, targetId]) => targetId === eliminated.id)
+    .filter(([, targetId]) => targetId === eliminated.id)
     .map(([voterId]) => voterId);
-  const firstVoteForEliminated = Object.entries(voteResults).find(([_, targetId]) => targetId === eliminated.id)?.[0];
+  const firstVoteForEliminated = Object.entries(voteResults).find(([, targetId]) => targetId === eliminated.id)?.[0];
 
   players.filter((obs) => !obs.isHuman && obs.isAlive).forEach((observer) => {
     updated[observer.id] = { ...(currentSuspicions[observer.id] ?? {}) };
@@ -455,6 +617,7 @@ export function updateSuspicionsAfterDeath(
 
       const voterCredibility = 1 - Math.min(0.65, Math.max(0, currentSus - 35) / 80);
       const initiatorCurve = target.id === firstVoteForEliminated ? 1.35 + Math.random() * 0.25 : 0.85 + Math.random() * 0.2;
+      const gainMultiplier = credibilityGainMultiplier(target, eliminated, gameLog, players);
 
       if (eliminated.alignment === 'positive') {
         if (targetVotedForEliminated) {
@@ -468,6 +631,12 @@ export function updateSuspicionsAfterDeath(
           adjustment += baseImpact + curve + jitter;
         }
       } else {
+        if (targetVotedForEliminated) {
+          adjustment -= (0.65 + Math.random() * 0.25) * gainMultiplier;
+        }
+        if (accusationCount > 0) {
+          adjustment -= Math.min(0.65, 0.25 + accusationCount * 0.12) * gainMultiplier;
+        }
         if (defenseCount > 0) {
           const baseImpact = 0.6 + Math.random() * 0.3;
           const curve = Math.tanh(defenseCount * 0.5) * 0.5;
@@ -591,6 +760,18 @@ export function buildRoleCertaintyMap(players: LocalPlayer[], knowledge: SharedK
         certainty.TC = (certainty.TC ?? 0) + 10;
         certainty.ST = (certainty.ST ?? 0) + 10;
       }
+
+      knowledge.revealClaims.filter((reveal) => reveal.targetId === target.id).forEach((reveal) => {
+        if (reveal.credible) {
+          certainty[reveal.role] = (certainty[reveal.role] ?? 0) + 45;
+          if (reveal.alignment === 'negative') {
+            certainty.TC = (certainty.TC ?? 0) + 10;
+            certainty.ST = (certainty.ST ?? 0) + 10;
+          }
+        } else if (reveal.contested) {
+          certainty[reveal.role] = Math.max(0, (certainty[reveal.role] ?? 0) - 10);
+        }
+      });
 
       if (observer.alignment === 'negative' && target.alignment === 'negative') {
         certainty[target.role] = 90;
