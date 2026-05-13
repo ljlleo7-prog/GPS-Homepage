@@ -7,8 +7,17 @@ import type { Alignment, Role, RoomStatus } from '@/types/deduction';
 import Manual from './deduction/Manual';
 import DevPanel from './deduction/DevPanel';
 import { shuffle, pickRandom } from './deduction/utils';
-import { parseComment, parsePublicKnowledge, buildSuspicionMap, evaluateBotTargets, getTopEvaluation, buildRoleCertaintyMap, isExplosiveClaim, hasPublicClaimContradiction, countRoleClaims, updateSuspicionsAfterDeath, isAtRiskOfElimination, findStrategicTarget, derivePublicSuspicions } from './deduction/gameLogic';
-import type { LocalPlayer, LocalRace, DiscussionMessage, SuspicionMap, SharedKnowledge, BotPrivateKnowledge, TemplateIntent, TemplateReason, TemplateCertainty, TemplateModule, TemplateSide, InspectorNightMode, BotPersonalityType, BotEvaluation } from './deduction/types';
+import { parseComment, parsePublicKnowledge, buildSuspicionMap, computeSuspicion, evaluateBotTargets, getTopEvaluation, buildRoleCertaintyMap, isExplosiveClaim, hasPublicClaimContradiction, hasAbnormalProtectionClaim, countRoleClaims, logOdds, fromLogOdds } from './deduction/gameLogic';
+import type { LocalPlayer, LocalRace, DiscussionMessage, SuspicionMap, SharedKnowledge, BotPrivateKnowledge, CommentIntent, TemplateIntent, TemplateReason, TemplateCertainty, TemplateModule, TemplateSide, InspectorNightMode, RoleCertaintyMap, ParsedComment, BotPersonalityType } from './deduction/types';
+
+type BotEvaluation = {
+  target: LocalPlayer;
+  publicScore: number;
+  privateScore: number;
+  totalScore: number;
+  publicReason: 'race' | 'claim' | 'pressure' | 'vote' | 'uncertain';
+  shouldBusTeammate: boolean;
+};
 
 const botNames = ['Vega', 'Orion', 'Nova', 'Apex', 'Rift', 'Pulse', 'Echo', 'Blitz'];
 
@@ -46,76 +55,393 @@ function makePlayers(count: number, observerMode: boolean = false): LocalPlayer[
   });
 }
 
-function shouldRevealIsResult(bot: LocalPlayer, result: { role: Role; alignment?: Alignment; action?: 'inspected' | 'ejected' }, suspicions: SuspicionMap, knowledge: SharedKnowledge): boolean {
-  const selfSuspicion = Object.values(suspicions)
-    .map((row) => row[bot.id])
-    .filter((value): value is number => value !== undefined);
-  const avgSelfSuspicion = selfSuspicion.length > 0
-    ? selfSuspicion.reduce((sum, value) => sum + value, 0) / selfSuspicion.length
-    : 20;
-  const isClaimCount = countRoleClaims(knowledge, 'IS');
-  const globalIsPressure = isClaimCount > 1 || Object.values(knowledge.claims).some((claim) => claim.role === 'IS' && claim.alignment === 'negative');
+function parsePublicKnowledge(players: LocalPlayer[], messages: DiscussionMessage[], pressure: number, dnfs: number): SharedKnowledge {
+  const claims: SharedKnowledge['claims'] = {};
 
-  const action = result.action ?? 'inspected';
-  if (bot.alignment === 'negative') {
-    if (action === 'ejected' && result.alignment === 'negative') return Math.random() < 0.18;
-    return result.alignment === 'positive' && Math.random() < 0.35;
-  }
-  if (action === 'ejected' && result.alignment === 'positive') return Math.random() < 0.12;
-  if (action === 'ejected' && result.alignment === 'negative') return globalIsPressure && avgSelfSuspicion >= 55 ? Math.random() < 0.7 : Math.random() < 0.96;
-  if (globalIsPressure && avgSelfSuspicion >= 45) return result.alignment === 'negative' ? Math.random() < 0.55 : Math.random() < 0.25;
-  if (avgSelfSuspicion >= 65) return result.alignment === 'negative' ? Math.random() < 0.45 : Math.random() < 0.15;
-  return result.alignment === 'negative' ? Math.random() < 0.92 : Math.random() < 0.72;
-}
-
-function buildIsResultMessage(bot: LocalPlayer, targetId: string, result: { role: Role; alignment?: Alignment; action?: 'inspected' | 'ejected' }, players: LocalPlayer[], t: (key: string, params?: Record<string, unknown>) => string): string | null {
-  const target = players.find((player) => player.id === targetId);
-  if (!target) return null;
-  const alignment = result.alignment ?? target.alignment;
-  const actionKey = result.action === 'ejected' ? 'bot_is_eject_claim' : 'bot_is_result_claim';
-  return t(`deduction_game.log.${actionKey}`, {
-    number: target.number,
-    role: claimCode(result.role, alignment),
+  messages.forEach((message) => {
+    const speaker = players.find((player) => player.id === message.playerId);
+    if (!speaker) return;
+    const parsed = parseComment(players, message.message);
+    claims[speaker.id] = {
+      ...(claims[speaker.id] ?? {}),
+      role: parsed.claimedRole ?? claims[speaker.id]?.role,
+      alignment: parsed.claimedAlignment ?? claims[speaker.id]?.alignment,
+      actionDriver: parsed.actionDriver ?? claims[speaker.id]?.actionDriver,
+      actionVerb: parsed.actionVerb ?? claims[speaker.id]?.actionVerb,
+    };
   });
+
+  const knowledge = { claims, pressure, dnfs, entropy: 0 };
+  knowledge.entropy = calculateInformationalEntropy(knowledge, players.length);
+  return knowledge;
 }
 
-function buildBotDiscussionQueue(players: LocalPlayer[], dnfs: number, suspicions: SuspicionMap, driver1DNF: boolean, driver2DNF: boolean, knowledge: SharedKnowledge, log: DiscussionMessage[], t: (key: string, params?: Record<string, unknown>) => string, privateKnowledge: Record<string, BotPrivateKnowledge> = {}): DiscussionMessage[] {
+function hasPublicClaimContradiction(claim?: SharedKnowledge['claims'][string]): boolean {
+  if (!claim?.role || !claim.actionVerb) return false;
+  if (claim.role === 'TP') return claim.actionVerb !== 'ejected';
+  if (claim.role === 'TC') return claim.actionVerb !== 'protected' && claim.actionVerb !== 'sabotaged';
+  if (claim.role === 'IS') return claim.actionVerb !== 'inspected' && claim.actionVerb !== 'ejected';
+  if (claim.role === 'ST') return claim.actionVerb !== 'analyzed' && claim.actionVerb !== 'sabotaged';
+  return false;
+}
+
+function hasAbnormalProtectionClaim(baseSuspicion: number, claim?: SharedKnowledge['claims'][string], knowledge?: SharedKnowledge): boolean {
+  if (!claim || claim.actionVerb !== 'protected') return false;
+  return Boolean(claim.actionDriver && (knowledge?.dnfs || baseSuspicion >= 45));
+}
+
+function countRoleClaims(knowledge: SharedKnowledge, role: Role): number {
+  return Object.values(knowledge.claims).filter((c) => c.role === role).length;
+}
+
+// Convert probability to log-odds and back for Bayesian accumulation.
+// Prior is the seed (0-100), evidence updates via log-odds shifts.
+function logOdds(p: number): number {
+  const clamped = Math.max(0.01, Math.min(0.99, p / 100));
+  return Math.log(clamped / (1 - clamped));
+}
+function fromLogOdds(lo: number): number {
+  return Math.round((1 / (1 + Math.exp(-lo))) * 100);
+}
+
+// Pure Bayesian suspicion scorer. Recomputes from scratch every call.
+// seed: stable random baseline (0-100) set once per round.
+function computeSuspicion(
+  seed: number,
+  bot: LocalPlayer,
+  target: LocalPlayer,
+  players: LocalPlayer[],
+  log: DiscussionMessage[],
+  knowledge: SharedKnowledge,
+  privateKnowledge?: BotPrivateKnowledge,
+): number {
+  // Check private knowledge first (strongest evidence)
+  const knownInfo = privateKnowledge?.inspectedPlayers[target.id] ?? privateKnowledge?.knownRoles[target.id];
+  if (knownInfo?.alignment !== undefined) {
+    return knownInfo.alignment === 'negative' ? 95 : 5;
+  }
+
+  // Negative bots know their teammates — strong prior discount.
+  const teammateKnown = bot.alignment === 'negative' && target.alignment === 'negative';
+  const prior = teammateKnown ? Math.max(0, seed - 35) : seed;
+
+  let lo = logOdds(prior);
+
+  // Role-specific inferences (ST inferring TC sabotage, TC inferring ST sabotage)
+  const inference = privateKnowledge?.inferences[target.id] ?? 0;
+  if (inference > 0) {
+    lo += inference / 100;
+  }
+
+  // --- Evidence from race results ---
+  if (knowledge.dnfs > 0) lo += 0.4 * knowledge.dnfs;
+
+  // --- Evidence from the full discussion log ---
+  // Build per-speaker claim history in order so we can detect contradictions.
+  const speakerHistory: { role?: Role; actionVerb?: string; alignment?: Alignment }[] = [];
+  let hasContradiction = false;
+  let hasExplosive = false;
+  let claimedRole: Role | undefined;
+  let claimedAlignment: Alignment | undefined;
+  let claimedActionVerb: string | undefined;
+  let claimedActionDriver: number | undefined;
+  let trustCount = 0;
+  let accuseCount = 0;
+
+  log.forEach((msg) => {
+    const isVoteMessage = msg.playerId.startsWith('vote-');
+
+    if (msg.playerId !== target.id) {
+      // Messages from others about this target
+      const parsed = parseComment(players, msg.message);
+      if (parsed.target?.id === target.id) {
+        if (parsed.intent === 'trust') trustCount++;
+        if (parsed.intent === 'suspect' || parsed.intent === 'challenge') accuseCount++;
+
+        // Vote messages have small direct influence
+        if (isVoteMessage && parsed.intent === 'suspect') {
+          lo += 0.15;
+        }
+      }
+      return;
+    }
+    // Messages from the target themselves
+    const parsed = parseComment(players, msg.message);
+    const snap = {
+      role: parsed.claimedRole ?? claimedRole,
+      actionVerb: parsed.actionVerb ?? claimedActionVerb,
+      alignment: parsed.claimedAlignment ?? claimedAlignment,
+    };
+    speakerHistory.push(snap);
+
+    if (parsed.claimedRole) claimedRole = parsed.claimedRole;
+    if (parsed.claimedAlignment) claimedAlignment = parsed.claimedAlignment;
+    if (parsed.actionVerb) claimedActionVerb = parsed.actionVerb;
+    if (parsed.actionDriver) claimedActionDriver = parsed.actionDriver;
+
+    if (isExplosiveClaim({ alignment: parsed.claimedAlignment, actionVerb: parsed.actionVerb })) {
+      hasExplosive = true;
+    }
+    // Check contradiction against accumulated claim so far
+    if (claimedRole && claimedActionVerb && hasPublicClaimContradiction({ role: claimedRole, actionVerb: claimedActionVerb })) {
+      hasContradiction = true;
+    }
+  });
+
+  // Explosive self-claim: very strong positive evidence of guilt
+  if (hasExplosive) lo += 2.5;
+
+  // Contradiction: when discovered, it retroactively makes all prior "credible" evidence
+  // look like cover — apply a large shift rather than a small delta.
+  if (hasContradiction) {
+    lo += 1.8;
+  } else if (claimedRole && claimedAlignment === 'positive') {
+    // Credible positive claim: reduce suspicion
+    lo -= 0.9;
+    // Action-backed: further reduce
+    if (claimedActionVerb && !hasPublicClaimContradiction({ role: claimedRole, actionVerb: claimedActionVerb })) {
+      lo -= 0.5;
+    }
+  } else if (!claimedRole && !claimedActionVerb && log.some((m) => m.playerId === target.id)) {
+    // Meta-observation: spoke but made no concrete claims
+    const entropy = knowledge.entropy ?? 1;
+    const informationLevel = 1 - entropy;
+    const basePenalty = informationLevel * 0.8;
+    const suspicionBonus = informationLevel * 0.4 * (prior / 100);
+    lo += basePenalty + suspicionBonus;
+  }
+
+  // Overclaim: if multiple players claim the same role, all claimers become suspect.
+  // The suspicion is distributed — not just the one matching the bot's own role.
+  if (claimedRole) {
+    const roleClaims = countRoleClaims(knowledge, claimedRole);
+    const expectedSlots = claimedRole === 'TP' ? 1 : Math.ceil((players.length - 1) / 3);
+    if (roleClaims > expectedSlots) {
+      // Each claimer of the overclaimed role gets a proportional suspicion bump.
+      // The bot's own role knowledge makes it more certain about who is lying.
+      const certaintyBonus = claimedRole === bot.role ? 0.5 : 0;
+      lo += (0.4 + certaintyBonus) * (roleClaims - expectedSlots);
+    }
+  }
+
+  // Social pressure from other bots' accusations/trust
+  lo += accuseCount * 0.25;
+  lo -= trustCount * 0.15;
+
+  // Anomalous behavior: attacking/trusting against consensus
+  const attackCounts: Record<string, number> = {};
+  log.forEach((msg) => {
+    const parsed = parseComment(players, msg.message);
+    if (parsed.target && (parsed.intent === 'suspect' || parsed.intent === 'challenge')) {
+      attackCounts[parsed.target.id] = (attackCounts[parsed.target.id] ?? 0) + 1;
+    }
+  });
+  const consensusTarget = Object.entries(attackCounts).sort((a, b) => b[1] - a[1])[0];
+  if (consensusTarget && consensusTarget[1] >= 2) {
+    const targetAttacked = log.find((msg) => {
+      if (msg.playerId !== target.id) return false;
+      const parsed = parseComment(players, msg.message);
+      return parsed.target && (parsed.intent === 'suspect' || parsed.intent === 'challenge');
+    });
+    if (targetAttacked) {
+      const parsed = parseComment(players, targetAttacked.message);
+      if (parsed.target?.id !== consensusTarget[0]) {
+        lo += 0.5;
+      }
+    }
+  }
+
+  // Board pressure
+  if (knowledge.pressure >= 18) lo += 0.3;
+
+  // Abnormal protection claim
+  if (claimedActionVerb === 'protected' && claimedActionDriver && knowledge.dnfs > 0) lo += 0.4;
+
+  // Voting inconsistency: voted for someone they didn't suspect in discussion
+  const targetVoteMessages = log.filter((msg) => msg.playerId.startsWith('vote-') && msg.playerId.includes(target.id.slice(1)));
+  if (targetVoteMessages.length > 0) {
+    const voteMsg = targetVoteMessages[0];
+    const voteParsed = parseComment(players, voteMsg.message);
+    const votedFor = voteParsed.target;
+
+    if (votedFor) {
+      const discussionMessages = log.filter((msg) => !msg.playerId.startsWith('vote-') && msg.playerId === target.id);
+      const suspectedInDiscussion = discussionMessages.some((msg) => {
+        const parsed = parseComment(players, msg.message);
+        return parsed.target?.id === votedFor.id && (parsed.intent === 'suspect' || parsed.intent === 'challenge');
+      });
+
+      if (!suspectedInDiscussion) {
+        // Check if target had strong opinions about someone else
+        const strongSuspicions = discussionMessages.filter((msg) => {
+          const parsed = parseComment(players, msg.message);
+          return parsed.target && (parsed.intent === 'suspect' || parsed.intent === 'challenge');
+        });
+
+        // Check social pressure toward votedFor
+        const votedForAttacks = log.filter((msg) => {
+          if (msg.playerId === target.id || msg.playerId.startsWith('vote-')) return false;
+          const parsed = parseComment(players, msg.message);
+          return parsed.target?.id === votedFor.id && (parsed.intent === 'suspect' || parsed.intent === 'challenge');
+        }).length;
+
+        // Bayesian adjustment
+        const hadStrongOpinions = strongSuspicions.length >= 2;
+        const hadSocialPressure = votedForAttacks >= 2;
+
+        if (hadStrongOpinions && !hadSocialPressure) {
+          // Strong opinions elsewhere + no pressure = impostor-based inconsistency
+          lo += 0.6;
+        } else if (!hadStrongOpinions && hadSocialPressure) {
+          // Neutral view + social pressure = peer-guided (minimal penalty)
+          lo += 0.1;
+        } else if (hadStrongOpinions && hadSocialPressure) {
+          // Strong opinions but swayed by pressure = moderate inconsistency
+          lo += 0.3;
+        } else {
+          // No strong opinions, no pressure = random/uncertain behavior
+          lo += 0.2;
+        }
+      }
+    }
+  }
+
+  // Per-bot personality jitter (deterministic, not random — stable across re-evaluations)
+  const personalityBias = ((bot.id.charCodeAt(1) * 7 + target.id.charCodeAt(1) * 3) % 11) / 100 - 0.05;
+  lo += personalityBias;
+
+  return fromLogOdds(lo);
+}
+
+function evaluateBotTargets(bot: LocalPlayer, players: LocalPlayer[], suspicions: SuspicionMap, knowledge: SharedKnowledge, log: DiscussionMessage[], botPrivateKnowledge?: Record<string, BotPrivateKnowledge>): BotEvaluation[] {
+  return players
+    .filter((target) => target.isAlive && target.id !== bot.id)
+    .map((target) => {
+      const claim = knowledge.claims[target.id];
+      const explosiveClaim = isExplosiveClaim(claim);
+      const claimContradiction = hasPublicClaimContradiction(claim);
+      const abnormalProtection = hasAbnormalProtectionClaim(0, claim, knowledge);
+
+      const seed = suspicions[bot.id]?.[target.id] ?? 20;
+      const publicScore = computeSuspicion(seed, bot, target, players, log, knowledge, botPrivateKnowledge?.[bot.id]);
+
+      const attackCounts: Record<string, number> = {};
+      log.forEach((msg) => {
+        const parsed = parseComment(players, msg.message);
+        if (parsed.target && (parsed.intent === 'suspect' || parsed.intent === 'challenge')) {
+          attackCounts[parsed.target.id] = (attackCounts[parsed.target.id] ?? 0) + 1;
+        }
+      });
+      const consensusTarget = Object.entries(attackCounts).sort((a, b) => b[1] - a[1])[0];
+      const targetAttackedAnomaly = consensusTarget && consensusTarget[1] >= 2 && log.some((msg) => {
+        if (msg.playerId !== target.id) return false;
+        const parsed = parseComment(players, msg.message);
+        return parsed.target && (parsed.intent === 'suspect' || parsed.intent === 'challenge') && parsed.target.id !== consensusTarget[0];
+      });
+
+      const teammate = bot.alignment === 'negative' && target.alignment === 'negative';
+      const exposedTeammate = teammate && publicScore >= 80;
+      const privateScore = bot.alignment === 'negative'
+        ? teammate ? (exposedTeammate ? -4 : -70) : 10
+        : 0;
+      const totalScore = Math.max(0, Math.min(100, publicScore + privateScore));
+      const publicReason: BotEvaluation['publicReason'] = explosiveClaim || claim?.alignment === 'negative' || claimContradiction
+        ? 'claim'
+        : targetAttackedAnomaly
+          ? 'vote'
+          : abnormalProtection || knowledge.pressure >= 18
+            ? 'pressure'
+            : knowledge.dnfs > 0
+              ? 'race'
+              : 'uncertain';
+
+      return { target, publicScore, privateScore, totalScore, publicReason, shouldBusTeammate: exposedTeammate };
+    })
+    .sort((a, b) => b.totalScore - a.totalScore);
+}
+
+function calculateInformationalEntropy(knowledge: SharedKnowledge, playerCount: number): number {
+  const claimCount = Object.keys(knowledge.claims).length;
+  const roleClaims = Object.values(knowledge.claims).filter((c) => c.role).length;
+  const actionClaims = Object.values(knowledge.claims).filter((c) => c.actionVerb).length;
+  const alignmentClaims = Object.values(knowledge.claims).filter((c) => c.alignment).length;
+
+  const maxClaims = playerCount - 1;
+  const informationScore = (roleClaims + actionClaims + alignmentClaims) / (maxClaims * 3);
+
+  return Math.max(0, Math.min(1, 1 - informationScore));
+}
+
+function getTopEvaluation(bot: LocalPlayer, players: LocalPlayer[], suspicions: SuspicionMap, knowledge: SharedKnowledge, log: DiscussionMessage[], botPrivateKnowledge?: Record<string, BotPrivateKnowledge>): BotEvaluation | null {
+  return evaluateBotTargets(bot, players, suspicions, knowledge, log, botPrivateKnowledge)[0] ?? null;
+}
+
+function buildSuspicionMap(players: LocalPlayer[], dnfs: number): SuspicionMap {
+  const next: SuspicionMap = {};
+
+  players.filter((player) => !player.isHuman && player.isAlive).forEach((bot) => {
+    next[bot.id] = {};
+    players.filter((target) => target.isAlive && target.id !== bot.id).forEach((target) => {
+      const dnfPressure = dnfs * 14;
+      const teammateDiscount = bot.alignment === 'negative' && target.alignment === 'negative' ? 35 : 0;
+      next[bot.id][target.id] = Math.max(0, Math.min(100, 18 + dnfPressure + Math.floor(Math.random() * 35) - teammateDiscount + Math.floor(Math.random() * 7) - 3));
+    });
+  });
+
+  return next;
+}
+
+function buildRoleCertaintyMap(players: LocalPlayer[], knowledge: SharedKnowledge): RoleCertaintyMap {
+  const roles: Role[] = ['TP', 'TC', 'IS', 'ST'];
+  const result: RoleCertaintyMap = {};
+
+  players.filter((p) => !p.isHuman && p.isAlive).forEach((observer) => {
+    result[observer.id] = {};
+    players.filter((t) => t.isAlive && t.id !== observer.id).forEach((target) => {
+      const claim = knowledge.claims[target.id];
+      const scores: Partial<Record<Role, number>> = {};
+
+      if (observer.alignment === 'negative' && target.alignment === 'negative') {
+        roles.forEach((r) => { scores[r] = r === target.role ? 90 : 3; });
+      } else {
+        roles.forEach((r) => { scores[r] = 25; });
+        if (claim?.role) {
+          scores[claim.role] = (scores[claim.role] ?? 25) + 35;
+          if (hasPublicClaimContradiction(claim)) {
+            scores[claim.role] = Math.max(0, (scores[claim.role] ?? 0) - 30);
+            roles.filter((r) => r !== claim.role).forEach((r) => { scores[r] = (scores[r] ?? 25) + 10; });
+          }
+        }
+        if (claim?.actionVerb === 'protected' || claim?.actionVerb === 'sabotaged') {
+          scores['TC'] = (scores['TC'] ?? 25) + 20;
+        } else if (claim?.actionVerb === 'analyzed') {
+          scores['ST'] = (scores['ST'] ?? 25) + 20;
+        } else if (claim?.actionVerb === 'inspected' || claim?.actionVerb === 'ejected') {
+          scores['IS'] = (scores['IS'] ?? 25) + 15;
+          scores['TP'] = (scores['TP'] ?? 25) + 10;
+        }
+        if (knowledge.dnfs > 0) {
+          scores['TC'] = (scores['TC'] ?? 25) + 10;
+          scores['ST'] = (scores['ST'] ?? 25) + 10;
+        }
+      }
+
+      const total = Object.values(scores).reduce((a, b) => a + (b ?? 0), 0) || 1;
+      roles.forEach((r) => { scores[r] = Math.round(((scores[r] ?? 0) / total) * 100); });
+      result[observer.id][target.id] = scores;
+    });
+  });
+
+  return result;
+}
+
+function buildBotDiscussionQueue(players: LocalPlayer[], dnfs: number, suspicions: SuspicionMap, driver1DNF: boolean, driver2DNF: boolean, knowledge: SharedKnowledge, log: DiscussionMessage[], t: (key: string, params?: Record<string, unknown>) => string): DiscussionMessage[] {
   const aliveBots = shuffle(players.filter((player) => !player.isHuman && player.isAlive));
 
   return aliveBots.flatMap((bot, index) => {
-    const riskAssessment = isAtRiskOfElimination(bot, suspicions, players);
     const evaluation = getTopEvaluation(bot, players, suspicions, knowledge, log);
     const suspect = evaluation?.target;
     const useDriverReference = Math.random() < 0.5 && dnfs > 0;
-
-    const messages: DiscussionMessage[] = [];
-    const inspectedEntry = Object.entries(privateKnowledge[bot.id]?.inspectedPlayers ?? {})[0];
-    if (inspectedEntry && shouldRevealIsResult(bot, inspectedEntry[1], suspicions, knowledge)) {
-      const resultMessage = buildIsResultMessage(bot, inspectedEntry[0], inspectedEntry[1], players, t);
-      if (resultMessage) {
-        messages.push({
-          playerId: bot.id,
-          playerNumber: bot.number,
-          playerName: bot.name,
-          message: resultMessage,
-          delayMs: inspectedEntry[1].alignment === 'negative' ? 500 + index * 160 : 900 + index * 260,
-        });
-      }
-    }
-
-    if (riskAssessment.atRisk && Math.random() < 0.7) {
-      const strategicTarget = findStrategicTarget(bot, players, suspicions, knowledge);
-      if (strategicTarget) {
-        const deflectionReason: TemplateReason = knowledge.claims[strategicTarget.id]?.role ? 'claim_contradiction' : dnfs > 0 ? 'race_dnf' : 'uncertain';
-        messages.push({
-          playerId: bot.id,
-          playerNumber: bot.number,
-          playerName: bot.name,
-          message: buildTemplateMessage('attack', strategicTarget.number, deflectionReason, 'strong', claimCode(botClaim(bot), 'negative'), botClaimedAction(bot, t), 0, t),
-          delayMs: 450 + index * 180,
-        });
-      }
-    }
 
     let opener: string;
     if (index === 0 && bot.role !== 'TP') {
@@ -142,30 +468,59 @@ function buildBotDiscussionQueue(players: LocalPlayer[], dnfs: number, suspicion
       })
       : t(`deduction_game.log.bot_uncertain_${(index % 3) + 1}`);
 
-    const sharedTemplate = buildSharedBotTemplate(bot, suspect, evaluation, knowledge, dnfs, t);
+    const sharedTemplate = buildSharedBotTemplate(bot, suspect, evaluation, dnfs, t);
 
-    messages.push({
+    return [{
       playerId: bot.id,
       playerNumber: bot.number,
       playerName: bot.name,
       message: opener,
-      delayMs: confidenceDelay(evaluation, 1800, 900, index),
+      delayMs: 1800 + index * 900,
     }, {
       playerId: bot.id,
       playerNumber: bot.number,
       playerName: bot.name,
       message: followUp,
-      delayMs: confidenceDelay(evaluation, 5000, 1200, index + 1),
+      delayMs: 5000 + index * 1200,
     }, {
       playerId: bot.id,
       playerNumber: bot.number,
       playerName: bot.name,
       message: sharedTemplate,
-      delayMs: confidenceDelay(evaluation, 8200, 1300, index + 2),
-    });
-
-    return messages;
+      delayMs: 8200 + index * 1300,
+    }];
   });
+}
+
+function parseComment(players: LocalPlayer[], message: string): ParsedComment {
+  const lower = message.toLowerCase();
+  const target = players.find((player) => message.includes(`#${player.number}`));
+  const roleMatch = message.match(/\b(TP|TC|IS|ST)([+-])?\b/i);
+  const claimedRole = roleMatch?.[1]?.toUpperCase() as Role | undefined;
+  const claimedAlignment = roleMatch?.[2] === '-' ? 'negative' : roleMatch?.[2] === '+' ? 'positive' : undefined;
+  const actionDriverMatch = lower.match(/driver\s*([12])|车手\s*([12])/);
+  const actionDriver = actionDriverMatch ? Number(actionDriverMatch[1] ?? actionDriverMatch[2]) : undefined;
+  const actionVerb = lower.includes('protect') || lower.includes('保护')
+    ? 'protected'
+    : lower.includes('sabotage') || lower.includes('破坏')
+      ? 'sabotaged'
+      : lower.includes('analy') || lower.includes('分析')
+        ? 'analyzed'
+        : lower.includes('sense') || lower.includes('inspect') || lower.includes('感知') || lower.includes('检查')
+          ? 'inspected'
+          : lower.includes('eject') || lower.includes('kill') || lower.includes('驱逐') || lower.includes('击杀')
+            ? 'ejected'
+            : undefined;
+
+  if (actionVerb || actionDriver) return { intent: 'claim', target, claimedRole, claimedAlignment, actionDriver, actionVerb };
+  if (lower.includes('trust') || lower.includes('信任')) return { intent: 'trust', target, claimedRole, claimedAlignment };
+  if (lower.includes('explain') || lower.includes('why') || lower.includes('解释') || lower.includes('为什么')) return { intent: 'ask', target, claimedRole, claimedAlignment };
+  if (lower.includes('abstain') || lower.includes('弃票')) return { intent: 'abstain', target, claimedRole, claimedAlignment };
+  if (lower.includes('claim') || lower.includes('声明') || claimedRole) return { intent: 'claim', target, claimedRole, claimedAlignment };
+  if (lower.includes('certain') || lower.includes('confidence') || lower.includes('确定') || lower.includes('自信')) return { intent: 'challenge', target, claimedRole, claimedAlignment };
+  if (lower.includes('suspect') || lower.includes('suspicious') || lower.includes('怀疑') || lower.includes('可疑')) return { intent: 'suspect', target, claimedRole, claimedAlignment };
+
+  return { intent: target ? 'suspect' : 'neutral', target, claimedRole, claimedAlignment };
 }
 
 function botClaim(bot: LocalPlayer): Role {
@@ -188,6 +543,10 @@ function botClaimedAction(bot: LocalPlayer, t: (key: string, params?: Record<str
 
 function botClaimedDriver(bot: LocalPlayer, dnfs: number): number {
   return ((bot.number + dnfs) % 2) + 1;
+}
+
+function isExplosiveClaim(claim?: SharedKnowledge['claims'][string]): boolean {
+  return claim?.alignment === 'negative' || claim?.actionVerb === 'sabotaged';
 }
 
 function alignmentCode(alignment: Alignment): '+' | '-' {
@@ -224,18 +583,8 @@ function defaultTemplateModules(): TemplateModule[] {
   return ['intent'];
 }
 
-function roleLabelWithPolarity(roleLabel: string, intent: TemplateIntent): string {
-  if (['sus', 'attack', 'vote', 'switch'].includes(intent)) {
-    return roleLabel.replace(/[+-]$/, '') + '-';
-  }
-  if (['trust', 'def'].includes(intent)) {
-    return roleLabel.replace(/[+-]$/, '') + '+';
-  }
-  return roleLabel;
-}
-
 function buildTemplateMessage(intent: TemplateIntent, targetNumber: number, reason: TemplateReason | null, certainty: TemplateCertainty | null, roleLabel: string, actionLabel: string, driverNumber: number, t: (key: string, params?: Record<string, unknown>) => string, modules: TemplateModule[] = defaultTemplateModules()): string {
-  const reasonParams = { number: targetNumber, role: roleLabelWithPolarity(roleLabel, intent), action: actionLabel, driver: driverNumber, intent: t(`deduction_game.log.segment_intent_${intent}`) };
+  const reasonParams = { number: targetNumber, role: roleLabel, action: actionLabel, driver: driverNumber, intent: t(`deduction_game.log.segment_intent_${intent}`) };
   const parts = modules.flatMap((module) => {
     if (module === 'intent') return [t(`deduction_game.log.template_intent_${intent}`, reasonParams)];
     if (module === 'reason' && reason) {
@@ -259,45 +608,19 @@ function evaluationReason(evaluation: BotEvaluation | undefined): TemplateReason
 
 function botTemplateModules(evaluation: BotEvaluation | undefined): TemplateModule[] {
   if (!evaluation) return ['intent'];
-  if (evaluation.totalScore >= 82) return ['intent', 'reason', 'certainty'];
   if (evaluation.publicReason === 'uncertain') return ['intent', 'certainty'];
   if (evaluation.publicReason === 'claim') return ['intent', 'reason', 'certainty'];
   if (evaluation.totalScore >= 70) return ['intent', 'reason', 'certainty'];
   return ['intent', 'reason'];
 }
 
-function confidenceDelay(evaluation: BotEvaluation | undefined, baseMs: number, indexMs: number, index = 0): number {
-  const score = evaluation?.totalScore ?? 0;
-  if (score >= 82) return 450 + index * 180;
-  if (score >= 70) return 900 + index * 280;
-  if (score >= 58) return Math.max(1200, baseMs * 0.45 + index * Math.min(indexMs, 350));
-  return baseMs + index * indexMs;
-}
-
-function roleReasonForClaim(claim?: SharedKnowledge['claims'][string], fallback: TemplateReason = 'uncertain'): TemplateReason {
-  if (!claim) return fallback;
-  if (hasPublicClaimContradiction(claim)) return 'role_mismatch';
-  if (claim.actionVerb === 'protected') return 'protective_claim';
-  if (claim.actionVerb || claim.actionDriver) return 'driver_signal';
-  if (claim.role) return 'claim_role';
-  return fallback;
-}
-
-function intentForAlignmentRead(alignment: Alignment | undefined, fallback: TemplateIntent): TemplateIntent {
-  if (alignment === 'positive') return 'trust';
-  if (alignment === 'negative') return 'sus';
-  return fallback;
-}
-
-function buildSharedBotTemplate(bot: LocalPlayer, suspect: LocalPlayer | undefined, evaluation: BotEvaluation | undefined, knowledge: SharedKnowledge, dnfs: number, t: (key: string, params?: Record<string, unknown>) => string): string {
+function buildSharedBotTemplate(bot: LocalPlayer, suspect: LocalPlayer | undefined, evaluation: BotEvaluation | undefined, dnfs: number, t: (key: string, params?: Record<string, unknown>) => string): string {
   const targetNumber = suspect?.number ?? bot.number;
-  const targetClaim = suspect ? knowledge.claims[suspect.id] : undefined;
   const intentPool: TemplateIntent[] = suspect
     ? ['sus', 'attack', 'explain', 'vote', 'switch']
     : ['claim', 'action', 'world', 'def', 'self', 'abs'];
-  const baseIntent = intentPool[(bot.number + dnfs) % intentPool.length];
-  const intent = intentForAlignmentRead(targetClaim?.alignment, baseIntent);
-  const reason = roleReasonForClaim(targetClaim, evaluationReason(evaluation));
+  const intent = intentPool[(bot.number + dnfs) % intentPool.length];
+  const reason = evaluationReason(evaluation);
   const certainty: TemplateCertainty = (evaluation?.totalScore ?? 0) >= 70
     ? 'strong'
     : (evaluation?.totalScore ?? 0) >= 48
@@ -305,9 +628,8 @@ function buildSharedBotTemplate(bot: LocalPlayer, suspect: LocalPlayer | undefin
       : 'weak';
   const action = botClaimedAction(bot, t);
   const driver = botClaimedDriver(bot, dnfs);
-  const roleForRead = suspect ? suspect.role : botClaim(bot);
 
-  return buildTemplateMessage(intent, targetNumber, reason, certainty, claimCode(roleForRead, intent === 'trust' ? 'positive' : intent === 'sus' || intent === 'attack' || intent === 'vote' || intent === 'switch' ? 'negative' : botClaimAlignment(bot)), action, driver, t, botTemplateModules(evaluation));
+  return buildTemplateMessage(intent, targetNumber, reason, certainty, claimCode(botClaim(bot), botClaimAlignment(bot)), action, driver, t, botTemplateModules(evaluation));
 }
 
 function buildDriverDebrief(driver: 1 | 2, didDnf: boolean, sabotagedDriver: number | null, protectedDriver: number | null, t: (key: string, params?: Record<string, unknown>) => string): DiscussionMessage {
@@ -402,6 +724,7 @@ function buildBotReactionQueue(players: LocalPlayer[], suspicions: SuspicionMap,
       delayMs: 900 + index * 1600,
     })));
   } else if (target && !target.isHuman && target.isAlive && ['suspect', 'ask', 'challenge'].includes(parsed.intent)) {
+    // Build evidence-based defense: check accuser's behavior
     const accuserAttacks = log.filter((msg) => {
       if (msg.playerId !== humanPlayer.id) return false;
       const p = parseComment(players, msg.message);
@@ -422,26 +745,12 @@ function buildBotReactionQueue(players: LocalPlayer[], suspicions: SuspicionMap,
       delayMs: 1000 + Math.floor(Math.random() * 2500),
     });
 
-    const targetEval = getTopEvaluation(target, players, suspicions, knowledge, log);
-    const shouldCounterAccuse = Math.random() < 0.6 && (accuserAttackedLowSus || accuserHasNoConcreteClaimYet || (targetEval && targetEval.totalScore < 45));
-    if (shouldCounterAccuse) {
-      const counterReason: TemplateReason = accuserAttackedLowSus ? 'anomalous_attack' : accuserHasNoConcreteClaimYet ? 'speech_evasion' : 'uncertain';
-      responses.push({
-        playerId: target.id,
-        playerNumber: target.number,
-        playerName: target.name,
-        message: buildTemplateMessage('attack', humanPlayer.number, counterReason, 'medium', claimCode(botClaim(target), 'negative'), botClaimedAction(target, t), 0, t),
-        delayMs: targetEval && targetEval.totalScore >= 70 ? 650 : 1600 + Math.floor(Math.random() * 900),
-      });
-    }
-
     const botObservers = players
       .filter((player) => !player.isHuman && player.isAlive && player.id !== target.id)
       .map((player) => ({ player, evaluation: getTopEvaluation(player, players, suspicions, knowledge, log) }))
       .filter(({ evaluation }) => evaluation?.target.id === target.id)
       .sort((a, b) => (b.evaluation?.totalScore ?? 0) - (a.evaluation?.totalScore ?? 0));
-    const observerItem = botObservers[0];
-    const observer = observerItem?.player;
+    const observer = botObservers[0]?.player;
     if (observer) {
       responses.push({
         playerId: observer.id,
@@ -451,7 +760,7 @@ function buildBotReactionQueue(players: LocalPlayer[], suspicions: SuspicionMap,
           accuser: humanPlayer.number,
           accused: target.number,
         }),
-        delayMs: (observerItem.evaluation?.totalScore ?? 0) >= 70 ? 800 : 2200 + Math.floor(Math.random() * 2200),
+        delayMs: 3500 + Math.floor(Math.random() * 6500),
       });
     }
   } else if (target && parsed.intent === 'trust') {
@@ -516,7 +825,7 @@ function buildBotVoteMessage(bot: LocalPlayer, targetId: string | null, players:
       ? 'medium'
       : 'weak';
   const message = target
-    ? `${buildTemplateMessage('vote', target.number, reason, certainty, claimCode(target.role, 'negative'), botClaimedAction(bot, t), botClaimedDriver(bot, knowledge.dnfs), t)} ${t('deduction_game.log.bot_vote_locked', { number: target.number })}`
+    ? `${buildTemplateMessage('vote', target.number, reason, certainty, claimCode(botClaim(bot), botClaimAlignment(bot)), botClaimedAction(bot, t), botClaimedDriver(bot, knowledge.dnfs), t)} ${t('deduction_game.log.bot_vote_locked', { number: target.number })}`
     : t('deduction_game.log.bot_vote_abstain');
 
   return {
@@ -550,7 +859,6 @@ export default function DeductionGameLocal() {
   const [botVoteQueue, setBotVoteQueue] = useState<LocalPlayer[]>([]);
   const [showVoteReveal, setShowVoteReveal] = useState(false);
   const [suspicions, setSuspicions] = useState<SuspicionMap>({});
-  const [baseSuspicions, setBaseSuspicions] = useState<SuspicionMap>({});
   const [sharedKnowledge, setSharedKnowledge] = useState<SharedKnowledge>({ claims: {}, pressure: 0, dnfs: 0 });
   const [botPrivateKnowledge, setBotPrivateKnowledge] = useState<Record<string, BotPrivateKnowledge>>({});
   const [templateIntent, setTemplateIntent] = useState<TemplateIntent | null>(null);
@@ -603,11 +911,6 @@ export default function DeductionGameLocal() {
     { value: 'role_st', abbr: 'st' },
     { value: 'anomalous_attack', abbr: 'atk' },
     { value: 'speech_evasion', abbr: 'eva' },
-    { value: 'role_mismatch', abbr: 'mis' },
-    { value: 'driver_signal', abbr: 'drv' },
-    { value: 'counterclaim', abbr: 'cc' },
-    { value: 'claim_pressure', abbr: 'clm' },
-    { value: 'protective_claim', abbr: 'prt' },
     { value: 'uncertain', abbr: 'unc' },
   ], []);
 
@@ -677,11 +980,6 @@ export default function DeductionGameLocal() {
     () => buildRoleCertaintyMap(players, sharedKnowledge),
     [players, sharedKnowledge],
   );
-
-  useEffect(() => {
-    if (Object.keys(baseSuspicions).length === 0) return;
-    setSuspicions(derivePublicSuspicions(players, gameLog, sharedKnowledge, baseSuspicions, botPrivateKnowledge));
-  }, [baseSuspicions, botPrivateKnowledge, gameLog, players, sharedKnowledge]);
 
   const applyTemplate = useCallback((updates?: Partial<{ intent: TemplateIntent; target: number; reason: TemplateReason; certainty: TemplateCertainty; role: Role; side: TemplateSide }>) => {
     const nextIntent = updates?.intent ?? selectedTemplateIntent;
@@ -809,19 +1107,13 @@ export default function DeductionGameLocal() {
     const timeout = setTimeout(() => {
       setQueuedMessages((current) => {
         const [nextMessage, ...remaining] = current;
-        if (nextMessage) {
-          setGameLog((messages) => {
-            const nextLog = [...messages, nextMessage];
-            setSharedKnowledge(parsePublicKnowledge(players, nextLog, boardPressure, sharedKnowledge.dnfs));
-            return nextLog;
-          });
-        }
+        if (nextMessage) setGameLog((messages) => [...messages, nextMessage]);
         return remaining;
       });
     }, delay);
 
     return () => clearTimeout(timeout);
-  }, [boardPressure, players, sharedKnowledge.dnfs, status, queuedMessages]);
+  }, [status, queuedMessages]);
 
   useEffect(() => {
     if (status !== 'voting' || showVoteReveal || botVoteQueue.length === 0) return;
@@ -853,8 +1145,8 @@ export default function DeductionGameLocal() {
 
     if (!topTarget) return;
 
+    const botClaim = { role: speakingBot.role, alignment: speakingBot.alignment };
     const intent: TemplateIntent = topTarget.totalScore >= 60 ? 'sus' : topTarget.totalScore <= 30 ? 'trust' : 'ask';
-    const botClaim = { role: topTarget.target.role, alignment: intent === 'trust' ? 'positive' as Alignment : 'negative' as Alignment };
     const reason: TemplateReason = topTarget.publicReason === 'claim' ? 'claim_role' : topTarget.publicReason === 'race' ? 'race_dnf' : 'uncertain';
 
     const message = buildTemplateMessage(intent, topTarget.target.number, reason, 'medium', claimCode(botClaim.role, botClaim.alignment), '', 0, t);
@@ -890,6 +1182,17 @@ export default function DeductionGameLocal() {
     }
   }, [observerMode, status, showVoteReveal, players, voteResults, abstainedVotes, timer, proceedToVoteReveal]);
 
+  useEffect(() => {
+    if (!observerMode || status !== 'night_phase') return;
+
+    const timeout = setTimeout(() => {
+      const randomDriver = Math.random() < 0.5 ? '1' : '2';
+      resolveRace(randomDriver);
+    }, 3000);
+
+    return () => clearTimeout(timeout);
+  }, [observerMode, status, round]);
+
   const restart = () => {
     setPlayers(makePlayers(playerCount, observerMode));
     setStatus('night_phase');
@@ -908,12 +1211,11 @@ export default function DeductionGameLocal() {
     setShowVoteReveal(false);
     setInspectorNightMode('sense');
     setSuspicions({});
-    setBaseSuspicions({});
     setSharedKnowledge({ claims: {}, pressure: 0, dnfs: 0 });
     setBotPrivateKnowledge({});
   };
 
-  const performBotNightActions = useCallback((): Record<string, BotPrivateKnowledge> => {
+  const performBotNightActions = useCallback(() => {
     const bots = players.filter((p) => !p.isHuman && p.isAlive);
     const nextKnowledge: Record<string, BotPrivateKnowledge> = {};
     const nightActions: Record<string, { action: string; target?: string; targetName?: string }> = {};
@@ -930,27 +1232,16 @@ export default function DeductionGameLocal() {
         nightActions[bot.id] = { action: 'Learned all roles' };
       }
 
-      if (bot.role === 'IS') {
+      if (bot.role === 'IS' && bot.alignment === 'positive') {
         const targets = players.filter((p) => p.isAlive && p.id !== bot.id);
         if (targets.length > 0) {
           const evals = evaluateBotTargets(bot, players, suspicions, sharedKnowledge, gameLog);
           const sorted = evals.sort((a, b) => b.totalScore - a.totalScore);
-          const top = sorted[0];
-          const shouldEject = bot.alignment === 'positive'
-            ? (top?.totalScore ?? 0) >= 86 && Math.random() < 0.72
-            : Math.random() < 0.28;
-          const target = shouldEject
-            ? (bot.alignment === 'negative'
-              ? (targets.find((player) => player.alignment === 'positive') ?? top?.target)
-              : top?.target)
-            : sorted[Math.floor(Math.random() * Math.min(3, sorted.length))]?.target;
+          const variation = Math.floor(Math.random() * Math.min(3, sorted.length));
+          const target = sorted[variation]?.target;
           if (target) {
-            nextKnowledge[bot.id].inspectedPlayers[target.id] = { role: target.role, alignment: target.alignment, action: shouldEject ? 'ejected' : 'inspected' };
-            nightActions[bot.id] = {
-              action: shouldEject ? 'Ejected' : 'Inspected',
-              target: target.id,
-              targetName: `#${target.number} (${target.role}${target.alignment === 'positive' ? '+' : '-'})`,
-            };
+            nextKnowledge[bot.id].inspectedPlayers[target.id] = { role: target.role, alignment: target.alignment };
+            nightActions[bot.id] = { action: 'Inspected', target: target.id, targetName: `#${target.number} (${target.role}${target.alignment === 'positive' ? '+' : '-'})` };
           }
         }
       }
@@ -967,6 +1258,7 @@ export default function DeductionGameLocal() {
       if (bot.role === 'ST') {
         const targets = players.filter((p) => p.isAlive && p.id !== bot.id);
         if (targets.length > 0) {
+          const evals = evaluateBotTargets(bot, players, suspicions, sharedKnowledge, gameLog);
           const driver = bot.alignment === 'negative'
             ? (Math.random() < 0.5 ? '1' : '2')
             : (round % 2 === 0 ? '1' : '2');
@@ -981,7 +1273,6 @@ export default function DeductionGameLocal() {
 
     setBotPrivateKnowledge(nextKnowledge);
     setBotNightActions(nightActions);
-    return nextKnowledge;
   }, [players, suspicions, sharedKnowledge, gameLog, round]);
 
   useEffect(() => {
@@ -1092,7 +1383,7 @@ export default function DeductionGameLocal() {
     resolveRace(selectedDriver);
   };
 
-  const resolveRace = useCallback((driverSelection = selectedDriver, immediateBotKnowledge: Record<string, BotPrivateKnowledge> = botPrivateKnowledge) => {
+  const resolveRace = (driverSelection = selectedDriver) => {
     const actingPlayers = ((human?.role === 'IS' && inspectorNightMode === 'eject') || (human?.role === 'TP' && human.alignment === 'negative')) && nightSelection
       ? players.map((player) => player.id === nightSelection ? { ...player, isAlive: false } : player)
       : players;
@@ -1133,9 +1424,8 @@ export default function DeductionGameLocal() {
       pressure: nextBoardPressure,
       threshold: boardThreshold,
     });
+    const nextSuspicions = buildSuspicionMap(actingPlayers, dnfs);
     const nextKnowledge = parsePublicKnowledge(actingPlayers, gameLog, nextBoardPressure, dnfs);
-    const nextBaseSuspicions = buildSuspicionMap(actingPlayers, dnfs);
-    const nextSuspicions = derivePublicSuspicions(actingPlayers, gameLog, nextKnowledge, nextBaseSuspicions, immediateBotKnowledge);
     const driverDebriefs = [
       buildDriverDebrief(1, driver1DNF, sabotagedDriver, protectedDriver, t),
       buildDriverDebrief(2, driver2DNF, sabotagedDriver, protectedDriver, t),
@@ -1146,7 +1436,6 @@ export default function DeductionGameLocal() {
     setRound(nextRound);
     setBoardPressure(nextBoardPressure);
     setRaces([...races, { round: nextRound, report, driver1DNF, driver2DNF }]);
-    setBaseSuspicions(nextBaseSuspicions);
     setSuspicions(nextSuspicions);
     setSharedKnowledge(nextKnowledge);
     setGameLog((log) => {
@@ -1156,7 +1445,7 @@ export default function DeductionGameLocal() {
         ...(raceAnalysis ? [{ playerId: 'strategist-analysis', playerNumber: human?.number ?? 0, playerName: 'ST', message: raceAnalysis }] : []),
         ...driverDebriefs,
       ];
-      setQueuedMessages(buildBotDiscussionQueue(actingPlayers, dnfs, nextSuspicions, driver1DNF, driver2DNF, nextKnowledge, updatedLog, t, immediateBotKnowledge));
+      setQueuedMessages(buildBotDiscussionQueue(actingPlayers, dnfs, nextSuspicions, driver1DNF, driver2DNF, nextKnowledge, updatedLog, t));
       return updatedLog;
     });
     setSelectedVote('');
@@ -1172,19 +1461,7 @@ export default function DeductionGameLocal() {
 
     setTimer(45);
     setStatus('discussion');
-  }, [boardPressure, boardThreshold, botPrivateKnowledge, gameLog, human, inspectorNightMode, nightSelection, players, races, round, selectedDriver, t, updateBotInferences]);
-
-  useEffect(() => {
-    if (!observerMode || status !== 'night_phase') return;
-
-    const timeout = setTimeout(() => {
-      const randomDriver = Math.random() < 0.5 ? '1' : '2';
-      const nextKnowledge = performBotNightActions();
-      resolveRace(randomDriver, nextKnowledge);
-    }, 3000);
-
-    return () => clearTimeout(timeout);
-  }, [observerMode, status, round, performBotNightActions, resolveRace]);
+  };
 
   const submitHumanMessage = () => {
     const trimmed = humanMessage.trim();
@@ -1245,12 +1522,6 @@ export default function DeductionGameLocal() {
       : players;
     const aliveNegatives = nextPlayers.filter((player) => player.isAlive && player.alignment === 'negative');
     const alivePositives = nextPlayers.filter((player) => player.isAlive && player.alignment === 'positive');
-
-    if (firedPlayer) {
-      const updatedBaseSuspicions = updateSuspicionsAfterDeath(firedPlayer, voteResults, baseSuspicions, gameLog, sharedKnowledge, nextPlayers);
-      setBaseSuspicions(updatedBaseSuspicions);
-      setSuspicions(derivePublicSuspicions(nextPlayers, gameLog, sharedKnowledge, updatedBaseSuspicions, botPrivateKnowledge));
-    }
 
     setPlayers(nextPlayers);
     setRaces(races.map((race, index) => (
