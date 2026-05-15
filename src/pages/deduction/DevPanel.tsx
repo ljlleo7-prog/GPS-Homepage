@@ -27,7 +27,7 @@ export default function DevPanel({ players, suspicions, sharedKnowledge, gameLog
     <div className="mb-4 bg-neutral-950 border border-amber-500/20 rounded-lg p-2 overflow-x-auto">
       <h3 className="text-[10px] font-bold text-amber-400 mb-2">{t('deduction_game.dev.title')}</h3>
 
-      <div className="text-[10px] font-bold text-gray-400 mb-1">Bot Evaluations</div>
+      <div className="text-[10px] font-bold text-gray-400 mb-1">Bot Evaluations · B=base suspicion, Pub=public score, Priv=private modifier, T=vote score</div>
       <table className="text-[9px] border-collapse mb-2">
         <thead>
           <tr className="text-gray-500">
@@ -40,10 +40,10 @@ export default function DevPanel({ players, suspicions, sharedKnowledge, gameLog
             <th className="pr-1 sticky left-0 bg-neutral-950"></th>
             {players.filter((p) => !p.isHuman && p.isAlive).map((bot) => (
               <>
-                <th key={`${bot.id}-s`} className="pr-1 border-l border-gray-700">S</th>
-                <th key={`${bot.id}-pb`} className="pr-1">Pb</th>
-                <th key={`${bot.id}-pv`} className="pr-1">Pv</th>
-                <th key={`${bot.id}-t`} className="pr-1">T</th>
+                <th key={`${bot.id}-s`} className="pr-1 border-l border-gray-700" title="Stored base suspicion seed">B</th>
+                <th key={`${bot.id}-pb`} className="pr-1" title="Publicly evaluated suspicion">Pub</th>
+                <th key={`${bot.id}-pv`} className="pr-1" title="Private/team modifier">Priv</th>
+                <th key={`${bot.id}-t`} className="pr-1" title="Total score used for voting">T</th>
                 <th key={`${bot.id}-r`} className="pr-1">R</th>
                 <th key={`${bot.id}-tp`} className="pr-1">TP</th>
                 <th key={`${bot.id}-tc`} className="pr-1">TC</th>
@@ -98,7 +98,7 @@ export default function DevPanel({ players, suspicions, sharedKnowledge, gameLog
 
       <div className="mt-2 flex gap-3 overflow-x-auto">
         <div className="flex-shrink-0">
-          <div className="text-[10px] font-bold text-gray-400 mb-1">{t('deduction_game.dev.grid_sus')}</div>
+          <div className="text-[10px] font-bold text-gray-400 mb-1">Base Suspicion Grid</div>
           <table className="text-[9px] border-collapse">
             <thead>
               <tr>

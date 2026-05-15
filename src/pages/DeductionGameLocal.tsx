@@ -600,6 +600,7 @@ export default function DeductionGameLocal() {
   const [observerMode, setObserverMode] = useState(false);
   const [botNightActions, setBotNightActions] = useState<Record<string, { action: string; target?: string; targetName?: string }>>({});
   const inputRef = useRef<HTMLInputElement>(null);
+  const botNightActionRoundRef = useRef<number | null>(null);
 
   const human = players.find((player) => player.isHuman) ?? null;
   const latestRace = races[races.length - 1];
@@ -995,6 +996,7 @@ export default function DeductionGameLocal() {
     setBaseSuspicions({});
     setSharedKnowledge({ claims: {}, revealClaims: [], pressure: 0, dnfs: 0 });
     setBotPrivateKnowledge({});
+    botNightActionRoundRef.current = null;
   };
 
   const performBotNightActions = useCallback((): Record<string, BotPrivateKnowledge> => {
@@ -1069,10 +1071,11 @@ export default function DeductionGameLocal() {
   }, [players, suspicions, sharedKnowledge, gameLog, round]);
 
   useEffect(() => {
-    if (status === 'night_phase' && round > 0) {
-      performBotNightActions();
-    }
-  }, [status, round, performBotNightActions]);
+    if (status !== 'night_phase' || round <= 0 || observerMode) return;
+    if (botNightActionRoundRef.current === round) return;
+    botNightActionRoundRef.current = round;
+    performBotNightActions();
+  }, [status, round, observerMode, performBotNightActions]);
 
   const updateBotInferences = useCallback((driver1DNF: boolean, driver2DNF: boolean, selectedDriverNumber: number) => {
     setBotPrivateKnowledge((prev) => {
@@ -1260,6 +1263,8 @@ export default function DeductionGameLocal() {
 
   useEffect(() => {
     if (!observerMode || status !== 'night_phase') return;
+    if (botNightActionRoundRef.current === round) return;
+    botNightActionRoundRef.current = round;
 
     const timeout = setTimeout(() => {
       const randomDriver = Math.random() < 0.5 ? '1' : '2';
