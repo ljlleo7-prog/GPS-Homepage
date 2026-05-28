@@ -10,7 +10,9 @@ export interface CommunityActivityItem {
 }
 
 export interface WeeklyCommunitySnapshot {
+  days: number;
   active_participants: number;
+  event_participants: number;
   events: number;
   poll_votes: number;
   forum_posts: number;
@@ -61,6 +63,7 @@ export interface ContributionValidationEvent {
   source_type: string | null;
   source_id: string | null;
   points: number;
+  times?: number;
   metadata: Record<string, unknown>;
 }
 
@@ -125,11 +128,18 @@ export const fetchHomepageActivityFeed = async (limit = 10): Promise<CommunityAc
   return getResult<{ items: CommunityActivityItem[] }>(data, { items: [] }).items || [];
 };
 
-export const fetchWeeklyCommunitySnapshot = async (): Promise<WeeklyCommunitySnapshot> => {
-  const { data, error } = await supabase.rpc('get_weekly_community_snapshot');
+export const updateMyPresence = async () => {
+  const { error } = await supabase.rpc('update_my_presence');
+  if (error) throw error;
+};
+
+export const fetchWeeklyCommunitySnapshot = async (days = 7): Promise<WeeklyCommunitySnapshot> => {
+  const { data, error } = await supabase.rpc('get_weekly_community_snapshot', { p_days: days });
   if (error) throw error;
   return getResult<WeeklyCommunitySnapshot>(data, {
+    days,
     active_participants: 0,
+    event_participants: 0,
     events: 0,
     poll_votes: 0,
     forum_posts: 0,

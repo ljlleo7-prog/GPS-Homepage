@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { DeductionRoom, RoomPlayer, Race, SeasonState } from '@/types/deduction';
+import type { DeductionRoom, RoomPlayer, Race, SeasonState, Message } from '@/types/deduction';
 
 interface DeductionGameContextType {
   room: DeductionRoom | null;
@@ -8,10 +8,12 @@ interface DeductionGameContextType {
   currentPlayer: RoomPlayer | null;
   races: Race[];
   seasonState: SeasonState | null;
+  messages: Message[];
   loading: boolean;
   joinRoom: (roomId: string) => Promise<void>;
   submitAction: (actionType: string, target: string) => Promise<void>;
   submitVote: (targetPlayerId: string) => Promise<void>;
+  sendMessage: (content: string) => Promise<void>;
 }
 
 const DeductionGameContext = createContext<DeductionGameContextType | undefined>(undefined);
@@ -30,7 +32,37 @@ export function DeductionGameProvider({ children }: { children: React.ReactNode 
   const [currentPlayer, setCurrentPlayer] = useState<RoomPlayer | null>(null);
   const [races, setRaces] = useState<Race[]>([]);
   const [seasonState, setSeasonState] = useState<SeasonState | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Heartbeat effect to maintain presence
+  useEffect(() => {
+    if (!room?.id || !currentPlayer?.id) return;
+
+    const updateHeartbeat = async () => {
+      try {
+        await supabase
+          .from('deduction_room_players')
+          .update({ last_active_at: new Date().toISOString() })
+          .eq('id', currentPlayer.id);
+      } catch (error) {
+        console.error('Heartbeat error:', error);
+      }
+    };
+
+    // Initial heartbeat
+    updateHeartbeat();
+
+    // Set up interval
+    heartbeatIntervalRef.current = setInterval(updateHeartbeat, 30000);
+
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
+    };
+  }, [room?.id, currentPlayer?.id]);
 
   useEffect(() => {
     if (!room?.id) return;
@@ -43,7 +75,11 @@ export function DeductionGameProvider({ children }: { children: React.ReactNode 
         table: 'deduction_rooms',
         filter: `id=eq.${room.id}`,
       }, (payload) => {
-        setRoom(payload.new as DeductionRoom);
+        const updated = payload.new as DeductionRoom;
+        setRoom(updated);
+        if (updated.shutdown_at) {
+          console.warn('Room shut down:', updated.shutdown_reason);
+        }
       })
       .on('postgres_changes', {
         event: '*',
@@ -78,6 +114,14 @@ export function DeductionGameProvider({ children }: { children: React.ReactNode 
       }, (payload) => {
         setSeasonState(payload.new as SeasonState);
       })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'deduction_messages',
+        filter: `room_id=eq.${room.id}`,
+      }, (payload) => {
+        setMessages((current) => [...current, payload.new as Message]);
+      })
       .subscribe();
 
     return () => {
@@ -90,11 +134,12 @@ export function DeductionGameProvider({ children }: { children: React.ReactNode 
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      const [roomResult, playersResult, racesResult, seasonResult] = await Promise.all([
+      const [roomResult, playersResult, racesResult, seasonResult, messagesResult] = await Promise.all([
         supabase.from('deduction_rooms').select('*').eq('id', roomId).single(),
         supabase.from('deduction_room_players_public').select('*').eq('room_id', roomId).order('seat_index'),
         supabase.from('deduction_races').select('*').eq('room_id', roomId).order('round_number'),
         supabase.from('deduction_season_state').select('*').eq('room_id', roomId).maybeSingle(),
+        supabase.from('deduction_messages').select('*').eq('room_id', roomId).order('created_at'),
       ]);
 
       if (roomResult.error) throw roomResult.error;
@@ -105,6 +150,7 @@ export function DeductionGameProvider({ children }: { children: React.ReactNode 
       setCurrentPlayer(nextPlayers.find((player) => player.user_id === user?.id) ?? null);
       setRaces((racesResult.data ?? []) as Race[]);
       setSeasonState((seasonResult.data as SeasonState | null) ?? null);
+      setMessages((messagesResult.data ?? []) as Message[]);
     } finally {
       setLoading(false);
     }
@@ -133,6 +179,18 @@ export function DeductionGameProvider({ children }: { children: React.ReactNode 
     }, { onConflict: 'room_id,round_number,voter_player_id' });
   };
 
+  const sendMessage = async (content: string) => {
+    if (!room || !currentPlayer) return;
+
+    await supabase.from('deduction_messages').insert({
+      room_id: room.id,
+      round_number: room.current_round,
+      author_player_id: currentPlayer.id,
+      content,
+      generated_by_bot: false,
+    });
+  };
+
   return (
     <DeductionGameContext.Provider value={{
       room,
@@ -140,10 +198,12 @@ export function DeductionGameProvider({ children }: { children: React.ReactNode 
       currentPlayer,
       races,
       seasonState,
+      messages,
       loading,
       joinRoom,
       submitAction,
       submitVote,
+      sendMessage,
     }}>
       {children}
     </DeductionGameContext.Provider>

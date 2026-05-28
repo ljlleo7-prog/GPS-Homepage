@@ -28,7 +28,7 @@
   },
   "footer": {
     "navigation": "Navigation",
-    "tagline": "Student developers building the future. Where passion meets code.",
+    "tagline": "STEM-focused software and simulations for enthusiast communities in motorsport, aviation, and other high-barrier hobbies.",
     "connect": "Connect",
     "location": {
       "remote": "Remote / On Campus",
@@ -126,7 +126,7 @@
   },
   "home": {
     "hero": {
-      "tagline": "Student developers fueled by coffee, code, and curiosity. Building the future, one commit at a time.",
+      "tagline": "Software for passionate enthusiasts who want to explore motorsport, aviation, and simulation hobbies without a punishing learning curve or professional-grade cost.",
       "release_badge": "Official Release",
       "release_title": "DeltaDash is now live",
       "release_subtitle": "The open-wheel strategy boardgame is officially released. Build your version, chase the payout, and jump into the grid today.",
@@ -135,21 +135,21 @@
       "join_community": "Join Our Community"
     },
     "services": {
-      "title": "Our Passion",
-      "subtitle": "Started as individuals at school, we grew into a team of creators exploring both board games and computerized simulations.",
+      "title": "What We Build",
+      "subtitle": "GPS makes STEM and software tools for enthusiasts in motorsport, aviation, and other specialized hobbies, with an emphasis on lowering cost, time, and learning barriers.",
       "items": {
-        "web_projects": "Web Projects",
-        "web_projects_desc": "Building fun, experimental, and useful websites using modern frameworks like React and Vue.",
-        "mobile_experiments": "Mobile Experiments",
-        "mobile_experiments_desc": "Tinkering with native and cross-platform mobile apps to learn and solve real-world problems.",
-        "open_source": "Open Source",
-        "open_source_desc": "Contributing to and maintaining open source projects. We believe in sharing knowledge.",
-        "hackathons": "Hackathons",
-        "hackathons_desc": "Participating in hackathons to challenge ourselves, meet new people, and build cool stuff fast.",
-        "creative_coding": "Creative Coding",
-        "creative_coding_desc": "Exploring the intersection of art and code. Making things that look cool and inspire.",
-        "learning_together": "Learning Together",
-        "learning_together_desc": "Sharing resources, hosting workshops, and growing together as a community of developers."
+        "web_projects": "Specialist Web Apps",
+        "web_projects_desc": "Building interactive tools, dashboards, and browser experiences for niche enthusiast communities.",
+        "mobile_experiments": "Simulation Experiments",
+        "mobile_experiments_desc": "Prototyping mechanics and companion tools that help users understand complex hobbies faster.",
+        "open_source": "Accessible Systems",
+        "open_source_desc": "Designing software that makes hobby ecosystems easier to enter, study, and share.",
+        "hackathons": "Fast Prototyping",
+        "hackathons_desc": "Turning technical ideas into usable products quickly so enthusiasts can test them in the real world.",
+        "creative_coding": "Domain-Specific Design",
+        "creative_coding_desc": "Creating logic, economies, and simulations tuned for serious hobby communities.",
+        "learning_together": "Community Enablement",
+        "learning_together_desc": "Helping passionate players and makers learn together instead of facing a steep barrier alone."
       }
     },
     "featured_projects": {
@@ -186,9 +186,11 @@
       },
       "snapshot": {
         "title": "This Week at GPS",
-        "subtitle": "Contribution scores are validated by developers before recognition.",
+        "subtitle": "Passive presence is counted from recent signed-in visits; contribution scores are validated separately.",
+        "window_days": "Past {{count}} day",
+        "window_days_plural": "Past {{count}} days",
         "stats": {
-          "active_participants": "Active contributors",
+          "active_participants": "Users in window",
           "forum_posts": "Forum actions",
           "poll_votes": "Poll votes",
           "pending_scores": "Scores in validation"
@@ -221,7 +223,7 @@
   "about": {
     "story": {
       "title": "Our Story",
-      "subtitle": "Established in 2025, we are a team of students bridging the gap between board games and computerized simulations. What started as individual passion projects converged when we met at school, uniting under a shared vision.",
+      "subtitle": "Founded in 2025, GPS connects F1 fan culture, civil aviation curiosity, tabletop strategy design, and browser-based simulation into a focused playground for technically minded hobbyists.",
       "journey": "Our Journey"
     },
     "timeline": {
@@ -248,8 +250,8 @@
     },
     "mission": {
       "title": "Our Mission",
-      "content": "We are F1 fans, aviation enthusiasts, and creative minds. While some of us code, others design, bringing a diverse set of skills to the table. Based in China but open to the world, we are growing our community beyond our 1000+ Bilibili fans.",
-      "quote": "Code is our canvas, and we are just getting started. Let's build something awesome together.",
+      "content": "We are F1 fans, aviation enthusiasts, student developers, and game designers building from China for a wider community of technically minded hobbyists. GPS is for people who want better software to explore motorsport, civil aviation, strategy systems, and other high-barrier hobbies without paying professional-level cost, time, or learning overhead.",
+      "quote": "We turn hard-to-enter hobbies into software that feels welcoming, usable, and worth coming back to.",
       "author": "The GPS Team"
     },
     "values": {
@@ -370,7 +372,7 @@
         "suspend_reason_prompt": "Why should this weekly contribution score be inspected?",
         "auto_resolves": "Auto-resolves {{date}}",
         "total_points": "{{count}} pts",
-        "top_events": "Top scoring events",
+        "top_events": "Top scoring categories",
         "period_status": {
           "OPEN": "Open",
           "VALIDATION": "Validation",
@@ -1268,7 +1270,14 @@
       "create_start": "Create & Start Game",
       "creating": "Creating...",
       "login_required": "Please log in to play",
-      "how_to_play": "How to Play"
+      "how_to_play": "How to Play",
+      "open_rooms": "Open Rooms",
+      "no_rooms": "No open rooms. Create one to start!",
+      "waiting": "Waiting for players",
+      "rejoin": "Rejoin",
+      "join": "Join",
+      "create_room": "Create Room",
+      "host": "Host"
     },
     "roles": {
       "TP": "Team Principal",
@@ -1347,7 +1356,7 @@
     "log": {
       "title": "Game Log",
       "typing": "Bots are typing...",
-      "placeholder": "Type a comment, or type a template number...",
+      "placeholder": "Type commands like /sus 4 IS- (atk 2) (clean). Tab accepts, ↑↓ selects.",
       "send": "Send",
       "proceed_to_voting": "Proceed to Voting",
       "click_to_vote": "Click a player number card to vote, or lock with no target to abstain.",
@@ -1421,12 +1430,15 @@
       "bot_evaluation_pressure": "#{{number}} is benefiting from the table pressure too cleanly. Confidence: {{confidence}}.",
       "bot_evaluation_vote": "#{{number}}'s vote path is the part I dislike most. Confidence: {{confidence}}.",
       "bot_evaluation_uncertain": "#{{number}} is only my softest lead. Confidence: {{confidence}}.",
+      "bot_disproven_push": "#{{number}} pushed a case that flipped positive, so my old read has to reverse hard.",
       "confidence_low": "low",
       "confidence_medium": "medium",
       "confidence_high": "high",
-      "template_hint": "Compose a comment from segments, or type abbreviations like sus, race, s and use the faded completion hint.",
+      "template_hint": "Command manual: /action parameters (reason). Main examples: /trust 5 (checked), /sus 4 IS- (atk 2) (clean), /claim ST+ (checked), /action protected d1 (strong). Brackets add reasons/certainty; Enter sends only valid commands.",
+      "command_manual": "Format: /main parameters (reason). Use player numbers 1-6, role+side like IS- or ST+, and bracket notes like (checked), (clean), (atk 2), (strong).",
       "use_completion": "Use hint",
       "completion_hint": "{{command}} → {{value}}",
+      "command_hint_start": "Use /sus, /trust, /ask, /claim, or /action; add bracket notes like (checked) or (atk 2).",
       "segment_intent": "Intent",
       "segment_target": "Target",
       "segment_target_required": "Target *",

@@ -1,7 +1,6 @@
 import { assignRoles, getNegativeCount } from '@/config/deductionGame';
 import type { Role, Alignment } from '@/types/deduction';
 import type { LocalPlayer, BotPersonalityType } from './types';
-import { BOT_PERSONALITIES } from '@/config/deductionGame';
 
 const botNames = ['Vega', 'Orion', 'Nova', 'Apex', 'Rift', 'Pulse', 'Echo', 'Blitz'];
 
@@ -79,7 +78,7 @@ export function hasPublicClaimContradiction(claim?: { role?: Role; actionVerb?: 
   if (claim.role === 'TP') return claim.actionVerb !== 'inspected' && claim.actionVerb !== 'ejected';
   if (claim.role === 'TC') return claim.actionVerb !== 'protected' && claim.actionVerb !== 'sabotaged';
   if (claim.role === 'IS') return claim.actionVerb !== 'inspected' && claim.actionVerb !== 'ejected';
-  if (claim.role === 'ST') return claim.actionVerb !== 'analyzed' && claim.actionVerb !== 'sabotaged';
+  if (claim.role === 'ST') return claim.actionVerb !== 'protected' && claim.actionVerb !== 'sabotaged';
   return false;
 }
 

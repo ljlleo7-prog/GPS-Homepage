@@ -7,11 +7,13 @@ const WeeklyCommunitySnapshot = () => {
   const { t } = useTranslation();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [loading, setLoading] = useState(true);
+  const [days, setDays] = useState(7);
 
   useEffect(() => {
     const loadSnapshot = async () => {
+      setLoading(true);
       try {
-        setSnapshot(await fetchWeeklyCommunitySnapshot());
+        setSnapshot(await fetchWeeklyCommunitySnapshot(days));
       } catch (error) {
         console.error('Error loading weekly community snapshot:', error);
       } finally {
@@ -20,7 +22,7 @@ const WeeklyCommunitySnapshot = () => {
     };
 
     loadSnapshot();
-  }, []);
+  }, [days]);
 
   const stats = [
     { key: 'active_participants', icon: Users, value: snapshot?.active_participants || 0 },
@@ -35,6 +37,17 @@ const WeeklyCommunitySnapshot = () => {
         <div className="mb-8 text-center">
           <h2 className="text-3xl font-bold text-white">{t('home.community.snapshot.title')}</h2>
           <p className="mt-2 text-text-secondary font-mono">{t('home.community.snapshot.subtitle')}</p>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            {[1, 7, 30].map((option) => (
+              <button
+                key={option}
+                onClick={() => setDays(option)}
+                className={`rounded border px-3 py-1 text-xs font-mono transition ${days === option ? 'border-primary bg-primary/10 text-primary' : 'border-white/10 bg-background text-text-secondary hover:border-primary/40 hover:text-white'}`}
+              >
+                {t('home.community.snapshot.window_days', { count: option })}
+              </button>
+            ))}
+          </div>
         </div>
 
         {loading ? (

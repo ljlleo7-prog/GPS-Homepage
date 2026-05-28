@@ -7,7 +7,8 @@ import type { Alignment, Role, RoomStatus } from '@/types/deduction';
 import Manual from './deduction/Manual';
 import DevPanel from './deduction/DevPanel';
 import { shuffle, pickRandom } from './deduction/utils';
-import { parseComment, parsePublicKnowledge, buildSuspicionMap, evaluateBotTargets, getTopEvaluation, buildRoleCertaintyMap, isExplosiveClaim, hasPublicClaimContradiction, countRoleClaims, updateSuspicionsAfterDeath, isAtRiskOfElimination, findStrategicTarget, derivePublicSuspicions } from './deduction/gameLogic';
+import { parseComment, parsePublicKnowledge, buildSuspicionMap, evaluateBotTargets, getTopEvaluation, buildRoleCertaintyMap, isExplosiveClaim, hasPublicClaimContradiction, countRoleClaims, updateSuspicionsAfterDeath, isAtRiskOfElimination, findStrategicTarget, derivePublicSuspicions, getDisprovenPushScore } from './deduction/gameLogic';
+import { parseDeductionCommand, createCommandRegistry, isDeductionCommandInput, type DeductionCommandSuggestion, type DeductionCommandState } from './deduction/commandInput';
 import type { LocalPlayer, LocalRace, DiscussionMessage, SuspicionMap, SharedKnowledge, BotPrivateKnowledge, TemplateIntent, TemplateReason, TemplateCertainty, TemplateModule, TemplateSide, InspectorNightMode, BotPersonalityType, BotEvaluation } from './deduction/types';
 
 type TemplateActionVerb = 'protected' | 'sabotaged' | 'analyzed' | 'inspected' | 'ejected' | 'learned';
@@ -139,10 +140,12 @@ function buildBotDiscussionQueue(players: LocalPlayer[], dnfs: number, suspicion
     }
 
     const followUp = suspect
-      ? t(`deduction_game.log.bot_evaluation_${evaluation.publicReason}`, {
-        number: suspect.number,
-        confidence: evaluation.totalScore >= 70 ? t('deduction_game.log.confidence_high') : evaluation.totalScore >= 48 ? t('deduction_game.log.confidence_medium') : t('deduction_game.log.confidence_low'),
-      })
+      ? getDisprovenPushScore(suspect, players, log, knowledge) >= 0.8
+        ? t('deduction_game.log.bot_disproven_push', { number: suspect.number })
+        : t(`deduction_game.log.bot_evaluation_${evaluation.publicReason}`, {
+          number: suspect.number,
+          confidence: evaluation.totalScore >= 70 ? t('deduction_game.log.confidence_high') : evaluation.totalScore >= 48 ? t('deduction_game.log.confidence_medium') : t('deduction_game.log.confidence_low'),
+        })
       : t(`deduction_game.log.bot_uncertain_${(index % 3) + 1}`);
 
     const sharedTemplate = buildSharedBotTemplate(bot, suspect, evaluation, knowledge, dnfs, t);
@@ -185,7 +188,7 @@ function botClaimedAction(bot: LocalPlayer, t: (key: string, params?: Record<str
   const claimedRole = botClaim(bot);
   if (claimedRole === 'TC') return t('deduction_game.actions.protect').toLowerCase();
   if (claimedRole === 'IS') return t('deduction_game.actions.inspect').toLowerCase();
-  if (claimedRole === 'ST') return t('deduction_game.actions.analyze').toLowerCase();
+  if (claimedRole === 'ST') return t('deduction_game.actions.protect').toLowerCase();
   return t('deduction_game.actions.no_action').toLowerCase();
 }
 
@@ -598,6 +601,10 @@ export default function DeductionGameLocal() {
   const [showManual, setShowManual] = useState(false);
   const [showDev, setShowDev] = useState(false);
   const [observerMode, setObserverMode] = useState(false);
+  const [commandSuggestions, setCommandSuggestions] = useState<DeductionCommandSuggestion[]>([]);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
+  const [commandError, setCommandError] = useState<string | null>(null);
+  const [parsedCommandState, setParsedCommandState] = useState<DeductionCommandState | null>(null);
   const [botNightActions, setBotNightActions] = useState<Record<string, { action: string; target?: string; targetName?: string }>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const botNightActionRoundRef = useRef<number | null>(null);
@@ -698,6 +705,8 @@ export default function DeductionGameLocal() {
     ...players.filter((player) => player.isAlive).map((player) => ({ kind: 'player' as const, value: player.number, label: `#${player.number} ${player.name}` })),
   ], [players, t]);
 
+  const commandRegistry = useMemo(() => createCommandRegistry(players.filter((player) => player.isAlive).map((player) => player.number)), [players]);
+
   const filteredTemplateTargets = useMemo(() => {
     if (isDriverAction(templateAction)) return templateTargets.filter((target) => target.kind === 'driver');
     return templateTargets.filter((target) => target.kind === 'player');
@@ -791,6 +800,54 @@ export default function DeductionGameLocal() {
     inputRef.current?.focus();
   }, [t, selectedActionTarget, templateAction, templateActionTarget, templateCertainty, templateDriverNumber, selectedTemplateIntent, templateReason, templateRole, templateSide, templateTargetNumber, templateTargets]);
 
+  const buildCommandMessage = useCallback((state: DeductionCommandState): string => {
+    const actionTarget = state.actionTarget
+      ? state.actionTarget.kind === 'driver'
+        ? { kind: 'driver' as const, value: state.actionTarget.value, label: t('deduction_game.log.driver_name', { number: state.actionTarget.value }) }
+        : players.find((player) => player.number === state.actionTarget?.value)
+          ? { kind: 'player' as const, value: state.actionTarget.value, label: `#${state.actionTarget.value} ${players.find((player) => player.number === state.actionTarget?.value)?.name}` }
+          : undefined
+      : undefined;
+    const nextIntent = state.intent ?? selectedTemplateIntent;
+    const nextTarget = state.target ?? templateTargetNumber;
+    const nextReason = state.reason ?? templateReason;
+    const nextCertainty = state.certainty ?? templateCertainty;
+    const nextRole = state.role ?? templateRole;
+    const nextSide = state.side ?? templateSide;
+    const nextAction = state.action ?? templateAction;
+    const nextActionTarget = actionTarget ?? selectedActionTarget;
+    const nextDriver = nextActionTarget.kind === 'driver' ? nextActionTarget.value : templateDriverNumber;
+
+    return buildTemplateMessage(
+      nextIntent,
+      nextTarget,
+      nextReason,
+      nextIntent === 'action' ? null : nextCertainty,
+      claimCode(nextRole, sideToAlignment(nextSide)),
+      actionLabel(nextAction, t),
+      nextDriver,
+      t,
+      ['intent', ...(nextReason ? ['reason' as const] : []), ...(nextCertainty && nextIntent !== 'action' ? ['certainty' as const] : [])],
+      buildActionTargetLabel(nextActionTarget, t),
+      isRevealAction(nextAction) ? revealCode(nextRole, nextSide) : undefined,
+    );
+  }, [selectedActionTarget, selectedTemplateIntent, t, templateAction, templateCertainty, templateDriverNumber, templateReason, templateRole, templateSide, templateTargetNumber, players]);
+
+  const handleCommandInput = useCallback((value: string) => {
+    const result = parseDeductionCommand(value, commandRegistry);
+    setCommandSuggestions(result.suggestions);
+    setActiveSuggestionIndex(0);
+    setCommandError(result.error ?? null);
+    setParsedCommandState(result.complete && result.valid ? result.state : null);
+  }, [commandRegistry]);
+
+  const acceptCommandSuggestion = useCallback((suggestion?: DeductionCommandSuggestion) => {
+    if (!suggestion) return;
+    setHumanMessage(suggestion.replacement);
+    handleCommandInput(suggestion.replacement);
+    inputRef.current?.focus();
+  }, [handleCommandInput]);
+
   const templateStepHint = useMemo(() => {
     if (!templateIntent) return t('deduction_game.log.step_choose_intent');
     if (templateIntent === 'action' && !templateActionTarget) return t('deduction_game.log.step_choose_action_target');
@@ -799,25 +856,12 @@ export default function DeductionGameLocal() {
   }, [t, templateIntent, templateTarget, templateActionTarget]);
 
   const commandHint = useMemo(() => {
-    const command = humanMessage.trim().toLowerCase().replace(/^\//, '');
-    if (!command || command.includes(' ')) return templatePreview;
-
-    const intent = templateIntents.find((segment) => segment.abbr.startsWith(command) || segment.value.startsWith(command));
-    const action = templateActions.find((segment) => segment.abbr.startsWith(command) || segment.value.startsWith(command));
-    const reason = templateReasons.find((segment) => segment.abbr.startsWith(command) || segment.value.startsWith(command));
-    const certainty = templateCertainties.find((segment) => segment.abbr.startsWith(command) || segment.value.startsWith(command));
-
-    const role = templateRoles.find((segment) => segment.abbr.toLowerCase().startsWith(command) || segment.value.toLowerCase().startsWith(command));
-    const side = templateSides.find((segment) => segment.abbr === command || segment.value.startsWith(command));
-
-    if (intent) return t('deduction_game.log.completion_hint', { command: `/${intent.abbr}`, value: t(`deduction_game.log.segment_intent_${intent.value}`) });
-    if (action) return t('deduction_game.log.completion_hint', { command: `/${action.abbr}`, value: actionLabel(action.value, t) });
-    if (reason) return t('deduction_game.log.completion_hint', { command: `/${reason.abbr}`, value: t(`deduction_game.log.segment_reason_${reason.value}`) });
-    if (role) return t('deduction_game.log.completion_hint', { command: `/${role.abbr}`, value: t('deduction_game.log.segment_role_value', { role: role.value }) });
-    if (side) return t('deduction_game.log.completion_hint', { command: `/${side.abbr}`, value: t(`deduction_game.alignment.${side.value === 'unknown' ? 'positive' : side.value}`) });
-    if (certainty) return t('deduction_game.log.completion_hint', { command: `/${certainty.abbr}`, value: t(`deduction_game.log.segment_certainty_${certainty.value}`) });
-    return templatePreview;
-  }, [humanMessage, t, templateActions, templateCertainties, templateIntents, templatePreview, templateReasons, templateRoles, templateSides]);
+    if (!isDeductionCommandInput(humanMessage)) return templatePreview;
+    const command = humanMessage.trim().slice(1);
+    if (!command) return t('deduction_game.log.command_hint_start');
+    if (commandSuggestions.length > 0) return t('deduction_game.log.completion_hint', { command: commandSuggestions[activeSuggestionIndex]?.replacement ?? '/', value: commandSuggestions[activeSuggestionIndex]?.detail ?? '' });
+    return commandError ?? templatePreview;
+  }, [activeSuggestionIndex, commandError, commandSuggestions, humanMessage, t, templatePreview]);
 
   const showTemplateTarget = templateIntent ? intentNeedsTarget(templateIntent) : false;
   const showTemplateAction = templateIntent === 'action';
@@ -1278,18 +1322,23 @@ export default function DeductionGameLocal() {
   const submitHumanMessage = () => {
     const trimmed = humanMessage.trim();
     if (!trimmed || !human) return;
+    if (isDeductionCommandInput(trimmed) && !parsedCommandState) return;
+    const messageText = parsedCommandState ? buildCommandMessage(parsedCommandState) : trimmed;
 
     const nextLog = [...gameLog, {
       playerId: human.id,
       playerNumber: human.number,
       playerName: human.name,
-      message: trimmed,
+      message: messageText,
     }];
     const nextKnowledge = parsePublicKnowledge(players, nextLog, boardPressure, sharedKnowledge.dnfs);
     setGameLog(nextLog);
     setSharedKnowledge(nextKnowledge);
-    setQueuedMessages((messages) => [...messages, ...buildBotReactionQueue(players, suspicions, nextKnowledge, nextLog, human, trimmed, t)]);
+    setQueuedMessages((messages) => [...messages, ...buildBotReactionQueue(players, suspicions, nextKnowledge, nextLog, human, messageText, t)]);
     setHumanMessage('');
+    setParsedCommandState(null);
+    setCommandSuggestions([]);
+    setCommandError(null);
   };
 
   const submitHumanVote = () => {
@@ -1569,6 +1618,9 @@ export default function DeductionGameLocal() {
                         </button>
                       </div>
                       <div className="text-gray-500/80 italic">{templateStepHint} {commandHint}</div>
+                      <div className="rounded border border-white/10 bg-black/20 p-2 font-mono text-[10px] leading-relaxed text-gray-400">
+                        {t('deduction_game.log.command_manual')}
+                      </div>
                       <div className="grid gap-2 sm:grid-cols-5">
                         <div>
                           <div className="text-gray-500 mb-1">{t('deduction_game.log.segment_intent')}</div>
@@ -1709,47 +1761,67 @@ export default function DeductionGameLocal() {
                         value={humanMessage}
                         onChange={(event) => {
                           const val = event.target.value;
-                          const command = val.trim().toLowerCase().replace(/^\//, '');
-                          const intent = templateIntents.find((segment) => segment.abbr === command || segment.value === command);
-                          const action = templateActions.find((segment) => segment.abbr === command || segment.value === command);
-                          const reason = templateReasons.find((segment) => segment.abbr === command || segment.value === command);
-                          const certainty = templateCertainties.find((segment) => segment.abbr === command || segment.value === command);
-
-                          if (intent) {
-                            applyTemplate({ intent: intent.value });
-                            return;
-                          }
-                          if (action) {
-                            applyTemplate({ intent: 'action', action: action.value });
-                            return;
-                          }
-                          if (reason) {
-                            applyTemplate({ reason: reason.value });
-                            return;
-                          }
-                          const role = templateRoles.find((segment) => segment.abbr.toLowerCase().startsWith(command) || segment.value.toLowerCase().startsWith(command));
-                          const side = templateSides.find((segment) => segment.abbr === command || segment.value === command);
-                          if (role) {
-                            applyTemplate({ role: role.value });
-                            return;
-                          }
-                          if (side) {
-                            applyTemplate({ side: side.value });
-                            return;
-                          }
-                          if (certainty) {
-                            applyTemplate({ certainty: certainty.value });
-                            return;
-                          }
                           setHumanMessage(val);
+                          if (isDeductionCommandInput(val)) {
+                            handleCommandInput(val);
+                            return;
+                          }
+                          setCommandSuggestions([]);
+                          setCommandError(null);
+                          setParsedCommandState(null);
                         }}
                         onKeyDown={(event) => {
-                          if (event.key === 'Enter') submitHumanMessage();
+                          if (event.key === 'Tab' && commandSuggestions.length) {
+                            event.preventDefault();
+                            acceptCommandSuggestion(commandSuggestions[activeSuggestionIndex]);
+                            return;
+                          }
+                          if (event.key === 'ArrowDown' && commandSuggestions.length) {
+                            event.preventDefault();
+                            setActiveSuggestionIndex((index) => (index + 1) % commandSuggestions.length);
+                            return;
+                          }
+                          if (event.key === 'ArrowUp' && commandSuggestions.length) {
+                            event.preventDefault();
+                            setActiveSuggestionIndex((index) => (index - 1 + commandSuggestions.length) % commandSuggestions.length);
+                            return;
+                          }
+                          if (event.key === 'Escape') {
+                            setCommandSuggestions([]);
+                            return;
+                          }
+                          if (event.key === 'Enter') {
+                            if (isDeductionCommandInput(humanMessage) && !parsedCommandState) {
+                              event.preventDefault();
+                              if (commandSuggestions.length) acceptCommandSuggestion(commandSuggestions[activeSuggestionIndex]);
+                              return;
+                            }
+                            submitHumanMessage();
+                          }
                         }}
                         placeholder={t('deduction_game.log.placeholder')}
-                        className="flex-1 bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-500"
+                        className={`flex-1 bg-neutral-900 border rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-500 ${commandError && isDeductionCommandInput(humanMessage) && !parsedCommandState ? 'border-red-500/60' : 'border-white/10'}`}
                       />
-                      <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} onClick={submitHumanMessage} className="bg-purple-600 hover:bg-purple-500 px-3 rounded-lg">
+                      {isDeductionCommandInput(humanMessage) && (commandSuggestions.length > 0 || commandError) && (
+                        <div className="absolute left-0 right-12 top-11 z-20 rounded-lg border border-white/10 bg-neutral-950 shadow-xl overflow-hidden text-xs">
+                          {commandSuggestions.map((suggestion, index) => (
+                            <button
+                              key={`${suggestion.replacement}-${suggestion.value}`}
+                              type="button"
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                acceptCommandSuggestion(suggestion);
+                              }}
+                              className={`w-full px-3 py-2 text-left flex items-center justify-between ${index === activeSuggestionIndex ? 'bg-purple-600/40 text-white' : 'text-gray-300 hover:bg-white/5'}`}
+                            >
+                              <span className="font-mono">{suggestion.label}</span>
+                              <span className="text-gray-500">{suggestion.detail}</span>
+                            </button>
+                          ))}
+                          {commandError && !parsedCommandState && <div className="px-3 py-2 text-red-300 border-t border-white/10">{commandError}</div>}
+                        </div>
+                      )}
+                      <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} onClick={submitHumanMessage} className={`px-3 rounded-lg ${isDeductionCommandInput(humanMessage) && !parsedCommandState ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500'}`}>
                         <Send className="w-4 h-4" />
                       </motion.button>
                     </div>

@@ -366,10 +366,15 @@ export const EconomyProvider = ({ children }: { children: React.ReactNode }) => 
       const { data, error } = await supabase.rpc('claim_daily_bonus');
 
       if (error) throw error;
-      await logCommunityEngagement('daily_bonus_claimed', 'wallet', wallet?.id ?? undefined, { amount: data });
+      if (data && data.success === false) {
+        return { success: false, message: data.message || 'Failed to claim bonus' };
+      }
+
+      const amount = typeof data === 'number' ? data : data?.amount;
+      await logCommunityEngagement('daily_bonus_claimed', 'wallet', wallet?.id ?? undefined, { amount });
 
       await refreshEconomy();
-      return { success: true, amount: data };
+      return { success: true, amount };
     } catch (error: any) {
       console.error('Error claiming bonus:', error);
       return { success: false, message: error.message || 'Failed to claim bonus' };

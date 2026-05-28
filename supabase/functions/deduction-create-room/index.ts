@@ -29,12 +29,20 @@ Deno.serve(async (req) => {
 
     const seasonSeed = `${user.id}-${Date.now()}-${Math.random()}`;
 
+    // Force human-only multiplayer settings
+    const roomSettings = {
+      ...(settings || {}),
+      allow_bots: false,
+    };
+
     const { data: room, error } = await supabase
       .from('deduction_rooms')
       .insert({
         host_user_id: user.id,
-        settings: settings || {},
+        status: 'lobby',
+        settings: roomSettings,
         season_seed: seasonSeed,
+        last_activity_at: new Date().toISOString(),
       })
       .select()
       .single();

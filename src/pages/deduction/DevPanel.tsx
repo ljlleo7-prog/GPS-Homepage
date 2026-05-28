@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { Role } from '@/types/deduction';
+import { runDeductionCommandSmokeCases } from './commandInput';
+import { runDeductionParserSmokeCases } from './parserSmoke';
 import type { LocalPlayer, SuspicionMap, SharedKnowledge, DiscussionMessage, BotPrivateKnowledge, RoleCertaintyMap } from './types';
 
 interface DevPanelProps {
@@ -21,11 +23,26 @@ interface DevPanelProps {
 
 export default function DevPanel({ players, suspicions, sharedKnowledge, gameLog, botPrivateKnowledge, roleCertainty, evaluateBotTargets }: DevPanelProps) {
   const { t } = useTranslation();
+  const smoke = runDeductionParserSmokeCases();
+  const commandSmoke = runDeductionCommandSmokeCases();
   const cell = (v: number | null) => v === null ? <span className="text-gray-700">—</span> : <span className={v >= 70 ? 'text-red-400' : v >= 40 ? 'text-yellow-400' : 'text-gray-500'}>{v}</span>;
 
   return (
     <div className="mb-4 bg-neutral-950 border border-amber-500/20 rounded-lg p-2 overflow-x-auto">
       <h3 className="text-[10px] font-bold text-amber-400 mb-2">{t('deduction_game.dev.title')}</h3>
+
+      <div className="mb-2 text-[10px] border border-gray-800 rounded p-2 bg-black/30">
+        <div className="font-bold text-gray-300">
+          Parser Smoke · <span className={smoke.failed ? 'text-red-400' : 'text-green-400'}>{smoke.passed}/{smoke.total} passed</span>
+          <span className="mx-2 text-gray-600">|</span>
+          Command Smoke · <span className={commandSmoke.failed ? 'text-red-400' : 'text-green-400'}>{commandSmoke.passed}/{commandSmoke.total} passed</span>
+        </div>
+        {[...smoke.failures.slice(0, 2), ...commandSmoke.failures.slice(0, 2).map((failure) => ({ id: `command:${failure.input}`, input: failure.input, reasons: [failure.error] }))].map((failure) => (
+          <div key={failure.id} className="mt-1 text-red-300">
+            {failure.id}: {failure.reasons[0]} · “{failure.input}”
+          </div>
+        ))}
+      </div>
 
       <div className="text-[10px] font-bold text-gray-400 mb-1">Bot Evaluations · B=base suspicion, Pub=public score, Priv=private modifier, T=vote score</div>
       <table className="text-[9px] border-collapse mb-2">

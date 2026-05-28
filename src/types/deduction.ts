@@ -46,6 +46,9 @@ export interface DeductionRoom {
   ended_at: string | null;
   winning_alignment: Alignment | null;
   expulsion_reason: string | null;
+  last_activity_at: string;
+  shutdown_at: string | null;
+  shutdown_reason: string | null;
 }
 
 export interface RoomPlayer {
@@ -65,6 +68,9 @@ export interface RoomPlayer {
     action_results: ActionResult[];
   };
   joined_at: string;
+  last_active_at: string;
+  left_at: string | null;
+  is_online: boolean;
 }
 
 export interface SeasonState {

@@ -58,9 +58,17 @@ Deno.serve(async (req) => {
       .eq('id', room_id)
       .single();
 
-    if (!room || room.host_user_id !== user.id) {
-      return new Response(JSON.stringify({ error: 'Not authorized' }), {
-        status: 403,
+    if (!room) {
+      return new Response(JSON.stringify({ error: 'Room not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Allow host or any authenticated user (for auto-start)
+    if (room.status !== 'lobby') {
+      return new Response(JSON.stringify({ error: 'Room already started' }), {
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -69,10 +77,12 @@ Deno.serve(async (req) => {
       .from('deduction_room_players')
       .select('*')
       .eq('room_id', room_id)
+      .is('user_id', 'not.null')
+      .is('left_at', null)
       .order('seat_index');
 
     if (!players || players.length < 4) {
-      return new Response(JSON.stringify({ error: 'Need at least 4 players' }), {
+      return new Response(JSON.stringify({ error: 'Need at least 4 human players' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

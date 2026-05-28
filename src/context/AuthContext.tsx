@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { updateMyPresence } from '../lib/community';
 
 interface AuthContextType {
   user: User | null;
@@ -22,10 +23,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let presenceUpdatedForUser: string | null = null;
+
+    const updatePresenceOnce = async (userId?: string) => {
+      if (!userId || presenceUpdatedForUser === userId) return;
+      presenceUpdatedForUser = userId;
+      try {
+        await updateMyPresence();
+      } catch (error) {
+        console.error('Error updating user presence:', error);
+      }
+    };
+
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      updatePresenceOnce(session?.user?.id);
       setLoading(false);
     });
 
@@ -33,6 +47,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      updatePresenceOnce(session?.user?.id);
       setLoading(false);
     });
 

@@ -1297,7 +1297,7 @@ data.pending_deliverables
                                                     <div className="text-xs uppercase tracking-wide text-text-secondary">{t('developer.inbox.contribution_validation.top_events')}</div>
                                                     {score.top_events.map((event, index) => (
                                                         <div key={`${score.id}-${index}`} className="text-xs text-text-secondary font-mono">
-                                                            {event.event_type} · {event.points} pts
+                                                            {event.event_type} · {event.times ? `${event.times}x · ` : ''}{event.points} pts
                                                         </div>
                                                     ))}
                                                 </div>

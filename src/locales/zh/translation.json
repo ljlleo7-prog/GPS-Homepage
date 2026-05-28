@@ -31,7 +31,7 @@
   },
   "footer": {
     "navigation": "导航",
-    "tagline": "构建未来的学生开发者。激情与代码交汇之地。",
+    "tagline": "面向赛车运动、航空与其他高门槛爱好者的 STEM 软件与模拟工具，帮助社区降低成本、时间和学习门槛。",
     "connect": "联系方式",
     "location": {
       "remote": "远程 / 校园",
@@ -129,7 +129,7 @@
   },
   "home": {
     "hero": {
-      "tagline": "由咖啡、代码和好奇心驱动的学生开发者。一次提交，构建未来。",
+      "tagline": "为热爱者提供软件与模拟工具，让他们以更低的学习门槛、更少的时间和更可控的成本进入赛车运动、航空和相关爱好。",
       "release_badge": "正式发布",
       "release_title": "DeltaDash 已正式上线",
       "release_subtitle": "这款方程式赛车策略桌游已经正式发布。构建你的版本，争夺奖励，立即加入发车格。",
@@ -138,21 +138,21 @@
       "join_community": "加入社区"
     },
     "services": {
-      "title": "我们的热情",
-      "subtitle": "我们始于校园里的独立开发者，如今成长为一个探索桌面游戏与计算机模拟的创造者团队。",
+      "title": "我们在构建什么",
+      "subtitle": "GPS 为赛车运动、航空和其他专业爱好者打造 STEM 与软件工具，重点是降低成本、时间和学习门槛。",
       "items": {
-        "web_projects": "Web 项目",
-        "web_projects_desc": "使用 React 和 Vue 等现代框架构建有趣、实验性和有用的网站。",
-        "mobile_experiments": "移动端实验",
-        "mobile_experiments_desc": "通过原生和跨平台移动应用来学习并解决现实世界的问题。",
-        "open_source": "开源",
-        "open_source_desc": "贡献和维护开源项目。我们相信知识共享的力量。",
-        "hackathons": "黑客马拉松",
-        "hackathons_desc": "参加黑客马拉松挑战自我，结识新朋友，快速构建酷炫的东西。",
-        "creative_coding": "创意编程",
-        "creative_coding_desc": "探索艺术与代码的交汇点。创造看起来很酷并能激发灵感的东西。",
-        "learning_together": "共同学习",
-        "learning_together_desc": "分享资源，举办研讨会，作为一个开发者社区共同成长。"
+        "web_projects": "专业网页应用",
+        "web_projects_desc": "为细分爱好社区构建互动工具、数据看板和浏览器体验。",
+        "mobile_experiments": "模拟实验",
+        "mobile_experiments_desc": "原型化机制和辅助工具，帮助用户更快理解复杂爱好。",
+        "open_source": "易接近的系统",
+        "open_source_desc": "设计更容易进入、学习和分享的爱好生态软件。",
+        "hackathons": "快速原型",
+        "hackathons_desc": "把技术想法快速做成可用产品，让爱好者尽快在现实中测试。",
+        "creative_coding": "领域化设计",
+        "creative_coding_desc": "为严肃的爱好社区打造更贴合场景的逻辑、经济系统和模拟。",
+        "learning_together": "社区赋能",
+        "learning_together_desc": "帮助热爱者一起学习，而不是独自面对高门槛。"
       }
     },
     "featured_projects": {
@@ -189,9 +189,10 @@
       },
       "snapshot": {
         "title": "GPS 本周动态",
-        "subtitle": "贡献分会先由开发者验证，再进入公开认可。",
+        "subtitle": "近期登录访问会计入被动在线统计；贡献分仍会单独验证。",
+        "window_days": "过去 {{count}} 天",
         "stats": {
-          "active_participants": "活跃贡献者",
+          "active_participants": "窗口内用户",
           "forum_posts": "论坛动作",
           "poll_votes": "投票数",
           "pending_scores": "待验证分数"
@@ -224,7 +225,7 @@
   "about": {
     "story": {
       "title": "我们的故事",
-      "subtitle": "成立于2025年，我们是一个致力于连接桌面游戏与计算机模拟的学生团队。故事始于校园，原本各自为战的我们因共同的热爱走到了一起。",
+      "subtitle": "从 2025 年的校园项目出发，GPS 将 F1 车迷文化、民航兴趣、桌游策略设计和浏览器模拟结合成一个面向技术爱好者的创作空间。",
       "journey": "我们的旅程"
     },
     "timeline": {
@@ -251,8 +252,8 @@
     },
     "mission": {
       "title": "我们的使命",
-      "content": "我们是F1车迷、航空爱好者和创意思想者。我们中既有代码高手，也有设计达人，多元化的技能让我们与众不同。立足中国，放眼世界，我们正致力于将社区从1000多人的Bilibili粉丝群扩展到全球。",
-      "quote": "代码是我们的画布，我们才刚刚开始。让我们一起创造了不起的东西。",
+      "content": "我们是 F1 车迷、民航爱好者、学生开发者和游戏设计者，从中国出发面向更广泛的技术爱好者社群。GPS 服务于那些想更轻松地进入赛车运动、民航、策略系统和其他高门槛爱好的人，帮助他们减少专业级软件带来的成本、时间和学习负担。",
+      "quote": "我们把难以进入的爱好，变成更友好、更实用、也更值得反复使用的软件。",
       "author": "GPS 团队"
     },
     "values": {
@@ -374,7 +375,7 @@
         "suspend_reason_prompt": "为什么需要检查这个每周贡献分？",
         "auto_resolves": "自动结算 {{date}}",
         "total_points": "{{count}} 分",
-        "top_events": "最高得分事件",
+        "top_events": "最高得分类别",
         "period_status": {
           "OPEN": "开放中",
           "VALIDATION": "验证中",
@@ -1230,7 +1231,14 @@
       "create_start": "创建并开始游戏",
       "creating": "创建中...",
       "login_required": "请登录后游玩",
-      "how_to_play": "游戏规则"
+      "how_to_play": "游戏规则",
+      "open_rooms": "开放房间",
+      "no_rooms": "暂无开放房间。创建一个开始吧！",
+      "waiting": "等待玩家中",
+      "rejoin": "重新加入",
+      "join": "加入",
+      "create_room": "创建房间",
+      "host": "房主"
     },
     "roles": {
       "TP": "车队总监",
@@ -1309,7 +1317,7 @@
     "log": {
       "title": "游戏记录",
       "typing": "机器人正在输入...",
-      "placeholder": "输入评论，或输入模板编号...",
+      "placeholder": "输入如 /sus 4 IS- (atk 2) (clean)。Tab 接受，↑↓ 选择。",
       "send": "发送",
       "proceed_to_voting": "进入投票",
       "click_to_vote": "点击玩家编号卡片投票，或不选目标直接锁定弃票。",
@@ -1383,12 +1391,15 @@
       "bot_evaluation_pressure": "#{{number}} 太顺利地利用了桌面压力。信心：{{confidence}}。",
       "bot_evaluation_vote": "#{{number}} 的投票路径最让我不舒服。信心：{{confidence}}。",
       "bot_evaluation_uncertain": "#{{number}} 只是我最弱的线索。信心：{{confidence}}。",
+      "bot_disproven_push": "#{{number}} 推出去的人翻成好人，所以我之前的判断必须强烈反转。",
       "confidence_low": "低",
       "confidence_medium": "中等",
       "confidence_high": "高",
-      "template_hint": "用片段组合发言，或输入 sus、race、s 这类缩写，并参考半透明补全提示。",
+      "template_hint": "指令手册：/动作 参数 (理由)。常用例子：/trust 5 (checked)、/sus 4 IS- (atk 2) (clean)、/claim ST+ (checked)、/action protected d1 (strong)。括号里添加理由或确定度；只有有效指令才能 Enter 发送。",
+      "command_manual": "格式：/主动作 参数 (理由)。玩家用 1-6，身份阵营用 IS- 或 ST+，括号备注可用 (checked)、(clean)、(atk 2)、(strong)。",
       "use_completion": "使用提示",
       "completion_hint": "{{command}} → {{value}}",
+      "command_hint_start": "使用 /sus、/trust、/ask、/claim 或 /action；可加 (checked)、(atk 2) 等括号备注。",
       "segment_intent": "意图",
       "segment_target": "目标",
       "segment_target_required": "目标 *",

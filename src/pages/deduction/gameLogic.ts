@@ -1,5 +1,5 @@
 import type { Role, Alignment } from '@/types/deduction';
-import type { LocalPlayer, DiscussionMessage, SuspicionMap, SharedKnowledge, BotPrivateKnowledge, BotEvaluation, ParsedComment, RoleCertaintyMap, ActionVerb, RevealClaim } from './types';
+import type { LocalPlayer, DiscussionMessage, SuspicionMap, SharedKnowledge, BotPrivateKnowledge, BotEvaluation, ParsedComment, RoleCertaintyMap, ActionVerb, RevealClaim, CommentIntent } from './types';
 
 export function logOdds(p: number): number {
   const clamped = Math.max(0.01, Math.min(0.99, p / 100));
@@ -15,7 +15,7 @@ export function hasPublicClaimContradiction(claim?: SharedKnowledge['claims'][st
   if (claim.role === 'TP') return claim.actionVerb !== 'ejected' && claim.actionVerb !== 'learned';
   if (claim.role === 'TC') return claim.actionVerb !== 'protected' && claim.actionVerb !== 'sabotaged';
   if (claim.role === 'IS') return claim.actionVerb !== 'inspected' && claim.actionVerb !== 'ejected';
-  if (claim.role === 'ST') return claim.actionVerb !== 'analyzed' && claim.actionVerb !== 'sabotaged';
+  if (claim.role === 'ST') return claim.actionVerb !== 'protected' && claim.actionVerb !== 'sabotaged';
   return false;
 }
 
@@ -33,44 +33,187 @@ export function isExplosiveClaim(claim?: SharedKnowledge['claims'][string]): boo
   return claim?.alignment === 'negative' || claim?.actionVerb === 'sabotaged';
 }
 
+function normalizeComment(message: string): string {
+  return message
+    .toLowerCase()
+    .replace(/[，。！？；：、]/g, ' ')
+    .replace(/[“”‘’]/g, '"')
+    .replace(/\bu\b/g, 'you')
+    .replace(/\bcc\b/g, 'counterclaim')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function playerByNumber(players: LocalPlayer[], number?: number): LocalPlayer | null {
+  return number === undefined ? null : players.find((player) => player.number === number) ?? null;
+}
+
+function numberFromMatch(match?: RegExpMatchArray | null): number | undefined {
+  if (!match) return undefined;
+  const value = match.slice(1).find(Boolean);
+  return value ? Number(value) : undefined;
+}
+
+function firstNumber(text: string): number | undefined {
+  return numberFromMatch(text.match(/#(\d+)\b/));
+}
+
+function numberAfter(text: string, pattern: RegExp): number | undefined {
+  const match = pattern.exec(text);
+  if (!match) return undefined;
+  return firstNumber(text.slice(match.index + match[0].length));
+}
+
+function hasAny(text: string, patterns: RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+function hasNegatedSuspicionForTarget(text: string, targetNumber?: number): boolean {
+  if (targetNumber === undefined) return false;
+  const target = `#${targetNumber}`;
+  return new RegExp(`(?:not|dont|don't|do not|isn't|isnt|不是|不觉得|不认为|没觉得|没有觉得|别说|没说)[^#]{0,16}${target}[^.。!?！？]{0,28}(?:sus|suspicious|involved|behind this|可疑|问题|狼|坏|参与|有关|凶|锅)`).test(text)
+    || new RegExp(`${target}[^.。!?！？]{0,20}(?:is not|isn't|isnt|not|不是|不像|不太像|不算|没|没有)[^.。!?！？]{0,20}(?:sus|suspicious|involved|behind this|可疑|狼|坏|参与|有关|凶|锅)`).test(text)
+    || new RegExp(`${target}[^.。!?！？]{0,20}(?:isn't|isnt|is not|不是)[^.。!?！？]{0,20}(?:involved|behind this|参与|有关)`).test(text);
+}
+
+function hasNegatedAction(text: string, action: ActionVerb | undefined): boolean {
+  if (!action) return false;
+  const actionWords: Record<ActionVerb, RegExp> = {
+    protected: /protect|保护|保/,
+    sabotaged: /sabotage|破坏/,
+    analyzed: /analy|分析/,
+    inspected: /sense|inspect|感知|检查|查了|验了|查验/,
+    ejected: /eject|expel|kill|驱逐|放逐|击杀/,
+    learned: /know-all|learned all|know all|全知|知道所有/,
+  };
+  const source = actionWords[action].source;
+  return new RegExp(`(?:not|didn't|didnt|do not|don't|没|没有|未|别)[^。.!?！？]{0,12}(?:${source})`).test(text);
+}
+
+function isReportedSpeech(text: string): boolean {
+  return hasAny(text, [/#\d+\s*(?:said|says|claim(?:ed)?|told)/, /(?:听|据说|有人说).*#\d+.*(?:说|表示|声明)/, /#\d+\s*(?:说|表示|声明)/]);
+}
+
+function targetNumberFromMessage(text: string): number | undefined {
+  const contrastTarget = numberAfter(text, /(?:不是|not)\s*#\d+\s*(?:[,， ]+)?(?:是|but|instead|vote)?/);
+  if (contrastTarget !== undefined) return contrastTarget;
+
+  const voteTarget = numberAfter(text, /(?:vote|投|票|出|归票)\s*/);
+  if (voteTarget !== undefined) return voteTarget;
+
+  const reportedTarget = numberAfter(text, /#\d+\s*(?:said|says|claim(?:ed)?|told|说|表示|声明)\s*/);
+  if (reportedTarget !== undefined) return reportedTarget;
+
+  return firstNumber(text);
+}
+
+function detectActionVerb(text: string): ActionVerb | undefined {
+  if (hasAny(text, [/protect/, /保护/, /保了/, /保车手/])) return 'protected';
+  if (hasAny(text, [/sabotage/, /破坏/])) return 'sabotaged';
+  if (hasAny(text, [/analy/, /分析/])) return 'analyzed';
+  if (hasAny(text, [/sense/, /inspect/, /感知/, /检查/, /查了/, /验了/, /查验/])) return 'inspected';
+  if (hasAny(text, [/know-all/, /learned all/, /know all/, /learned it from/, /learned from/, /全知/, /知道所有/])) return 'learned';
+  if (hasAny(text, [/eject/, /expel/, /kill/, /驱逐/, /放逐/, /击杀/])) return 'ejected';
+  return undefined;
+}
+
+function detectActionDriver(text: string, negatedAction: boolean): number | undefined {
+  if (negatedAction) return undefined;
+  return numberFromMatch(text.match(/driver\s*([12])|车手\s*([12])/));
+}
+
+function roleFromMatch(match?: RegExpMatchArray): Role | undefined {
+  return match?.[1] ? match[1].toUpperCase() as Role : undefined;
+}
+
+function alignmentFromRoleMatch(match?: RegExpMatchArray): Alignment | undefined {
+  if (match?.[2] === '-') return 'negative';
+  if (match?.[2] === '+') return 'positive';
+  return undefined;
+}
+
+function detectRoleMatches(message: string): RegExpMatchArray[] {
+  return [...message.matchAll(/(?:^|[^a-zA-Z])(TP|TC|IS|ST)([+-])?(?=$|[^a-zA-Z])/g)];
+}
+
+function explicitSelfClaim(text: string): boolean {
+  return hasAny(text, [/\bi claim\b/, /\bmy role\b/, /\bi am\b/, /\bi'm\b/, /声明/, /我是/, /我跳/, /我拍/, /我认/]);
+}
+
+function explicitRoleNegation(text: string): boolean {
+  return hasAny(text, [/\bi am not\s+(?:tp|tc|is|st)-?\b/, /\bi'm not\s+(?:tp|tc|is|st)-?\b/, /我不是\s*(?:TP|TC|IS|ST)/i]);
+}
+
+function detectAlignmentWords(text: string): Alignment | undefined {
+  if (hasAny(text, [/\bnegative\b/, /\bbad side\b/, /\bimposter\b/, /内鬼/, /负面/, /坏阵营/])) return 'negative';
+  if (hasAny(text, [/\bpositive\b/, /\bgood side\b/, /\bclean\b/, /好阵营/, /金水/, /清白/, /正面/])) return 'positive';
+  return undefined;
+}
+
+function hasQuestionCue(text: string, original: string): boolean {
+  return original.includes('?')
+    || hasAny(text, [/\bwhat do you think\b/, /\bdo you think\b/, /\bare you sure\b/, /\bare you\b/, /\bshould i\b/, /\bcan you explain\b/, /\bwhy\b/, /你觉得/, /你认为/, /是不是/, /是吗/, /吗\b/, /对吗/, /确定吗/, /怎么说/, /为什么/, /解释/]);
+}
+
+function roleAlias(text: string): Role | undefined {
+  if (hasAny(text, [/\binspector\b/, /检查者/, /查验/, /验人/])) return 'IS';
+  if (hasAny(text, [/\bsupport\b/, /支持者/, /帮手/])) return 'TC';
+  if (hasAny(text, [/\bstrategist\b/, /策略师/])) return 'ST';
+  return undefined;
+}
+
+function targetAfterAction(text: string, action: ActionVerb | undefined): number | undefined {
+  if (!action) return undefined;
+  const actionPatterns: Record<ActionVerb, RegExp> = {
+    protected: /(?:protect(?:ed)?|保护|保了?)\s*/,
+    sabotaged: /(?:sabotage(?:d)?|破坏)\s*/,
+    analyzed: /(?:analyz(?:e|ed)|分析)\s*/,
+    inspected: /(?:inspect(?:ed)?|sense|查了?|验了?|查验|感知|检查)\s*/,
+    ejected: /(?:eject(?:ed)?|expel(?:led)?|kill(?:ed)?|驱逐|放逐|击杀)\s*/,
+    learned: /(?:learned|know all|全知|知道所有)\s*/,
+  };
+  return numberAfter(text, actionPatterns[action]);
+}
+
+function detectIntent(text: string, original: string, target: LocalPlayer | null, actionVerb: ActionVerb | undefined, actionDriver: number | undefined, isSelfClaim: boolean, negatedSuspicion: boolean): CommentIntent {
+  const questionCue = hasQuestionCue(text, original);
+  if (questionCue && !isSelfClaim) return 'ask';
+  if (actionVerb || actionDriver || isSelfClaim) return 'claim';
+  if (negatedSuspicion) return target ? 'trust' : 'neutral';
+  if (hasAny(text, [/counterclaim/, /\bcc\b/, /悍跳/, /对跳/, /不信/, /fake claim/, /certain/, /confidence/, /确定/, /自信/])) return 'challenge';
+  if (hasAny(text, [/explain/, /why/, /解释/, /为什么/])) return 'ask';
+  if (hasAny(text, [/abstain/, /弃票/])) return 'abstain';
+  if (hasAny(text, [/sus\b/, /suspicious/, /suspect/, /可疑/, /不太对劲/, /有问题/, /踩/, /装好人/, /像狼/, /是狼/, /坏人/])) return 'suspect';
+  if (hasAny(text, [/trust/, /clean/, /别投/, /不要投/, /像好人/, /好人/, /保一下/, /站边/, /信任/])) return 'trust';
+  return target ? 'suspect' : 'neutral';
+}
+
 export function parseComment(players: LocalPlayer[], message: string): ParsedComment {
-  const lower = message.toLowerCase();
-  const targetNumberMatch = message.match(/#(\d+)\b/);
-  const targetNumber = targetNumberMatch ? Number(targetNumberMatch[1]) : undefined;
-  const target = targetNumber === undefined ? null : players.find((player) => player.number === targetNumber) ?? null;
-  const roleMatches = [...message.matchAll(/\b(TP|TC|IS|ST)([+-])?\b/gi)];
+  const normalized = normalizeComment(message);
+  const roleMatches = detectRoleMatches(message);
   const firstRole = roleMatches[0];
-  const actionDriverMatch = lower.match(/driver\s*([12])|车手\s*([12])/);
-  const actionDriver = actionDriverMatch ? Number(actionDriverMatch[1] ?? actionDriverMatch[2]) : undefined;
-  const actionVerb: ActionVerb | undefined = lower.includes('protect') || lower.includes('保护')
-    ? 'protected'
-    : lower.includes('sabotage') || lower.includes('破坏')
-      ? 'sabotaged'
-      : lower.includes('analy') || lower.includes('分析')
-        ? 'analyzed'
-        : lower.includes('sense') || lower.includes('inspect') || lower.includes('感知') || lower.includes('检查')
-          ? 'inspected'
-          : lower.includes('know-all') || lower.includes('learned all') || lower.includes('know all') || lower.includes('全知') || lower.includes('知道所有')
-            ? 'learned'
-            : lower.includes('eject') || lower.includes('expel') || lower.includes('kill') || lower.includes('驱逐') || lower.includes('放逐') || lower.includes('击杀')
-              ? 'ejected'
-              : undefined;
-  const isRevealAction = actionVerb === 'inspected' || actionVerb === 'learned';
-  const claimedRole = !isRevealAction && firstRole?.[1] ? firstRole[1].toUpperCase() as Role : undefined;
-  const claimedAlignment = !isRevealAction && firstRole?.[2] === '-' ? 'negative' : !isRevealAction && firstRole?.[2] === '+' ? 'positive' : undefined;
-  const revealedRole = isRevealAction && firstRole?.[1] ? firstRole[1].toUpperCase() as Role : undefined;
-  const revealedAlignment = isRevealAction && firstRole?.[2] === '-' ? 'negative' : isRevealAction && firstRole?.[2] === '+' ? 'positive' : undefined;
-  const isSelfClaim = lower.includes('i claim') || lower.includes('my role') || lower.includes('i am') || lower.includes("i'm") || lower.includes('声明') || Boolean(actionVerb || actionDriver);
+  const actionVerbCandidate = detectActionVerb(normalized);
+  const negatedAction = hasNegatedAction(normalized, actionVerbCandidate);
+  const actionVerb = negatedAction ? undefined : actionVerbCandidate;
+  const actionTargetNumber = targetAfterAction(normalized, actionVerb);
+  const targetNumber = actionTargetNumber ?? targetNumberFromMessage(normalized);
+  const target = playerByNumber(players, targetNumber);
+  const actionDriver = detectActionDriver(normalized, negatedAction);
+  const reported = isReportedSpeech(normalized);
+  const questionCue = hasQuestionCue(normalized, message);
+  const selfClaim = explicitSelfClaim(normalized) && !reported && !explicitRoleNegation(normalized);
+  const actionSelfClaim = Boolean(actionVerb || actionDriver) && !reported && !questionCue && (hasAny(normalized, [/\bi\b/, /\bi'm\b/, /\bwe\b/, /我/, /我们/]) || !target);
+  const isSelfClaim = selfClaim || actionSelfClaim;
+  const role = roleFromMatch(firstRole) ?? roleAlias(normalized);
+  const roleNegated = explicitRoleNegation(normalized);
+  const claimedRole = !roleNegated && (isSelfClaim || (target && hasAny(normalized, [/悍跳/, /说自己是/, /claims?\s+(?:to be\s+)?/]))) ? role : (!target && !reported && !roleNegated ? role : undefined);
+  const claimedAlignment = claimedRole ? alignmentFromRoleMatch(firstRole) ?? detectAlignmentWords(normalized) : undefined;
+  const revealedRole = actionVerb === 'inspected' || actionVerb === 'learned' || reported ? role : undefined;
+  const revealedAlignment = (actionVerb === 'inspected' || actionVerb === 'learned' || reported) ? alignmentFromRoleMatch(firstRole) ?? detectAlignmentWords(normalized) : undefined;
+  const negatedSuspicion = hasNegatedSuspicionForTarget(normalized, targetNumber);
+  const intent = detectIntent(normalized, message, target, actionVerb, actionDriver, isSelfClaim, negatedSuspicion);
 
-  if (actionVerb || actionDriver) return { intent: 'claim', target, claimedRole, claimedAlignment, revealedRole, revealedAlignment, actionDriver, actionVerb, isSelfClaim };
-  if (lower.includes('trust') || lower.includes('信任')) return { intent: 'trust', target, claimedRole, claimedAlignment, isSelfClaim: false };
-  if (lower.includes('explain') || lower.includes('why') || lower.includes('解释') || lower.includes('为什么')) return { intent: 'ask', target, claimedRole, claimedAlignment, isSelfClaim: false };
-  if (lower.includes('abstain') || lower.includes('弃票')) return { intent: 'abstain', target, claimedRole, claimedAlignment, isSelfClaim: false };
-  if (lower.includes('claim') || lower.includes('声明') || (claimedRole && !target)) return { intent: 'claim', target, claimedRole, claimedAlignment, isSelfClaim };
-  if (lower.includes('certain') || lower.includes('confidence') || lower.includes('确定') || lower.includes('自信')) return { intent: 'challenge', target, claimedRole, claimedAlignment, isSelfClaim: false };
-  if (lower.includes('suspect') || lower.includes('suspicious') || lower.includes('怀疑') || lower.includes('可疑')) return { intent: 'suspect', target, claimedRole, claimedAlignment, isSelfClaim: false };
-
-  return { intent: target ? 'suspect' : 'neutral', target, claimedRole, claimedAlignment, isSelfClaim };
+  return { intent, target, claimedRole, claimedAlignment, revealedRole, revealedAlignment, actionDriver, actionVerb, isSelfClaim };
 }
 
 export function calculateInformationalEntropy(knowledge: SharedKnowledge, playerCount: number): number {
@@ -208,8 +351,55 @@ function credibilityGainMultiplier(player: LocalPlayer, eliminated: LocalPlayer,
   return Math.max(0.2, 1 - certainty - timingPenalty);
 }
 
-function deriveHistoricalCredibility(player: LocalPlayer, players: LocalPlayer[], log: DiscussionMessage[]): number {
+function beliefReadiness(players: LocalPlayer[], log: DiscussionMessage[], knowledge: SharedKnowledge): number {
+  const eliminatedCount = players.filter((player) => !player.isAlive).length;
+  const credibleReveals = knowledge.revealClaims.filter((claim) => claim.credible).length;
+  const actionClaims = Object.values(knowledge.claims).filter((claim) => claim.actionVerb).length;
+
+  return Math.min(1, eliminatedCount * 0.55 + credibleReveals * 0.22 + knowledge.dnfs * 0.12 + actionClaims * 0.04 + Math.max(0, log.length - 10) * 0.015);
+}
+
+function playerActionAgainst(player: LocalPlayer, target: LocalPlayer, log: DiscussionMessage[], players: LocalPlayer[]) {
+  const actionMessages = log
+    .map((msg, index) => ({ msg, index, parsed: parseComment(players, msg.message) }))
+    .filter(({ msg, parsed }) => {
+      const isVote = msg.playerId === `vote-${player.id}`;
+      const isStatement = msg.playerId === player.id && (parsed.intent === 'suspect' || parsed.intent === 'challenge');
+      return parsed.target?.id === target.id && (isVote || isStatement);
+    });
+  const firstIndex = actionMessages[0]?.index ?? -1;
+  const accusationCount = actionMessages.filter(({ msg }) => msg.playerId === player.id).length;
+  const voted = actionMessages.some(({ msg }) => msg.playerId === `vote-${player.id}`);
+  const confidentCount = actionMessages.filter(({ parsed, msg }) => parsed.intent === 'challenge' || /\b(certain|confidence|must|definitely)\b/i.test(msg.message)).length;
+
+  return { firstIndex, accusationCount, voted, confidentCount };
+}
+
+function deriveDisprovenPushSuspicion(player: LocalPlayer, players: LocalPlayer[], log: DiscussionMessage[], knowledge: SharedKnowledge): number {
+  const readiness = beliefReadiness(players, log, knowledge);
+  if (readiness < 0.35) return 0;
+
+  let lo = 0;
+
+  players.filter((candidate) => !candidate.isAlive && candidate.alignment === 'positive' && candidate.id !== player.id).forEach((eliminated) => {
+    const action = playerActionAgainst(player, eliminated, log, players);
+    if (action.firstIndex < 0) return;
+
+    const certaintyBefore = publicCertaintyBefore(eliminated, log, action.firstIndex, players);
+    const manufacturedCase = 1 - certaintyBefore;
+    const actionStrength = (action.voted ? 0.55 : 0) + Math.min(0.9, action.accusationCount * 0.32) + Math.min(0.65, action.confidentCount * 0.35);
+    const claimConflict = knowledge.claims[player.id]?.role && knowledge.claims[eliminated.id]?.role && knowledge.claims[player.id].role === knowledge.claims[eliminated.id].role;
+
+    lo += actionStrength * (0.55 + manufacturedCase * 1.1) * readiness;
+    if (claimConflict) lo += 0.55 * readiness;
+  });
+
+  return Math.min(2.2, lo);
+}
+
+function deriveHistoricalCredibility(player: LocalPlayer, players: LocalPlayer[], log: DiscussionMessage[], knowledge: SharedKnowledge): number {
   let credibility = 0;
+  const readiness = beliefReadiness(players, log, knowledge);
 
   players.filter((candidate) => !candidate.isAlive && candidate.id !== player.id).forEach((eliminated) => {
     const votedForEliminated = log.some((msg) => {
@@ -228,7 +418,7 @@ function deriveHistoricalCredibility(player: LocalPlayer, players: LocalPlayer[]
     }).length;
 
     if (eliminated.alignment === 'negative') {
-      const gainMultiplier = credibilityGainMultiplier(player, eliminated, log, players);
+      const gainMultiplier = credibilityGainMultiplier(player, eliminated, log, players) * Math.max(0.35, readiness);
       if (votedForEliminated) credibility += 1.1 * gainMultiplier;
       credibility += Math.min(0.7, accusationCount * 0.25) * gainMultiplier;
       credibility -= Math.min(0.7, defenseCount * 0.35);
@@ -289,7 +479,8 @@ export function computeSuspicion(
     lo += inference / 100;
   }
 
-  lo -= deriveHistoricalCredibility(target, players, log) * 0.55;
+  lo -= deriveHistoricalCredibility(target, players, log, knowledge) * 0.55;
+  lo += deriveDisprovenPushSuspicion(target, players, log, knowledge);
 
   if (knowledge.dnfs > 0) lo += 0.4 * knowledge.dnfs;
   lo += deriveRevealSuspicion(bot, target, knowledge);
@@ -445,7 +636,7 @@ export function evaluateBotTargets(bot: LocalPlayer, players: LocalPlayer[], sus
 
       const seed = suspicions[bot.id]?.[target.id] ?? 20;
       const publicScore = computeSuspicion(seed, bot, target, players, log, knowledge, botPrivateKnowledge?.[bot.id]);
-      const targetCredibility = deriveHistoricalCredibility(target, players, log);
+      const targetCredibility = deriveHistoricalCredibility(target, players, log, knowledge);
 
       const attackCounts: Record<string, number> = {};
       log.forEach((msg) => {
@@ -512,7 +703,7 @@ export function deriveRoleSuspicion(
 
   const actionVerb = claim?.actionVerb;
   if (actionVerb) {
-    if ((claim.role === 'TC' && actionVerb === 'protected') || (claim.role === 'IS' && actionVerb === 'inspected') || (claim.role === 'ST' && actionVerb === 'analyzed')) {
+    if ((claim.role === 'TC' && actionVerb === 'protected') || (claim.role === 'IS' && actionVerb === 'inspected') || (claim.role === 'ST' && (actionVerb === 'protected' || actionVerb === 'sabotaged'))) {
       lo -= 0.25;
     } else if ((claim.role === 'TP' && actionVerb !== 'ejected') || (claim.role === 'TC' && actionVerb === 'ejected')) {
       lo += 0.45;
@@ -557,7 +748,8 @@ export function derivePublicSuspicions(
       const seed = base[observer.id]?.[target.id] ?? 20;
       let lo = logOdds(seed);
       lo += deriveRoleSuspicion(target, players, log, knowledge);
-      lo -= deriveHistoricalCredibility(target, players, log) * 0.35;
+      lo -= deriveHistoricalCredibility(target, players, log, knowledge) * 0.35;
+      lo += deriveDisprovenPushSuspicion(target, players, log, knowledge) * 0.7;
 
       const publicClaim = knowledge.claims[target.id];
       const negativeClaims = Object.values(knowledge.claims).filter((claim) => claim.alignment === 'negative').length;
@@ -565,7 +757,7 @@ export function derivePublicSuspicions(
       if (publicClaim?.alignment === 'negative') lo += 0.3;
       if (publicClaim?.actionVerb === 'protected' && knowledge.dnfs > 0 && negativeClaims > 1) lo += 0.15;
       if (publicClaim?.actionVerb === 'inspected' && publicClaim.role === 'IS') lo -= 0.1;
-      if (publicClaim?.actionVerb === 'analyzed' && publicClaim.role === 'ST') lo -= 0.1;
+      if (publicClaim?.actionVerb === 'protected' && publicClaim.role === 'ST') lo -= 0.1;
 
       const privateInfo = botPrivateKnowledge?.[observer.id];
       if (privateInfo?.knownRoles[target.id]?.alignment === 'negative') lo += 1.4;
@@ -577,6 +769,10 @@ export function derivePublicSuspicions(
   });
 
   return result;
+}
+
+export function getDisprovenPushScore(player: LocalPlayer, players: LocalPlayer[], log: DiscussionMessage[], knowledge: SharedKnowledge): number {
+  return deriveDisprovenPushSuspicion(player, players, log, knowledge);
 }
 
 export function updateSuspicionsAfterDeath(
@@ -620,15 +816,19 @@ export function updateSuspicionsAfterDeath(
       const gainMultiplier = credibilityGainMultiplier(target, eliminated, gameLog, players);
 
       if (eliminated.alignment === 'positive') {
+        const action = playerActionAgainst(target, eliminated, gameLog, players);
+        const manufacturedCase = action.firstIndex >= 0 ? 1 - publicCertaintyBefore(eliminated, gameLog, action.firstIndex, players) : 0.4;
+        const dramaticReverse = (0.35 + manufacturedCase * 0.75 + Math.min(0.45, action.confidentCount * 0.22));
+
         if (targetVotedForEliminated) {
           const baseImpact = 0.42 + Math.random() * 0.18;
           const intensityCurve = Math.min(1.35, 0.75 + accusationCount * 0.22);
-          adjustment += baseImpact * intensityCurve * initiatorCurve * voterCredibility + jitter;
+          adjustment += (baseImpact * intensityCurve * initiatorCurve * voterCredibility + dramaticReverse) + jitter;
         }
         if (accusationCount > 0) {
           const baseImpact = 0.3 + Math.random() * 0.2;
           const curve = Math.log(1 + accusationCount) * 0.4;
-          adjustment += baseImpact + curve + jitter;
+          adjustment += baseImpact + curve + dramaticReverse * 0.75 + jitter;
         }
       } else {
         if (targetVotedForEliminated) {
